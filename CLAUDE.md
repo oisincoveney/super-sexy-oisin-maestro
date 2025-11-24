@@ -969,6 +969,12 @@ Currently no test suite implemented. When adding tests, use the `test` script in
 
 ## Recent Features Added
 
+- **Global Error Catching** - All uncaught exceptions and unhandled promise rejections are now captured and logged to System Logs (PED-CATCH-ERRORS)
+  - Main process: Captures Node.js uncaught exceptions and unhandled rejections
+  - Renderer process: Captures window errors and unhandled promise rejections
+  - ErrorBoundary: Logs React component errors with full stack traces
+  - All errors visible in System Logs viewer (Cmd+K → "View System Logs")
+  - Provides better debugging capabilities without crashing the app
 - **Focus Input Shortcut** - Cmd+. (configurable) jumps to input field from anywhere in the main interface (PED-INPUT-SHORTCUT)
   - Works from any focus area (sidebar, output, file tree, etc.)
   - Shortcut is configurable in Settings → Shortcuts
