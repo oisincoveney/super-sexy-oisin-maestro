@@ -2,6 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search } from 'lucide-react';
 import type { Session, Group, Theme, Shortcut } from '../types';
 
+interface QuickAction {
+  id: string;
+  label: string;
+  action: () => void;
+  subtext?: string;
+  shortcut?: Shortcut;
+}
+
 interface QuickActionsModalProps {
   theme: Theme;
   sessions: Session[];
@@ -98,7 +106,7 @@ export function QuickActionsModal(props: QuickActionsModalProps) {
     setQuickActionOpen(false);
   };
 
-  const sessionActions = sessions.map(s => ({
+  const sessionActions: QuickAction[] = sessions.map(s => ({
     id: `jump-${s.id}`,
     label: `Jump to: ${s.name}`,
     action: () => {
@@ -113,7 +121,7 @@ export function QuickActionsModal(props: QuickActionsModalProps) {
     subtext: s.state.toUpperCase()
   }));
 
-  const mainActions = [
+  const mainActions: QuickAction[] = [
     ...sessionActions,
     { id: 'new', label: 'New Agent', shortcut: shortcuts.newInstance, action: addNewSession },
     ...(activeSession ? [{ id: 'rename', label: 'Rename Current Agent', action: () => {
@@ -151,7 +159,7 @@ export function QuickActionsModal(props: QuickActionsModalProps) {
     { id: 'goToScratchpad', label: 'Go to Scratchpad Tab', action: () => { setRightPanelOpen(true); setActiveRightTab('scratchpad'); setQuickActionOpen(false); } },
   ];
 
-  const groupActions = [
+  const groupActions: QuickAction[] = [
     { id: 'back', label: '← Back to main menu', action: () => { setMode('main'); setSelectedIndex(0); } },
     { id: 'no-group', label: '📁 No Group (Root)', action: () => handleMoveToGroup('') },
     ...groups.map(g => ({
@@ -273,13 +281,10 @@ export function QuickActionsModal(props: QuickActionsModalProps) {
                   )}
                   <div className="flex flex-col flex-1">
                     <span className="font-medium">{a.label}</span>
-                    {/* @ts-ignore */}
                     {a.subtext && <span className="text-[10px] opacity-50">{a.subtext}</span>}
                   </div>
-                  {/* @ts-ignore */}
                   {a.shortcut && (
                     <span className="text-xs font-mono opacity-60">
-                      {/* @ts-ignore */}
                       {a.shortcut.keys.join('+')}
                     </span>
                   )}
