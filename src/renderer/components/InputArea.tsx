@@ -165,26 +165,32 @@ export function InputArea(props: InputAreaProps) {
               .filter(cmd => cmd.toLowerCase().includes(commandHistoryFilter.toLowerCase()))
               .reverse()
               .slice(0, 5)
-              .map((cmd, idx) => (
-                <div
-                  key={idx}
-                  className={`px-3 py-2 cursor-pointer text-sm font-mono ${idx === commandHistorySelectedIndex ? 'ring-1 ring-inset' : ''}`}
-                  style={{
-                    backgroundColor: idx === commandHistorySelectedIndex ? theme.colors.bgActivity : 'transparent',
-                    ringColor: theme.colors.accent,
-                    color: theme.colors.textMain
-                  }}
-                  onClick={() => {
-                    setInputValue(cmd);
-                    setCommandHistoryOpen(false);
-                    setCommandHistoryFilter('');
-                    inputRef.current?.focus();
-                  }}
-                  onMouseEnter={() => setCommandHistorySelectedIndex(idx)}
-                >
-                  {cmd}
-                </div>
-              ))}
+              .map((cmd, idx) => {
+                const isSelected = idx === commandHistorySelectedIndex;
+                const isMostRecent = idx === 0;
+
+                return (
+                  <div
+                    key={idx}
+                    className={`px-3 py-2 cursor-pointer text-sm font-mono ${isSelected ? 'ring-1 ring-inset' : ''} ${isMostRecent ? 'font-semibold' : ''}`}
+                    style={{
+                      backgroundColor: isSelected ? theme.colors.bgActivity : (isMostRecent ? theme.colors.accent + '15' : 'transparent'),
+                      ringColor: theme.colors.accent,
+                      color: theme.colors.textMain,
+                      borderLeft: isMostRecent ? `2px solid ${theme.colors.accent}` : 'none'
+                    }}
+                    onClick={() => {
+                      setInputValue(cmd);
+                      setCommandHistoryOpen(false);
+                      setCommandHistoryFilter('');
+                      inputRef.current?.focus();
+                    }}
+                    onMouseEnter={() => setCommandHistorySelectedIndex(idx)}
+                  >
+                    {cmd}
+                  </div>
+                );
+              })}
             {(session.commandHistory || []).filter(cmd =>
               cmd.toLowerCase().includes(commandHistoryFilter.toLowerCase())
             ).length === 0 && (

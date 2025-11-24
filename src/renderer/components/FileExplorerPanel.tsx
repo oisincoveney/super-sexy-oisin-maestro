@@ -102,7 +102,7 @@ export function FileExplorerPanel(props: FileExplorerPanelProps) {
     <div className="space-y-2">
       {/* File Tree Filter */}
       {fileTreeFilterOpen && (
-        <div className="mb-3">
+        <div className="mb-3 pt-4">
           <input
             autoFocus
             type="text"
@@ -113,10 +113,6 @@ export function FileExplorerPanel(props: FileExplorerPanelProps) {
               if (e.key === 'Escape') {
                 setFileTreeFilterOpen(false);
                 setFileTreeFilter('');
-              } else if (e.key === 'Tab') {
-                e.preventDefault();
-                // Focus the file tree container to enable keyboard navigation
-                fileTreeContainerRef?.current?.focus();
               }
             }}
             className="w-full px-3 py-2 rounded border bg-transparent outline-none text-sm"
@@ -128,7 +124,11 @@ export function FileExplorerPanel(props: FileExplorerPanelProps) {
       {/* Header with CWD and controls */}
       <div
         className="sticky top-0 z-10 flex items-center justify-between text-xs font-bold pt-4 pb-2 mb-2 -mx-4 px-4"
-        style={{ backgroundColor: theme.colors.bgSidebar }}
+        style={{
+          backgroundColor: theme.colors.bgSidebar,
+          borderLeft: activeFocus === 'right' && activeRightTab === 'files' ? `1px solid ${theme.colors.accent}` : 'none',
+          borderRight: activeFocus === 'right' && activeRightTab === 'files' ? `1px solid ${theme.colors.accent}` : 'none'
+        }}
       >
         <span className="opacity-50">{session.cwd}</span>
         <div className="flex items-center gap-1">

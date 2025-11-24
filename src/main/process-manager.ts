@@ -38,7 +38,7 @@ export class ProcessManager extends EventEmitter {
         const shell = process.platform === 'win32' ? 'powershell.exe' : 'bash';
         const ptyProcess = pty.spawn(shell, [], {
           name: 'xterm-256color',
-          cols: 80,
+          cols: 100,
           rows: 30,
           cwd: cwd,
           env: process.env as any,

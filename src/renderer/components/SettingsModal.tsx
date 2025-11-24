@@ -27,6 +27,8 @@ interface SettingsModalProps {
   setFontFamily: (font: string) => void;
   fontSize: number;
   setFontSize: (size: number) => void;
+  terminalWidth: number;
+  setTerminalWidth: (width: number) => void;
   logLevel: string;
   setLogLevel: (level: string) => void;
   initialTab?: 'general' | 'llm' | 'shortcuts' | 'theme' | 'network';
@@ -656,6 +658,61 @@ export function SettingsModal(props: SettingsModalProps) {
                     }}
                   >
                     X-Large
+                  </button>
+                </div>
+              </div>
+
+              {/* Terminal Width */}
+              <div>
+                <label className="block text-xs font-bold opacity-70 uppercase mb-2">Terminal Width (Columns)</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => props.setTerminalWidth(80)}
+                    className={`flex-1 py-2 px-3 rounded border transition-all ${props.terminalWidth === 80 ? 'ring-2' : ''}`}
+                    style={{
+                      borderColor: theme.colors.border,
+                      backgroundColor: props.terminalWidth === 80 ? theme.colors.accentDim : 'transparent',
+                      ringColor: theme.colors.accent,
+                      color: theme.colors.textMain
+                    }}
+                  >
+                    80
+                  </button>
+                  <button
+                    onClick={() => props.setTerminalWidth(100)}
+                    className={`flex-1 py-2 px-3 rounded border transition-all ${props.terminalWidth === 100 ? 'ring-2' : ''}`}
+                    style={{
+                      borderColor: theme.colors.border,
+                      backgroundColor: props.terminalWidth === 100 ? theme.colors.accentDim : 'transparent',
+                      ringColor: theme.colors.accent,
+                      color: theme.colors.textMain
+                    }}
+                  >
+                    100
+                  </button>
+                  <button
+                    onClick={() => props.setTerminalWidth(120)}
+                    className={`flex-1 py-2 px-3 rounded border transition-all ${props.terminalWidth === 120 ? 'ring-2' : ''}`}
+                    style={{
+                      borderColor: theme.colors.border,
+                      backgroundColor: props.terminalWidth === 120 ? theme.colors.accentDim : 'transparent',
+                      ringColor: theme.colors.accent,
+                      color: theme.colors.textMain
+                    }}
+                  >
+                    120
+                  </button>
+                  <button
+                    onClick={() => props.setTerminalWidth(160)}
+                    className={`flex-1 py-2 px-3 rounded border transition-all ${props.terminalWidth === 160 ? 'ring-2' : ''}`}
+                    style={{
+                      borderColor: theme.colors.border,
+                      backgroundColor: props.terminalWidth === 160 ? theme.colors.accentDim : 'transparent',
+                      ringColor: theme.colors.accent,
+                      color: theme.colors.textMain
+                    }}
+                  >
+                    160
                   </button>
                 </div>
               </div>

@@ -167,6 +167,9 @@ export default function MaestroConsole() {
   const [fontSize, setFontSizeState] = useState(14); // Base font size in px
   const [customFonts, setCustomFonts] = useState<string[]>([]);
 
+  // Terminal Config
+  const [terminalWidth, setTerminalWidthState] = useState(100); // Terminal columns
+
   // Logging Config
   const [logLevel, setLogLevelState] = useState('info');
 
@@ -211,6 +214,11 @@ export default function MaestroConsole() {
     window.maestro.settings.set('fontSize', value);
   };
 
+  const setTerminalWidth = (value: number) => {
+    setTerminalWidthState(value);
+    window.maestro.settings.set('terminalWidth', value);
+  };
+
   const setLogLevel = async (value: string) => {
     setLogLevelState(value);
     await window.maestro.logger.setLogLevel(value);
@@ -229,6 +237,7 @@ export default function MaestroConsole() {
       const savedFontSize = await window.maestro.settings.get('fontSize');
       const savedFontFamily = await window.maestro.settings.get('fontFamily');
       const savedCustomFonts = await window.maestro.settings.get('customFonts');
+      const savedTerminalWidth = await window.maestro.settings.get('terminalWidth');
       const savedLeftSidebarWidth = await window.maestro.settings.get('leftSidebarWidth');
       const savedRightPanelWidth = await window.maestro.settings.get('rightPanelWidth');
       const savedMarkdownRawMode = await window.maestro.settings.get('markdownRawMode');
@@ -245,6 +254,7 @@ export default function MaestroConsole() {
       if (savedFontSize !== undefined) setFontSizeState(savedFontSize);
       if (savedFontFamily !== undefined) setFontFamilyState(savedFontFamily);
       if (savedCustomFonts !== undefined) setCustomFonts(savedCustomFonts);
+      if (savedTerminalWidth !== undefined) setTerminalWidthState(savedTerminalWidth);
       if (savedLeftSidebarWidth !== undefined) setLeftSidebarWidthState(savedLeftSidebarWidth);
       if (savedRightPanelWidth !== undefined) setRightPanelWidthState(savedRightPanelWidth);
       if (savedMarkdownRawMode !== undefined) setMarkdownRawModeState(savedMarkdownRawMode);
@@ -482,19 +492,45 @@ export default function MaestroConsole() {
 
         // Route to correct log array based on which process sent the data
         const targetLogKey = isFromAi ? 'aiLogs' : 'shellLogs';
-        const newLog: LogEntry = {
-          id: generateId(),
-          timestamp: Date.now(),
-          source: 'stdout',
-          text: data
-        };
+        const existingLogs = s[targetLogKey];
+        const lastLog = existingLogs[existingLogs.length - 1];
+        const now = Date.now();
 
-        console.log('[onData] Adding to', targetLogKey, 'for session', actualSessionId);
-        return {
-          ...s,
-          state: 'idle' as SessionState, // Set back to idle when output arrives
-          [targetLogKey]: [...s[targetLogKey], newLog]
-        };
+        // Group consecutive stdout outputs within 500ms into the same log entry
+        const shouldGroup = lastLog &&
+                           lastLog.source === 'stdout' &&
+                           (now - lastLog.timestamp) < 500;
+
+        if (shouldGroup) {
+          // Append to existing log entry
+          const updatedLogs = [...existingLogs];
+          updatedLogs[updatedLogs.length - 1] = {
+            ...lastLog,
+            text: lastLog.text + data
+          };
+
+          console.log('[onData] Appending to existing log for', targetLogKey, 'session', actualSessionId);
+          return {
+            ...s,
+            state: 'idle' as SessionState,
+            [targetLogKey]: updatedLogs
+          };
+        } else {
+          // Create new log entry
+          const newLog: LogEntry = {
+            id: generateId(),
+            timestamp: now,
+            source: 'stdout',
+            text: data
+          };
+
+          console.log('[onData] Creating new log for', targetLogKey, 'session', actualSessionId);
+          return {
+            ...s,
+            state: 'idle' as SessionState,
+            [targetLogKey]: [...existingLogs, newLog]
+          };
+        }
       }));
     });
 
@@ -1456,9 +1492,9 @@ export default function MaestroConsole() {
     }));
   };
 
-  const toggleFolder = (path: string) => {
+  const toggleFolder = (path: string, sessionId: string, setSessions: React.Dispatch<React.SetStateAction<Session[]>>) => {
     setSessions(prev => prev.map(s => {
-      if (s.id !== activeSessionId) return s;
+      if (s.id !== sessionId) return s;
       if (!s.fileExplorerExpanded) return s;
       const expanded = new Set(s.fileExplorerExpanded);
       if (expanded.has(path)) {
@@ -1471,9 +1507,9 @@ export default function MaestroConsole() {
   };
 
   // Expand all folders in file tree
-  const expandAllFolders = () => {
+  const expandAllFolders = (sessionId: string, session: Session, setSessions: React.Dispatch<React.SetStateAction<Session[]>>) => {
     setSessions(prev => prev.map(s => {
-      if (s.id !== activeSessionId) return s;
+      if (s.id !== sessionId) return s;
       if (!s.fileTree) return s;
       const allFolderPaths = getAllFolderPaths(s.fileTree);
       return { ...s, fileExplorerExpanded: allFolderPaths };
@@ -1481,9 +1517,9 @@ export default function MaestroConsole() {
   };
 
   // Collapse all folders in file tree
-  const collapseAllFolders = () => {
+  const collapseAllFolders = (sessionId: string, setSessions: React.Dispatch<React.SetStateAction<Session[]>>) => {
     setSessions(prev => prev.map(s => {
-      if (s.id !== activeSessionId) return s;
+      if (s.id !== sessionId) return s;
       return { ...s, fileExplorerExpanded: [] };
     }));
   };
@@ -1513,16 +1549,6 @@ export default function MaestroConsole() {
       });
     }
   }, [activeSessionId, sessions]);
-
-  // Update flat file list when active session's tree or expanded folders change
-  useEffect(() => {
-    if (!activeSession || !activeSession.fileTree || !activeSession.fileExplorerExpanded) {
-      setFlatFileList([]);
-      return;
-    }
-    const expandedSet = new Set(activeSession.fileExplorerExpanded);
-    setFlatFileList(flattenTree(activeSession.fileTree, expandedSet));
-  }, [activeSession?.fileTree, activeSession?.fileExplorerExpanded]);
 
   // Filter file tree based on search query
   const filteredFileTree = useMemo(() => {
@@ -1554,6 +1580,17 @@ export default function MaestroConsole() {
     return filterTree(activeSession.fileTree);
   }, [activeSession?.fileTree, fileTreeFilter]);
 
+  // Update flat file list when active session's tree, expanded folders, or filter changes
+  useEffect(() => {
+    if (!activeSession || !activeSession.fileExplorerExpanded) {
+      setFlatFileList([]);
+      return;
+    }
+    const expandedSet = new Set(activeSession.fileExplorerExpanded);
+    // Use filteredFileTree when available (it returns the full tree when no filter is active)
+    setFlatFileList(flattenTree(filteredFileTree, expandedSet));
+  }, [activeSession?.fileExplorerExpanded, filteredFileTree]);
+
 
   // File Explorer keyboard navigation
   useEffect(() => {
@@ -1573,20 +1610,20 @@ export default function MaestroConsole() {
         e.preventDefault();
         const selectedItem = flatFileList[selectedFileIndex];
         if (selectedItem?.isFolder && expandedFolders.has(selectedItem.fullPath)) {
-          toggleFolder(selectedItem.fullPath);
+          toggleFolder(selectedItem.fullPath, activeSessionId, setSessions);
         }
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
         const selectedItem = flatFileList[selectedFileIndex];
         if (selectedItem?.isFolder && !expandedFolders.has(selectedItem.fullPath)) {
-          toggleFolder(selectedItem.fullPath);
+          toggleFolder(selectedItem.fullPath, activeSessionId, setSessions);
         }
       } else if (e.key === 'Enter') {
         e.preventDefault();
         const selectedItem = flatFileList[selectedFileIndex];
         if (selectedItem) {
           if (selectedItem.isFolder) {
-            toggleFolder(selectedItem.fullPath);
+            toggleFolder(selectedItem.fullPath, activeSessionId, setSessions);
           } else {
             handleFileClick(selectedItem, selectedItem.fullPath);
           }
@@ -1596,7 +1633,7 @@ export default function MaestroConsole() {
 
     window.addEventListener('keydown', handleFileExplorerKeys);
     return () => window.removeEventListener('keydown', handleFileExplorerKeys);
-  }, [activeFocus, activeRightTab, flatFileList, selectedFileIndex, activeSession?.fileExplorerExpanded, toggleFolder, handleFileClick]);
+  }, [activeFocus, activeRightTab, flatFileList, selectedFileIndex, activeSession?.fileExplorerExpanded, activeSessionId, setSessions, toggleFolder, handleFileClick]);
 
   const renderTree = (nodes: any[], currentPath = '', depth = 0, globalIndex = { value: 0 }) => {
     const expandedSet = new Set(activeSession?.fileExplorerExpanded || []);
@@ -1621,7 +1658,7 @@ export default function MaestroConsole() {
             }}
             onClick={() => {
               if (isFolder) {
-                toggleFolder(fullPath);
+                toggleFolder(fullPath, activeSessionId, setSessions);
               } else {
                 // Single click on file: just select it and focus the file tree
                 setSelectedFileIndex(currentIndex);
@@ -1951,6 +1988,8 @@ export default function MaestroConsole() {
         setFontFamily={setFontFamily}
         fontSize={fontSize}
         setFontSize={setFontSize}
+        terminalWidth={terminalWidth}
+        setTerminalWidth={setTerminalWidth}
         logLevel={logLevel}
         setLogLevel={setLogLevel}
         initialTab={settingsTab}

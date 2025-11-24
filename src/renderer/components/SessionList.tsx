@@ -171,7 +171,7 @@ export function SessionList(props: SessionListProps) {
                     setSessionFilter('');
                   }
                 }}
-                className="w-full px-3 py-2 rounded border bg-transparent outline-none"
+                className="w-full px-3 py-2 rounded border bg-transparent outline-none text-sm"
                 style={{ borderColor: theme.colors.accent, color: theme.colors.textMain }}
               />
             </div>

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useMemo } from 'react';
-import { Activity, X, Sparkles } from 'lucide-react';
+import { Activity, X } from 'lucide-react';
 import type { Session, Theme, LogEntry } from '../types';
 import Convert from 'ansi-to-html';
 import DOMPurify from 'dompurify';
@@ -55,30 +55,17 @@ export function TerminalOutput(props: TerminalOutputProps) {
     });
   }, [theme]);
 
-  // Filter out bash prompt lines and terminal initialization noise
-  const processLogText = (text: string, isTerminal: boolean, isSystemMessage: boolean): string => {
-    if (!isTerminal || isSystemMessage) return text;
+  // Filter out bash prompt lines and apply processing
+  const processLogText = (text: string, isTerminal: boolean): string => {
+    if (!isTerminal) return text;
 
-    // Remove terminal initialization messages and noise
+    // Remove bash prompt lines (e.g., "bash-3.2$", "zsh%", "$", "#")
     const lines = text.split('\n');
     const filteredLines = lines.filter(line => {
       const trimmed = line.trim();
-
-      // Skip empty lines
+      // Skip empty lines and common prompt patterns
       if (!trimmed) return false;
-
-      // Skip bash prompt lines (e.g., "bash-3.2$", "zsh%", "$", "#")
       if (/^(bash-\d+\.\d+\$|zsh[%#]|\$|#)\s*$/.test(trimmed)) return false;
-
-      // Skip terminal control sequences (any sequence starting with ?)
-      if (/^\?[\d\w]+h?$/.test(trimmed)) return false;
-
-      // Skip "The default interactive shell is now zsh" message
-      if (trimmed.includes('The default interactive shell is now zsh')) return false;
-      if (trimmed.includes('To update your account to use zsh')) return false;
-      if (trimmed.includes('For more details, please visit')) return false;
-      if (trimmed.includes('support.apple.com')) return false;
-
       return true;
     });
 
@@ -127,74 +114,71 @@ export function TerminalOutput(props: TerminalOutputProps) {
       {activeLogs.filter(log => {
         if (!outputSearchQuery) return true;
         return log.text.toLowerCase().includes(outputSearchQuery.toLowerCase());
-      }).map(log => {
+      }).map((log, idx, filteredLogs) => {
         const isTerminal = session.inputMode === 'terminal';
-        const isSystemMessage = log.source === 'system';
-        const isUserCommand = log.source === 'user';
-        const processedText = processLogText(log.text, isTerminal && !isUserCommand, isSystemMessage);
+
+        // Find the most recent user command before this log entry (for echo stripping)
+        let lastUserCommand: string | undefined;
+        if (isTerminal && log.source !== 'user') {
+          for (let i = idx - 1; i >= 0; i--) {
+            if (filteredLogs[i].source === 'user') {
+              lastUserCommand = filteredLogs[i].text;
+              break;
+            }
+          }
+        }
+
+        // Strip command echo from terminal output
+        let textToProcess = log.text;
+        if (isTerminal && log.source !== 'user' && lastUserCommand) {
+          // Remove command echo from beginning of output
+          if (textToProcess.startsWith(lastUserCommand)) {
+            textToProcess = textToProcess.slice(lastUserCommand.length);
+            // Remove newline after command
+            if (textToProcess.startsWith('\r\n')) {
+              textToProcess = textToProcess.slice(2);
+            } else if (textToProcess.startsWith('\n') || textToProcess.startsWith('\r')) {
+              textToProcess = textToProcess.slice(1);
+            }
+          }
+        }
+
+        const processedText = processLogText(textToProcess, isTerminal && log.source !== 'user');
 
         // Skip rendering if text is empty after processing
-        if (!processedText.trim() && !isUserCommand) return null;
+        if (!processedText.trim() && log.source !== 'user') return null;
 
         // Convert ANSI codes to HTML for terminal output and sanitize
-        const htmlContent = isTerminal && !isUserCommand && !isSystemMessage
+        const htmlContent = isTerminal && log.source !== 'user'
           ? DOMPurify.sanitize(ansiConverter.toHtml(processedText))
           : processedText;
 
         return (
-          <div key={log.id} className="flex flex-col gap-2">
-            {/* Timestamp at the top */}
-            <div className="text-[10px] opacity-60 font-mono" style={{ color: theme.colors.textDim }}>
-              {new Date(log.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false})}
+          <div key={log.id} className={`flex gap-4 group ${log.source === 'user' ? 'flex-row-reverse' : ''}`}>
+            <div className="w-12 shrink-0 text-[10px] opacity-40 pt-2 font-mono text-center">
+              {new Date(log.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
             </div>
-
-            {/* Message content */}
-            <div className={`flex gap-3 items-start`}>
-              {/* Icon for system messages */}
-              {isSystemMessage && (
-                <div className="shrink-0 mt-1">
-                  <Sparkles className="w-3.5 h-3.5 opacity-40" style={{ color: theme.colors.textDim }} />
+            <div className={`flex-1 p-4 rounded-xl border ${log.source === 'user' ? 'rounded-tr-none' : 'rounded-tl-none'}`}
+                 style={{
+                   backgroundColor: log.source === 'user' ? theme.colors.bgActivity : 'transparent',
+                   borderColor: theme.colors.border
+                 }}>
+              {log.images && log.images.length > 0 && (
+                <div className="flex gap-2 mb-2 overflow-x-auto">
+                  {log.images.map((img, idx) => (
+                    <img key={idx} src={img} className="h-20 rounded border cursor-zoom-in" onClick={() => setLightboxImage(img)} />
+                  ))}
                 </div>
               )}
-
-              <div className={`flex-1 p-4 rounded-xl border ${isUserCommand ? 'rounded-tr-none' : 'rounded-tl-none'}`}
-                   style={{
-                     backgroundColor: isUserCommand ? theme.colors.accent : 'transparent',
-                     borderColor: isUserCommand ? theme.colors.accent : theme.colors.border
-                   }}>
-                {log.images && log.images.length > 0 && (
-                  <div className="flex gap-2 mb-2 overflow-x-auto">
-                    {log.images.map((img, idx) => (
-                      <img key={idx} src={img} className="h-20 rounded border cursor-zoom-in" onClick={() => setLightboxImage(img)} />
-                    ))}
-                  </div>
-                )}
-
-                {/* User commands with $ prefix and contrasting color on accent background */}
-                {isUserCommand ? (
-                  <div
-                    className="whitespace-pre-wrap break-all text-sm font-mono font-semibold"
-                    style={{ color: theme.colors.bgMain }}
-                  >
-                    $ {processedText}
-                  </div>
-                ) : isTerminal && !isSystemMessage ? (
-                  /* Terminal output with ANSI colors - responsive text wrapping */
-                  <div
-                    className="whitespace-pre-wrap break-words text-sm font-mono"
-                    dangerouslySetInnerHTML={{ __html: htmlContent }}
-                    style={{ color: theme.colors.textMain }}
-                  />
-                ) : (
-                  /* System messages and AI responses */
-                  <div
-                    className="whitespace-pre-wrap break-words text-sm"
-                    style={{ color: isSystemMessage ? theme.colors.textDim : theme.colors.textMain }}
-                  >
-                    {processedText}
-                  </div>
-                )}
-              </div>
+              {isTerminal && log.source !== 'user' ? (
+                <div
+                  className="whitespace-pre-wrap text-sm font-mono overflow-x-auto"
+                  dangerouslySetInnerHTML={{ __html: htmlContent }}
+                  style={{ color: theme.colors.textMain }}
+                />
+              ) : (
+                <div className="whitespace-pre-wrap text-sm">{processedText}</div>
+              )}
             </div>
           </div>
         );
