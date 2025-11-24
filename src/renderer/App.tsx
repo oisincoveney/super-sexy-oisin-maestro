@@ -35,27 +35,27 @@ const MOCK_SESSIONS: Session[] = process.env.NODE_ENV === 'development' ? [
   {
     id: 's1', groupId: 'grp_1', name: 'Auth API', toolType: 'claude', state: 'idle', cwd: '~/dev/api', fullPath: '/dev/api',
     aiLogs: [{id: '1', timestamp: Date.now(), source: 'stdout', text: 'Ready.'}], shellLogs: [], workLog: [{ id: 'w1', title: 'Init', description: 'Started session', timestamp: Date.now() }], scratchPadContent: '# Todo\n- [ ] Fix login', contextUsage: 12, inputMode: 'ai', pid: 4001, port: 3001, tunnelActive: false, changedFiles: [], isGitRepo: true,
-    fileTree: [], fileExplorerExpanded: [], fileExplorerScrollPos: 0
+    fileTree: [], fileExplorerExpanded: [], fileExplorerScrollPos: 0, shellCwd: '~/dev/api', commandHistory: []
   },
   {
     id: 's2', groupId: 'grp_1', name: 'Worker Queue', toolType: 'terminal', state: 'busy', cwd: '~/dev/queue', fullPath: '/dev/queue',
     aiLogs: [], shellLogs: [{id: '1', timestamp: Date.now(), source: 'stdout', text: 'Processing job 45a...'}], workLog: [], scratchPadContent: '', contextUsage: 0, inputMode: 'terminal', pid: 4002, port: 3002, tunnelActive: false, changedFiles: [], isGitRepo: true,
-    fileTree: [], fileExplorerExpanded: [], fileExplorerScrollPos: 0
+    fileTree: [], fileExplorerExpanded: [], fileExplorerScrollPos: 0, shellCwd: '~/dev/queue', commandHistory: []
   },
   {
     id: 's3', groupId: 'grp_1', name: 'DB Migration', toolType: 'aider', state: 'waiting_input', cwd: '~/dev/db', fullPath: '/dev/db',
     aiLogs: [{id: '1', timestamp: Date.now(), source: 'stdout', text: 'Apply migration 004? (y/n)'}], shellLogs: [], workLog: [], scratchPadContent: '', contextUsage: 45, inputMode: 'ai', pid: 4003, port: 3003, tunnelActive: false, changedFiles: [], isGitRepo: true,
-    fileTree: [], fileExplorerExpanded: [], fileExplorerScrollPos: 0
+    fileTree: [], fileExplorerExpanded: [], fileExplorerScrollPos: 0, shellCwd: '~/dev/db', commandHistory: []
   },
   {
     id: 's5', groupId: 'grp_2', name: 'React App', toolType: 'claude', state: 'busy', cwd: '~/dev/web', fullPath: '/dev/web',
     aiLogs: [{id: '1', timestamp: Date.now(), source: 'stdout', text: 'Compiling components...'}], shellLogs: [], workLog: [], scratchPadContent: '', contextUsage: 65, inputMode: 'ai', pid: 5001, port: 8080, tunnelActive: true, tunnelUrl: 'https://react-dev.ngrok.io', changedFiles: [], isGitRepo: true,
-    fileTree: [], fileExplorerExpanded: [], fileExplorerScrollPos: 0
+    fileTree: [], fileExplorerExpanded: [], fileExplorerScrollPos: 0, shellCwd: '~/dev/web', commandHistory: []
   },
   {
     id: 's7', groupId: undefined, name: 'Scratchpad', toolType: 'opencode', state: 'idle', cwd: '~/scratch', fullPath: '/scratch',
     aiLogs: [], shellLogs: [], workLog: [], scratchPadContent: '# Quick Notes', contextUsage: 5, inputMode: 'ai', pid: 6001, port: 0, tunnelActive: false, changedFiles: [], isGitRepo: false,
-    fileTree: [], fileExplorerExpanded: [], fileExplorerScrollPos: 0
+    fileTree: [], fileExplorerExpanded: [], fileExplorerScrollPos: 0, shellCwd: '~/scratch', commandHistory: []
   }
 ] : [];
 

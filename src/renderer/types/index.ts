@@ -86,9 +86,9 @@ export interface Session {
   fileExplorerScrollPos: number;
   fileTreeError?: string;
   // Shell state tracking
-  shellCwd: string;
+  shellCwd?: string;
   // Command history
-  commandHistory: string[];
+  commandHistory?: string[];
   // Scratchpad state tracking
   scratchPadCursorPosition?: number;
   scratchPadEditScrollPos?: number;
