@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Folder, X } from 'lucide-react';
 import type { AgentConfig } from '../types';
+import { useLayerStack } from '../hooks/useLayerStack';
+import { MODAL_PRIORITIES } from '../constants/modalPriorities';
 
 interface NewInstanceModalProps {
   isOpen: boolean;
@@ -16,6 +18,10 @@ export function NewInstanceModal({ isOpen, onClose, onCreate, theme, defaultAgen
   const [workingDir, setWorkingDir] = useState('~');
   const [instanceName, setInstanceName] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // Layer stack integration
+  const { registerLayer, unregisterLayer, updateLayerHandler } = useLayerStack();
+  const layerIdRef = useRef<string>();
 
   // Define handlers first before they're used in effects
   const loadAgents = async () => {
@@ -64,24 +70,46 @@ export function NewInstanceModal({ isOpen, onClose, onCreate, theme, defaultAgen
     }
   }, [isOpen]);
 
+  // Register layer when modal is open
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
-      // Note: Cmd+Enter and Cmd+O are now handled in the modal's onKeyDown
-      // to prevent propagation issues
-    };
+    if (isOpen) {
+      const id = registerLayer({
+        id: '',
+        type: 'modal',
+        priority: MODAL_PRIORITIES.NEW_INSTANCE,
+        blocksLowerLayers: true,
+        capturesFocus: true,
+        focusTrap: 'strict',
+        ariaLabel: 'Create New Agent',
+        onEscape: onClose,
+      });
+      layerIdRef.current = id;
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+      return () => {
+        if (layerIdRef.current) {
+          unregisterLayer(layerIdRef.current);
+        }
+      };
+    }
+  }, [isOpen, registerLayer, unregisterLayer]);
+
+  // Update handler when dependencies change
+  useEffect(() => {
+    if (isOpen && layerIdRef.current) {
+      updateLayerHandler(layerIdRef.current, onClose);
+    }
+  }, [isOpen, onClose, updateLayerHandler]);
 
   if (!isOpen) return null;
 
   return (
     <div
       className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999]"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Create New Agent"
+      tabIndex={-1}
+      ref={(el) => el?.focus()}
       onKeyDown={(e) => {
         // Handle Cmd+O for folder picker before stopping propagation
         if ((e.key === 'o' || e.key === 'O') && (e.metaKey || e.ctrlKey)) {
