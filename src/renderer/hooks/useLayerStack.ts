@@ -8,8 +8,26 @@
  * - Update handlers without re-registration (performance optimization)
  */
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Layer } from '../types/layer';
+
+/**
+ * Extend Window interface for debug API
+ */
+declare global {
+  interface Window {
+    __MAESTRO_DEBUG__?: {
+      layers?: {
+        list: () => void;
+        top: () => void;
+        simulate: {
+          escape: () => void;
+          closeAll: () => void;
+        };
+      };
+    };
+  }
+}
 
 /**
  * Generate a simple unique ID
@@ -151,6 +169,87 @@ export function useLayerStack(): LayerStackAPI {
     }
 
     return true;
+  }, [layers]);
+
+  /**
+   * Debug API - only available in development mode
+   * Access via window.__MAESTRO_DEBUG__.layers in browser console
+   */
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      // Initialize __MAESTRO_DEBUG__ if it doesn't exist
+      if (!window.__MAESTRO_DEBUG__) {
+        window.__MAESTRO_DEBUG__ = {};
+      }
+
+      // Set up the layers debug API
+      window.__MAESTRO_DEBUG__.layers = {
+        /**
+         * List all layers in a formatted table
+         */
+        list: () => {
+          console.table(
+            layers.map((layer) => ({
+              id: layer.id,
+              type: layer.type,
+              priority: layer.priority,
+              blocksLower: layer.blocksLowerLayers,
+              focusTrap: layer.focusTrap,
+              ariaLabel: layer.ariaLabel || 'N/A',
+            }))
+          );
+        },
+
+        /**
+         * Log the topmost layer
+         */
+        top: () => {
+          const topLayer = layers[layers.length - 1];
+          if (topLayer) {
+            console.log('Top Layer:', topLayer);
+          } else {
+            console.log('No layers in stack');
+          }
+        },
+
+        /**
+         * Simulation utilities
+         */
+        simulate: {
+          /**
+           * Dispatch an Escape key event
+           */
+          escape: () => {
+            const event = new KeyboardEvent('keydown', {
+              key: 'Escape',
+              code: 'Escape',
+              keyCode: 27,
+              bubbles: true,
+              cancelable: true,
+            });
+            window.dispatchEvent(event);
+            console.log('Escape key event dispatched');
+          },
+
+          /**
+           * Close all layers immediately
+           */
+          closeAll: () => {
+            const count = layers.length;
+            setLayers([]);
+            handlerRefs.current.clear();
+            console.log(`Cleared ${count} layers from stack`);
+          },
+        },
+      };
+
+      // Cleanup on unmount
+      return () => {
+        if (window.__MAESTRO_DEBUG__) {
+          delete window.__MAESTRO_DEBUG__.layers;
+        }
+      };
+    }
   }, [layers]);
 
   return {
