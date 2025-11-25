@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import type { Theme } from '../types';
+import { useLayerStack } from '../hooks/useLayerStack';
+import { MODAL_PRIORITIES } from '../constants/modalPriorities';
 
 interface ConfirmModalProps {
   theme: Theme;
@@ -10,10 +12,43 @@ interface ConfirmModalProps {
 }
 
 export function ConfirmModal({ theme, message, onConfirm, onClose }: ConfirmModalProps) {
+  const { registerLayer, unregisterLayer, updateLayerHandler } = useLayerStack();
+  const layerIdRef = useRef<string>();
+
+  // Register layer on mount
+  useEffect(() => {
+    const id = registerLayer({
+      id: '', // Will be assigned by registerLayer
+      type: 'modal',
+      priority: MODAL_PRIORITIES.CONFIRM,
+      blocksLowerLayers: true,
+      capturesFocus: true,
+      focusTrap: 'strict',
+      ariaLabel: 'Confirm Action',
+      onEscape: onClose,
+    });
+    layerIdRef.current = id;
+    return () => {
+      if (layerIdRef.current) {
+        unregisterLayer(layerIdRef.current);
+      }
+    };
+  }, [registerLayer, unregisterLayer]);
+
+  // Update handler when dependencies change
+  useEffect(() => {
+    if (layerIdRef.current) {
+      updateLayerHandler(layerIdRef.current, onClose);
+    }
+  }, [onClose, updateLayerHandler]);
+
   return (
     <div
       className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] animate-in fade-in duration-200"
-      tabIndex={0}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Confirm Action"
+      tabIndex={-1}
       ref={(el) => el?.focus()}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
@@ -22,10 +57,6 @@ export function ConfirmModal({ theme, message, onConfirm, onClose }: ConfirmModa
           if (onConfirm) {
             onConfirm();
           }
-          onClose();
-        } else if (e.key === 'Escape') {
-          e.preventDefault();
-          e.stopPropagation();
           onClose();
         } else {
           e.stopPropagation();
