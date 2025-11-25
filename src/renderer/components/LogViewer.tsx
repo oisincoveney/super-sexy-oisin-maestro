@@ -29,6 +29,10 @@ export function LogViewer({ theme, onClose }: LogViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const layerIdRef = useRef<string>();
 
+  // Store onClose in ref to avoid re-registering layer when callback identity changes
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   const { registerLayer, unregisterLayer, updateLayerHandler } = useLayerStack();
 
   const toggleDataExpanded = (index: number) => {
@@ -86,7 +90,7 @@ export function LogViewer({ theme, onClose }: LogViewerProps) {
           setSearchQuery('');
           containerRef.current?.focus();
         } else {
-          onClose();
+          onCloseRef.current();
         }
       },
     });
@@ -96,7 +100,7 @@ export function LogViewer({ theme, onClose }: LogViewerProps) {
         unregisterLayer(layerIdRef.current);
       }
     };
-  }, [registerLayer, unregisterLayer, onClose]);
+  }, [registerLayer, unregisterLayer]); // Note: onClose NOT in deps (using ref)
 
   // Update layer handler when dependencies change
   useEffect(() => {
@@ -107,11 +111,11 @@ export function LogViewer({ theme, onClose }: LogViewerProps) {
           setSearchQuery('');
           containerRef.current?.focus();
         } else {
-          onClose();
+          onCloseRef.current();
         }
       });
     }
-  }, [searchOpen, onClose, updateLayerHandler]);
+  }, [searchOpen, updateLayerHandler]); // Note: onClose NOT in deps (using ref)
 
   // Auto-focus container on mount for keyboard navigation
   useEffect(() => {

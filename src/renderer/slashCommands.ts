@@ -12,6 +12,8 @@ export interface SlashCommandContext {
   // Optional properties for file tree navigation
   setRightPanelOpen?: (open: boolean) => void;
   setActiveRightTab?: (tab: string) => void;
+  setActiveFocus?: (focus: 'sidebar' | 'main' | 'right') => void;
+  setSelectedFileIndex?: (index: number) => void;
   fileTreeRef?: React.RefObject<HTMLDivElement>;
 }
 
@@ -41,7 +43,7 @@ export const slashCommands: SlashCommand[] = [
     command: '/jump',
     description: 'Jump to CWD in file tree',
     execute: (context: SlashCommandContext) => {
-      const { activeSessionId, sessions, setSessions, setRightPanelOpen, setActiveRightTab } = context;
+      const { activeSessionId, sessions, setSessions, setRightPanelOpen, setActiveRightTab, setActiveFocus, setSelectedFileIndex } = context;
 
       // Use fallback to first session if activeSessionId is empty
       const actualActiveId = activeSessionId || (sessions.length > 0 ? sessions[0].id : '');
@@ -53,35 +55,34 @@ export const slashCommands: SlashCommand[] = [
       // Get the current working directory (use shellCwd for terminal mode, cwd otherwise)
       const targetDir = activeSession.shellCwd || activeSession.cwd;
 
-      // Open right panel and switch to files tab
+      // Open right panel, switch to files tab, and focus on file tree
       if (setRightPanelOpen) setRightPanelOpen(true);
       if (setActiveRightTab) setActiveRightTab('files');
+      if (setActiveFocus) setActiveFocus('right');
+      if (setSelectedFileIndex) setSelectedFileIndex(0);
 
-      // Expand all parent folders in the path
+      // Expand all parent folders in the path (using relative paths to match file tree)
       setSessions(prev => prev.map(s => {
         if (s.id !== actualActiveId) return s;
 
-        // Build list of parent paths to expand
+        // Build list of relative parent paths to expand
         const pathParts = targetDir.replace(s.cwd, '').split('/').filter(Boolean);
-        const expandPaths: string[] = [s.cwd];
+        const expandPaths: string[] = [];
 
-        let currentPath = s.cwd;
+        let currentPath = '';
         for (const part of pathParts) {
-          currentPath = currentPath + '/' + part;
+          currentPath = currentPath ? currentPath + '/' + part : part;
           expandPaths.push(currentPath);
         }
 
         // Add all parent paths to expanded list
-        const newExpanded = new Set([...s.fileExplorerExpanded, ...expandPaths]);
+        const newExpanded = new Set([...(s.fileExplorerExpanded || []), ...expandPaths]);
 
         return {
           ...s,
           fileExplorerExpanded: Array.from(newExpanded)
         };
       }));
-
-      // Scroll to the target directory in the file tree
-      // This will be handled by the file tree component when it detects the expansion
     }
   }
 ];

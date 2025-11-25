@@ -32,6 +32,9 @@ export const MODAL_PRIORITIES = {
   /** Quick actions command palette (Cmd+K) */
   QUICK_ACTION: 700,
 
+  /** Agent sessions browser (Cmd+Shift+L) */
+  AGENT_SESSIONS: 680,
+
   /** Keyboard shortcuts help modal */
   SHORTCUTS_HELP: 650,
 

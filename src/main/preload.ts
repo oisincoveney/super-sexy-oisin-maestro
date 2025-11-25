@@ -167,6 +167,16 @@ contextBridge.exposeInMainWorld('maestro', {
     setMaxLogBuffer: (max: number) => ipcRenderer.invoke('logger:setMaxLogBuffer', max),
     getMaxLogBuffer: () => ipcRenderer.invoke('logger:getMaxLogBuffer'),
   },
+
+  // Claude Code sessions API
+  claude: {
+    listSessions: (projectPath: string) =>
+      ipcRenderer.invoke('claude:listSessions', projectPath),
+    readSessionMessages: (projectPath: string, sessionId: string, options?: { offset?: number; limit?: number }) =>
+      ipcRenderer.invoke('claude:readSessionMessages', projectPath, sessionId, options),
+    searchSessions: (projectPath: string, query: string, searchMode: 'title' | 'user' | 'assistant' | 'all') =>
+      ipcRenderer.invoke('claude:searchSessions', projectPath, query, searchMode),
+  },
 });
 
 // Type definitions for TypeScript
@@ -248,6 +258,35 @@ export interface MaestroAPI {
     getLogLevel: () => Promise<string>;
     setMaxLogBuffer: (max: number) => Promise<void>;
     getMaxLogBuffer: () => Promise<number>;
+  };
+  claude: {
+    listSessions: (projectPath: string) => Promise<Array<{
+      sessionId: string;
+      projectPath: string;
+      timestamp: string;
+      modifiedAt: string;
+      firstMessage: string;
+      messageCount: number;
+      sizeBytes: number;
+    }>>;
+    readSessionMessages: (projectPath: string, sessionId: string, options?: { offset?: number; limit?: number }) => Promise<{
+      messages: Array<{
+        type: string;
+        role?: string;
+        content: string;
+        timestamp: string;
+        uuid: string;
+        toolUse?: any;
+      }>;
+      total: number;
+      hasMore: boolean;
+    }>;
+    searchSessions: (projectPath: string, query: string, searchMode: 'title' | 'user' | 'assistant' | 'all') => Promise<Array<{
+      sessionId: string;
+      matchType: 'title' | 'user' | 'assistant';
+      matchPreview: string;
+      matchCount: number;
+    }>>;
   };
 }
 

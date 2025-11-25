@@ -345,19 +345,49 @@ function setupIpcHandlers() {
     if (!processManager) throw new Error('Process manager not initialized');
 
     // Get the shell from settings if not provided
-    const shell = config.shell || store.get('defaultShell', 'bash');
+    const shellId = config.shell || store.get('defaultShell', 'zsh');
+
+    // Resolve shell ID to full path using 'which' command
+    // This ensures we can find the shell even if it's not in Node's default PATH
+    let shellPath = shellId;
+    try {
+      const whichResult = await execFileNoThrow('which', [shellId]);
+      if (whichResult.exitCode === 0 && whichResult.stdout.trim()) {
+        shellPath = whichResult.stdout.trim().split('\n')[0];
+      } else {
+        // Fallback: try common paths
+        const commonPaths = [
+          `/bin/${shellId}`,
+          `/usr/bin/${shellId}`,
+          `/usr/local/bin/${shellId}`,
+          `/opt/homebrew/bin/${shellId}`
+        ];
+        for (const path of commonPaths) {
+          try {
+            await fs.access(path);
+            shellPath = path;
+            break;
+          } catch {
+            // Path doesn't exist, try next
+          }
+        }
+      }
+    } catch (error) {
+      logger.warn(`Could not resolve shell path for ${shellId}, using as-is`, 'ProcessManager');
+    }
 
     logger.debug(`Running command: ${config.command}`, 'ProcessManager', {
       sessionId: config.sessionId,
       cwd: config.cwd,
-      shell
+      shellId,
+      shellPath
     });
 
     return processManager.runCommand(
       config.sessionId,
       config.command,
       config.cwd,
-      shell
+      shellPath
     );
   });
 
@@ -641,12 +671,341 @@ function setupIpcHandlers() {
   ipcMain.handle('logger:getMaxLogBuffer', async () => {
     return logger.getMaxLogBuffer();
   });
+
+  // Claude Code sessions API
+  // Sessions are stored in ~/.claude/projects/<encoded-project-path>/<session-id>.jsonl
+  ipcMain.handle('claude:listSessions', async (_event, projectPath: string) => {
+    try {
+      const os = await import('os');
+      const homeDir = os.default.homedir();
+      const claudeProjectsDir = path.join(homeDir, '.claude', 'projects');
+
+      // Encode the project path the same way Claude Code does
+      const encodedPath = projectPath.replace(/\//g, '-');
+      const projectDir = path.join(claudeProjectsDir, encodedPath);
+
+      logger.info(`Claude sessions lookup - projectPath: ${projectPath}, encodedPath: ${encodedPath}, projectDir: ${projectDir}`, 'ClaudeSessions');
+
+      // Check if the directory exists
+      try {
+        await fs.access(projectDir);
+        logger.info(`Claude sessions directory exists: ${projectDir}`, 'ClaudeSessions');
+      } catch (err) {
+        logger.info(`No Claude sessions directory found for project: ${projectPath} (tried: ${projectDir}), error: ${err}`, 'ClaudeSessions');
+        return [];
+      }
+
+      // List all .jsonl files in the directory
+      const files = await fs.readdir(projectDir);
+      const sessionFiles = files.filter(f => f.endsWith('.jsonl'));
+      logger.info(`Found ${files.length} files, ${sessionFiles.length} .jsonl sessions`, 'ClaudeSessions');
+
+      // Get metadata for each session (read just the first few lines)
+      const sessions = await Promise.all(
+        sessionFiles.map(async (filename) => {
+          const sessionId = filename.replace('.jsonl', '');
+          const filePath = path.join(projectDir, filename);
+
+          try {
+            const stats = await fs.stat(filePath);
+
+            // Read first line to get initial message/timestamp
+            const content = await fs.readFile(filePath, 'utf-8');
+            const lines = content.split('\n').filter(l => l.trim());
+
+            let firstUserMessage = '';
+            let timestamp = stats.mtime.toISOString();
+            let messageCount = 0;
+
+            // Parse lines to find first user message and count messages
+            for (const line of lines) {
+              try {
+                const entry = JSON.parse(line);
+                if (entry.type === 'user' && entry.message?.content && !firstUserMessage) {
+                  firstUserMessage = typeof entry.message.content === 'string'
+                    ? entry.message.content
+                    : JSON.stringify(entry.message.content);
+                  timestamp = entry.timestamp || timestamp;
+                }
+                if (entry.type === 'user' || entry.type === 'assistant') {
+                  messageCount++;
+                }
+              } catch {
+                // Skip malformed lines
+              }
+            }
+
+            return {
+              sessionId,
+              projectPath,
+              timestamp,
+              modifiedAt: stats.mtime.toISOString(),
+              firstMessage: firstUserMessage.slice(0, 200), // Truncate for display
+              messageCount,
+              sizeBytes: stats.size,
+            };
+          } catch (error) {
+            logger.error(`Error reading session file: ${filename}`, 'ClaudeSessions', error);
+            return null;
+          }
+        })
+      );
+
+      // Filter out nulls and sort by modified date (most recent first)
+      const validSessions = sessions
+        .filter((s): s is NonNullable<typeof s> => s !== null)
+        .sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime());
+
+      logger.info(`Found ${validSessions.length} Claude sessions for project`, 'ClaudeSessions', { projectPath });
+      return validSessions;
+    } catch (error) {
+      logger.error('Error listing Claude sessions', 'ClaudeSessions', error);
+      return [];
+    }
+  });
+
+  ipcMain.handle('claude:readSessionMessages', async (_event, projectPath: string, sessionId: string, options?: { offset?: number; limit?: number }) => {
+    try {
+      const os = await import('os');
+      const homeDir = os.default.homedir();
+      const claudeProjectsDir = path.join(homeDir, '.claude', 'projects');
+
+      const encodedPath = projectPath.replace(/\//g, '-');
+      const sessionFile = path.join(claudeProjectsDir, encodedPath, `${sessionId}.jsonl`);
+
+      const content = await fs.readFile(sessionFile, 'utf-8');
+      const lines = content.split('\n').filter(l => l.trim());
+
+      // Parse all messages
+      const messages: Array<{
+        type: string;
+        role?: string;
+        content: string;
+        timestamp: string;
+        uuid: string;
+        toolUse?: any;
+      }> = [];
+
+      for (const line of lines) {
+        try {
+          const entry = JSON.parse(line);
+          if (entry.type === 'user' || entry.type === 'assistant') {
+            let content = '';
+            let toolUse = undefined;
+
+            if (entry.message?.content) {
+              if (typeof entry.message.content === 'string') {
+                content = entry.message.content;
+              } else if (Array.isArray(entry.message.content)) {
+                // Handle array content (text blocks, tool use blocks)
+                const textBlocks = entry.message.content.filter((b: any) => b.type === 'text');
+                const toolBlocks = entry.message.content.filter((b: any) => b.type === 'tool_use');
+
+                content = textBlocks.map((b: any) => b.text).join('\n');
+                if (toolBlocks.length > 0) {
+                  toolUse = toolBlocks;
+                }
+              }
+            }
+
+            // Only include messages that have actual text content (skip tool-only and empty messages)
+            if (content && content.trim()) {
+              messages.push({
+                type: entry.type,
+                role: entry.message?.role,
+                content,
+                timestamp: entry.timestamp,
+                uuid: entry.uuid,
+                toolUse,
+              });
+            }
+          }
+        } catch {
+          // Skip malformed lines
+        }
+      }
+
+      // Apply offset and limit for lazy loading (read from end)
+      const offset = options?.offset ?? 0;
+      const limit = options?.limit ?? 20;
+
+      // Return messages from the end (most recent)
+      const startIndex = Math.max(0, messages.length - offset - limit);
+      const endIndex = messages.length - offset;
+      const slice = messages.slice(startIndex, endIndex);
+
+      return {
+        messages: slice,
+        total: messages.length,
+        hasMore: startIndex > 0,
+      };
+    } catch (error) {
+      logger.error('Error reading Claude session messages', 'ClaudeSessions', { sessionId, error });
+      return { messages: [], total: 0, hasMore: false };
+    }
+  });
+
+  // Search through Claude session content
+  ipcMain.handle('claude:searchSessions', async (
+    _event,
+    projectPath: string,
+    query: string,
+    searchMode: 'title' | 'user' | 'assistant' | 'all'
+  ) => {
+    try {
+      if (!query.trim()) {
+        return [];
+      }
+
+      const os = await import('os');
+      const homeDir = os.default.homedir();
+      const claudeProjectsDir = path.join(homeDir, '.claude', 'projects');
+
+      const encodedPath = projectPath.replace(/\//g, '-');
+      const projectDir = path.join(claudeProjectsDir, encodedPath);
+
+      // Check if the directory exists
+      try {
+        await fs.access(projectDir);
+      } catch {
+        return [];
+      }
+
+      const files = await fs.readdir(projectDir);
+      const sessionFiles = files.filter(f => f.endsWith('.jsonl'));
+
+      const searchLower = query.toLowerCase();
+      const matchingSessions: Array<{
+        sessionId: string;
+        matchType: 'title' | 'user' | 'assistant';
+        matchPreview: string;
+        matchCount: number;
+      }> = [];
+
+      for (const filename of sessionFiles) {
+        const sessionId = filename.replace('.jsonl', '');
+        const filePath = path.join(projectDir, filename);
+
+        try {
+          const content = await fs.readFile(filePath, 'utf-8');
+          const lines = content.split('\n').filter(l => l.trim());
+
+          let titleMatch = false;
+          let userMatches = 0;
+          let assistantMatches = 0;
+          let matchPreview = '';
+
+          for (const line of lines) {
+            try {
+              const entry = JSON.parse(line);
+
+              // Extract text content
+              let textContent = '';
+              if (entry.message?.content) {
+                if (typeof entry.message.content === 'string') {
+                  textContent = entry.message.content;
+                } else if (Array.isArray(entry.message.content)) {
+                  textContent = entry.message.content
+                    .filter((b: any) => b.type === 'text')
+                    .map((b: any) => b.text)
+                    .join('\n');
+                }
+              }
+
+              const textLower = textContent.toLowerCase();
+
+              // Check for title match (first user message)
+              if (entry.type === 'user' && !titleMatch && textLower.includes(searchLower)) {
+                titleMatch = true;
+                if (!matchPreview) {
+                  // Find the matching substring with context
+                  const idx = textLower.indexOf(searchLower);
+                  const start = Math.max(0, idx - 30);
+                  const end = Math.min(textContent.length, idx + query.length + 30);
+                  matchPreview = (start > 0 ? '...' : '') + textContent.slice(start, end) + (end < textContent.length ? '...' : '');
+                }
+              }
+
+              // Check for user message matches
+              if (entry.type === 'user' && textLower.includes(searchLower)) {
+                userMatches++;
+                if (!matchPreview && (searchMode === 'user' || searchMode === 'all')) {
+                  const idx = textLower.indexOf(searchLower);
+                  const start = Math.max(0, idx - 30);
+                  const end = Math.min(textContent.length, idx + query.length + 30);
+                  matchPreview = (start > 0 ? '...' : '') + textContent.slice(start, end) + (end < textContent.length ? '...' : '');
+                }
+              }
+
+              // Check for assistant message matches
+              if (entry.type === 'assistant' && textLower.includes(searchLower)) {
+                assistantMatches++;
+                if (!matchPreview && (searchMode === 'assistant' || searchMode === 'all')) {
+                  const idx = textLower.indexOf(searchLower);
+                  const start = Math.max(0, idx - 30);
+                  const end = Math.min(textContent.length, idx + query.length + 30);
+                  matchPreview = (start > 0 ? '...' : '') + textContent.slice(start, end) + (end < textContent.length ? '...' : '');
+                }
+              }
+            } catch {
+              // Skip malformed lines
+            }
+          }
+
+          // Determine if this session matches based on search mode
+          let matches = false;
+          let matchType: 'title' | 'user' | 'assistant' = 'title';
+          let matchCount = 0;
+
+          switch (searchMode) {
+            case 'title':
+              matches = titleMatch;
+              matchType = 'title';
+              matchCount = titleMatch ? 1 : 0;
+              break;
+            case 'user':
+              matches = userMatches > 0;
+              matchType = 'user';
+              matchCount = userMatches;
+              break;
+            case 'assistant':
+              matches = assistantMatches > 0;
+              matchType = 'assistant';
+              matchCount = assistantMatches;
+              break;
+            case 'all':
+              matches = titleMatch || userMatches > 0 || assistantMatches > 0;
+              matchType = titleMatch ? 'title' : userMatches > 0 ? 'user' : 'assistant';
+              matchCount = userMatches + assistantMatches;
+              break;
+          }
+
+          if (matches) {
+            matchingSessions.push({
+              sessionId,
+              matchType,
+              matchPreview,
+              matchCount,
+            });
+          }
+        } catch {
+          // Skip files that can't be read
+        }
+      }
+
+      return matchingSessions;
+    } catch (error) {
+      logger.error('Error searching Claude sessions', 'ClaudeSessions', error);
+      return [];
+    }
+  });
 }
 
 // Handle process output streaming (set up after initialization)
 function setupProcessListeners() {
   if (processManager) {
     processManager.on('data', (sessionId: string, data: string) => {
+      console.log('[IPC] Forwarding process:data to renderer:', { sessionId, dataLength: data.length, hasMainWindow: !!mainWindow });
       mainWindow?.webContents.send('process:data', sessionId, data);
     });
 

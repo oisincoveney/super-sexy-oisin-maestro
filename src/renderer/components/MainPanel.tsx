@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Wand2, Radio, ExternalLink, Wifi, Info, Columns, Copy, FileText } from 'lucide-react';
+import { Wand2, Radio, ExternalLink, Wifi, Info, Columns, Copy, List } from 'lucide-react';
 import { LogViewer } from './LogViewer';
 import { TerminalOutput } from './TerminalOutput';
 import { InputArea } from './InputArea';
 import { FilePreview } from './FilePreview';
 import { ErrorBoundary } from './ErrorBoundary';
 import { GitStatusWidget } from './GitStatusWidget';
+import { AgentSessionsBrowser } from './AgentSessionsBrowser';
 import { gitService } from '../services/git';
 import type { Session, Theme, Shortcut, FocusArea } from '../types';
 
@@ -17,6 +18,8 @@ interface SlashCommand {
 interface MainPanelProps {
   // State
   logViewerOpen: boolean;
+  agentSessionsOpen: boolean;
+  activeClaudeSessionId: string | null;
   activeSession: Session | null;
   theme: Theme;
   fontFamily: string;
@@ -44,6 +47,10 @@ interface MainPanelProps {
   // Setters
   setGitDiffPreview: (preview: string | null) => void;
   setLogViewerOpen: (open: boolean) => void;
+  setAgentSessionsOpen: (open: boolean) => void;
+  setActiveClaudeSessionId: (id: string | null) => void;
+  onResumeClaudeSession: (claudeSessionId: string, messages: import('../types').LogEntry[]) => void;
+  onNewClaudeSession: () => void;
   setActiveFocus: (focus: FocusArea) => void;
   setOutputSearchOpen: (open: boolean) => void;
   setOutputSearchQuery: (query: string) => void;
@@ -84,11 +91,12 @@ interface MainPanelProps {
 
 export function MainPanel(props: MainPanelProps) {
   const {
-    logViewerOpen, activeSession, theme, activeFocus, outputSearchOpen, outputSearchQuery,
+    logViewerOpen, agentSessionsOpen, activeClaudeSessionId, activeSession, theme, activeFocus, outputSearchOpen, outputSearchQuery,
     inputValue, enterToSendAI, enterToSendTerminal, stagedImages, commandHistoryOpen, commandHistoryFilter,
     commandHistorySelectedIndex, slashCommandOpen, slashCommands, selectedSlashCommandIndex,
     previewFile, markdownRawMode, shortcuts, rightPanelOpen, maxOutputLines, gitDiffPreview,
-    fileTreeFilterOpen, setGitDiffPreview, setLogViewerOpen, setActiveFocus, setOutputSearchOpen, setOutputSearchQuery,
+    fileTreeFilterOpen, setGitDiffPreview, setLogViewerOpen, setAgentSessionsOpen, setActiveClaudeSessionId,
+    onResumeClaudeSession, onNewClaudeSession, setActiveFocus, setOutputSearchOpen, setOutputSearchQuery,
     setInputValue, setEnterToSendAI, setEnterToSendTerminal, setStagedImages, setLightboxImage, setCommandHistoryOpen,
     setCommandHistoryFilter, setCommandHistorySelectedIndex, setSlashCommandOpen,
     setSelectedSlashCommandIndex, setPreviewFile, setMarkdownRawMode,
@@ -138,6 +146,23 @@ export function MainPanel(props: MainPanelProps) {
     );
   }
 
+  // Show agent sessions browser
+  if (agentSessionsOpen) {
+    return (
+      <div className="flex-1 flex flex-col min-w-0 relative" style={{ backgroundColor: theme.colors.bgMain }}>
+        <AgentSessionsBrowser
+          theme={theme}
+          activeSession={activeSession || undefined}
+          activeClaudeSessionId={activeClaudeSessionId}
+          onClose={() => setAgentSessionsOpen(false)}
+          onSelectSession={setActiveClaudeSessionId}
+          onResumeSession={onResumeClaudeSession}
+          onNewSession={onNewClaudeSession}
+        />
+      </div>
+    );
+  }
+
   // Show empty state when no active session
   if (!activeSession) {
     return (
@@ -174,6 +199,15 @@ export function MainPanel(props: MainPanelProps) {
                 <span className={`text-xs px-2 py-0.5 rounded-full border ${activeSession.isGitRepo ? 'border-orange-500/30 text-orange-500 bg-orange-500/10' : 'border-blue-500/30 text-blue-500 bg-blue-500/10'}`}>
                   {activeSession.isGitRepo ? 'GIT' : 'LOCAL'}
                 </span>
+                {activeSession.inputMode === 'ai' && activeSession.claudeSessionId && (
+                  <span
+                    className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded"
+                    style={{ backgroundColor: theme.colors.accent + '20', color: theme.colors.accent }}
+                    title={`Session ID: ${activeSession.claudeSessionId}`}
+                  >
+                    {activeSession.claudeSessionId.split('-')[0].toUpperCase()}
+                  </span>
+                )}
               </div>
 
               <div className="relative">
@@ -255,8 +289,8 @@ export function MainPanel(props: MainPanelProps) {
               <button onClick={() => setAboutModalOpen(true)} className="p-2 rounded hover:bg-white/5" title="About Maestro">
                 <Info className="w-4 h-4" />
               </button>
-              <button onClick={() => setLogViewerOpen(true)} className="p-2 rounded hover:bg-white/5" title="System Logs">
-                <FileText className="w-4 h-4" />
+              <button onClick={() => setAgentSessionsOpen(true)} className="p-2 rounded hover:bg-white/5" title={`Agent Sessions (${shortcuts.agentSessions.keys.join('+').replace('Meta', 'Cmd').replace('Shift', '\u21E7')})`}>
+                <List className="w-4 h-4" />
               </button>
               {!rightPanelOpen && (
                 <button onClick={() => setRightPanelOpen(true)} className="p-2 rounded hover:bg-white/5" title={`Show right panel (${shortcuts.toggleRightPanel.keys.join('+').replace('Meta', 'Cmd')})`}>

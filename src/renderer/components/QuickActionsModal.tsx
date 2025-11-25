@@ -44,6 +44,8 @@ interface QuickActionsModalProps {
   setAboutModalOpen: (open: boolean) => void;
   setLogViewerOpen: (open: boolean) => void;
   setProcessMonitorOpen: (open: boolean) => void;
+  setAgentSessionsOpen: (open: boolean) => void;
+  startFreshSession: () => void;
 }
 
 export function QuickActionsModal(props: QuickActionsModalProps) {
@@ -55,7 +57,8 @@ export function QuickActionsModal(props: QuickActionsModalProps) {
     setCreateGroupModalOpen, setNewGroupName, setMoveSessionToNewGroup,
     setLeftSidebarOpen, setRightPanelOpen, setActiveRightTab, toggleInputMode,
     deleteSession, addNewSession, setSettingsModalOpen, setSettingsTab,
-    setShortcutsHelpOpen, setAboutModalOpen, setLogViewerOpen, setProcessMonitorOpen
+    setShortcutsHelpOpen, setAboutModalOpen, setLogViewerOpen, setProcessMonitorOpen,
+    setAgentSessionsOpen, startFreshSession
   } = props;
 
   const [search, setSearch] = useState('');
@@ -172,6 +175,7 @@ export function QuickActionsModal(props: QuickActionsModalProps) {
   const mainActions: QuickAction[] = [
     ...sessionActions,
     { id: 'new', label: 'New Agent', shortcut: shortcuts.newInstance, action: addNewSession },
+    ...(activeSession ? [{ id: 'freshSession', label: 'Fresh Agent Session', action: () => { startFreshSession(); setQuickActionOpen(false); }, subtext: 'Clear AI history and start fresh' }] : []),
     ...(activeSession ? [{ id: 'rename', label: 'Rename Current Agent', action: () => {
       setRenameInstanceValue(activeSession.name);
       setRenameInstanceModalOpen(true);
@@ -202,6 +206,7 @@ export function QuickActionsModal(props: QuickActionsModalProps) {
     { id: 'shortcuts', label: 'View Shortcuts', shortcut: shortcuts.help, action: () => { setShortcutsHelpOpen(true); setQuickActionOpen(false); } },
     { id: 'logs', label: 'View System Logs', action: () => { setLogViewerOpen(true); setQuickActionOpen(false); } },
     { id: 'processes', label: 'View System Processes', action: () => { setProcessMonitorOpen(true); setQuickActionOpen(false); } },
+    ...(activeSession ? [{ id: 'agentSessions', label: `View Agent Sessions for ${activeSession.name}`, shortcut: shortcuts.agentSessions, action: () => { setAgentSessionsOpen(true); setQuickActionOpen(false); } }] : []),
     { id: 'devtools', label: 'Toggle JavaScript Console', action: () => { window.maestro.devtools.toggle(); setQuickActionOpen(false); } },
     { id: 'about', label: 'About Maestro', action: () => { setAboutModalOpen(true); setQuickActionOpen(false); } },
     { id: 'goToFiles', label: 'Go to Files Tab', action: () => { setRightPanelOpen(true); setActiveRightTab('files'); setQuickActionOpen(false); } },

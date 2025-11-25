@@ -88,9 +88,10 @@ Maestro uses Electron's main/renderer architecture with strict context isolation
 - `main.tsx` - Renderer entry point
 - `components/` - React components (modals, panels, UI elements)
   - `SessionList.tsx` - Left Bar with sessions and groups
-  - `MainPanel.tsx` - Main Window (AI Terminal, Command Terminal, System Log Viewer)
+  - `MainPanel.tsx` - Main Window (AI Terminal, Command Terminal, System Log Viewer, Agent Sessions Browser)
   - `RightPanel.tsx` - Right Bar (files, history, scratchpad)
   - `LogViewer.tsx` - System Log Viewer with filtering and search
+  - `AgentSessionsBrowser.tsx` - Browse and resume Claude Code sessions from `~/.claude/projects/`
   - `SettingsModal.tsx`, `NewInstanceModal.tsx`, `Scratchpad.tsx`, `FilePreview.tsx` - Other UI components
 - `hooks/` - Custom React hooks for reusable state logic
   - `useSettings.ts` - Settings management and persistence
@@ -150,6 +151,7 @@ The `window.maestro` API provides type-safe access to:
 - File system access
 - Tunnel management
 - Agent detection
+- Claude sessions (browse/resume Claude Code sessions)
 
 ### Git Integration
 
@@ -173,6 +175,46 @@ Fastify server (`src/main/web-server.ts`) provides:
 - Caches results for performance
 - Pre-configured agents: Claude Code, Aider, Qwen Coder, CLI Terminal
 - Extensible via `AGENT_DEFINITIONS` array in `src/main/agent-detector.ts`
+
+### Claude Sessions API
+
+Maestro can browse and resume Claude Code sessions stored in `~/.claude/projects/`. Sessions are JSONL files containing conversation history.
+
+**IPC Handlers:**
+- `claude:listSessions` - Lists all sessions for a project path
+- `claude:readSessionMessages` - Reads messages from a session (with lazy loading via offset/limit)
+- `claude:searchSessions` - Searches session content by title, user messages, assistant messages, or all
+
+**Session Path Encoding:**
+Claude Code encodes project paths by replacing `/` with `-`. For example:
+- `/Users/pedram/Projects/Maestro` → `-Users-pedram-Projects-Maestro`
+- Sessions stored at: `~/.claude/projects/-Users-pedram-Projects-Maestro/*.jsonl`
+
+**Usage in Renderer:**
+```typescript
+// List sessions for current project
+const sessions = await window.maestro.claude.listSessions(activeSession.cwd);
+
+// Read messages with pagination (reads from end)
+const { messages, total, hasMore } = await window.maestro.claude.readSessionMessages(
+  projectPath,
+  sessionId,
+  { offset: 0, limit: 20 }
+);
+
+// Search across sessions
+const results = await window.maestro.claude.searchSessions(
+  projectPath,
+  'search query',
+  'all'  // 'title' | 'user' | 'assistant' | 'all'
+);
+```
+
+**UI Integration:**
+- Open with `Cmd+Shift+L` (configurable in Settings > Shortcuts)
+- Available via Quick Actions (`Cmd+K` → "View Agent Sessions")
+- Button in main panel header (List icon)
+- Shows session list with search, message preview, and resume functionality
 
 ## Key Design Patterns
 
@@ -202,6 +244,7 @@ export interface SlashCommand {
 
 **Current commands:**
 - `/clear` - Clears output history for current mode (AI or terminal)
+- `/jump` - Jumps to current working directory in file tree, expanding parent folders and focusing the tree
 
 ### Layer Stack System
 
@@ -235,6 +278,7 @@ RENAME_GROUP: 850
 CREATE_GROUP: 800
 NEW_INSTANCE: 750
 QUICK_ACTION: 700       // Command palette (Cmd+K)
+AGENT_SESSIONS: 680     // Agent sessions browser (Cmd+Shift+L)
 SHORTCUTS_HELP: 650
 ABOUT: 600
 PROCESS_MONITOR: 550

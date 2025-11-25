@@ -238,7 +238,7 @@ export function InputArea(props: InputAreaProps) {
             <div className="flex gap-1 items-center">
               {session.inputMode === 'terminal' && (
                 <div className="text-[10px] font-mono opacity-50 px-2" style={{ color: theme.colors.textDim }}>
-                  {session.cwd?.replace(/^\/Users\/[^\/]+/, '~') || '~'}
+                  {(session.shellCwd || session.cwd)?.replace(/^\/Users\/[^\/]+/, '~') || '~'}
                 </div>
               )}
               {session.inputMode === 'ai' && (

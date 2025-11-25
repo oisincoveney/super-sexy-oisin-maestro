@@ -388,19 +388,29 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
       ? DOMPurify.sanitize(ansiConverter.toHtml(displayTextWithHighlights))
       : htmlContent;
 
+    // In AI mode, user messages go right with timestamp on the right
+    // In terminal mode, user commands still have the $ prefix style
+    const isAIMode = session.inputMode === 'ai';
+    const isUserMessage = log.source === 'user';
+
     return (
-      <div className={`flex gap-4 group ${log.source === 'user' ? 'flex-row-reverse' : ''} px-6 py-2`}>
-        <div className="w-12 shrink-0 text-[10px] opacity-40 pt-2 text-center" style={{ fontFamily }}>
+      <div className={`flex gap-4 group ${isUserMessage ? 'flex-row-reverse' : ''} px-6 py-2`}>
+        <div className={`w-12 shrink-0 text-[10px] pt-2 ${isUserMessage ? 'text-right' : 'text-left'}`}
+             style={{ fontFamily, color: theme.colors.textDim, opacity: 0.6 }}>
           {new Date(log.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
         </div>
-        <div className={`flex-1 p-4 rounded-xl border ${log.source === 'user' ? 'rounded-tr-none' : 'rounded-tl-none'} relative`}
+        <div className={`flex-1 p-4 rounded-xl border ${isUserMessage ? 'rounded-tr-none' : 'rounded-tl-none'} relative`}
              style={{
-               backgroundColor: log.source === 'user'
-                 ? `color-mix(in srgb, ${theme.colors.accent} 15%, ${theme.colors.bgActivity})`
+               backgroundColor: isUserMessage
+                 ? isAIMode
+                   ? `color-mix(in srgb, ${theme.colors.accent} 20%, ${theme.colors.bgSidebar})`
+                   : `color-mix(in srgb, ${theme.colors.accent} 15%, ${theme.colors.bgActivity})`
                  : log.source === 'stderr'
                    ? `color-mix(in srgb, ${theme.colors.error} 8%, ${theme.colors.bgActivity})`
-                   : 'transparent',
-               borderColor: log.source === 'stderr' ? theme.colors.error : theme.colors.border
+                   : isAIMode ? theme.colors.bgActivity : 'transparent',
+               borderColor: isUserMessage && isAIMode
+                 ? theme.colors.accent + '40'
+                 : log.source === 'stderr' ? theme.colors.error : theme.colors.border
              }}>
           {/* Delete button for user commands */}
           {log.source === 'user' && isTerminal && onDeleteLog && (

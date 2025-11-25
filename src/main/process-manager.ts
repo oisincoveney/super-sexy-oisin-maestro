@@ -388,19 +388,34 @@ export class ProcessManager extends EventEmitter {
         // Fish uses different syntax - it auto-sources config.fish
         // Use -c for command execution (fish doesn't use -i -l the same way)
         shellArgs = ['-c', command];
-      } else {
-        // POSIX-compatible shells (bash, zsh, sh, tcsh, etc.)
-        // -l: login mode (sources .bash_profile/.zprofile which typically source rc files)
-        // -c: execute the command string
+      } else if (shellName === 'zsh') {
+        // For zsh: source .zshrc to load aliases, then run the command
+        // We use -l for login shell (sources .zprofile) but also explicitly source .zshrc
+        // because .zprofile doesn't always source .zshrc, and aliases are usually in .zshrc
         // Note: We avoid -i (interactive) because it tries to initialize zle/readline
         // which fails without a real TTY and produces errors like "can't change option: zle"
+        const wrappedCommand = `source ~/.zshrc 2>/dev/null; ${command}`;
+        shellArgs = ['-l', '-c', wrappedCommand];
+      } else if (shellName === 'bash') {
+        // For bash: source .bashrc to load aliases
+        // -l sources .bash_profile, but aliases are usually in .bashrc
+        const wrappedCommand = `source ~/.bashrc 2>/dev/null; ${command}`;
+        shellArgs = ['-l', '-c', wrappedCommand];
+      } else {
+        // Other POSIX-compatible shells (sh, tcsh, etc.)
+        // Just use -l -c and hope for the best
         shellArgs = ['-l', '-c', command];
       }
 
-      const childProcess = spawn(shell, shellArgs, {
+      // Use shell: true to work around ENOENT issues in Electron's sandboxed environment
+      // The shell executable path is still used, but spawn delegates to the system shell
+      const fullCommand = `${shell} ${shellArgs.map(arg => `'${arg.replace(/'/g, "'\\''")}'`).join(' ')}`;
+      console.log('[ProcessManager] runCommand fullCommand:', fullCommand);
+
+      const childProcess = spawn(fullCommand, [], {
         cwd,
         env: process.env,
-        shell: false, // Don't wrap in another shell layer
+        shell: true, // Use system shell to execute
       });
 
       let stdoutBuffer = '';
@@ -409,6 +424,7 @@ export class ProcessManager extends EventEmitter {
       // Handle stdout - emit data events for real-time streaming
       childProcess.stdout?.on('data', (data: Buffer) => {
         let output = data.toString();
+        console.log('[ProcessManager] runCommand stdout RAW:', { sessionId, rawLength: output.length, raw: output.substring(0, 200) });
 
         // Filter out shell integration sequences that may appear in interactive shells
         // These include iTerm2, VSCode, and other terminal emulator integration markers
@@ -419,10 +435,15 @@ export class ProcessManager extends EventEmitter {
         // Remove OSC sequences for window title, etc.
         output = output.replace(/\x1b?\][0-9];[^\x07\x1b\n]*(\x07|\x1b\\)?/g, '');
 
+        console.log('[ProcessManager] runCommand stdout FILTERED:', { sessionId, filteredLength: output.length, filtered: output.substring(0, 200), trimmedEmpty: !output.trim() });
+
         // Only emit if there's actual content after filtering
         if (output.trim()) {
           stdoutBuffer += output;
+          console.log('[ProcessManager] runCommand EMITTING data event:', { sessionId, outputLength: output.length });
           this.emit('data', sessionId, output);
+        } else {
+          console.log('[ProcessManager] runCommand SKIPPED emit (empty after trim):', { sessionId });
         }
       });
 

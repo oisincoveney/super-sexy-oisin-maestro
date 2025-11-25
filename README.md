@@ -72,6 +72,7 @@ Each session shows a color-coded status indicator:
 | Switch AI/Command Terminal | `Cmd+J` | `Ctrl+J` |
 | Show Shortcuts Help | `Cmd+/` | `Ctrl+/` |
 | Open Settings | `Cmd+,` | `Ctrl+,` |
+| View Agent Sessions | `Cmd+Shift+L` | `Ctrl+Shift+L` |
 | Cycle Focus Areas | `Tab` | `Tab` |
 | Cycle Focus Backwards | `Shift+Tab` | `Shift+Tab` |
 
@@ -128,6 +129,7 @@ Maestro includes an extensible slash command system with autocomplete:
 | Command | Description |
 |---------|-------------|
 | `/clear` | Clear the output history for the current mode |
+| `/jump` | Jump to current working directory in file tree |
 
 Type `/` in the input area to open the autocomplete menu, use arrow keys to navigate, and press `Tab` or `Enter` to select.
 

@@ -47,10 +47,7 @@ export function ShortcutsHelpModal({ theme, shortcuts, onClose }: ShortcutsHelpM
     }
   }, [onClose]);
 
-  // Auto-focus on mount
-  useEffect(() => {
-    containerRef.current?.focus();
-  }, []);
+  // Note: Search input uses autoFocus for immediate focus on mount
 
   const totalShortcuts = Object.values(shortcuts).length;
   const filteredShortcuts = Object.values(shortcuts).filter(sc =>

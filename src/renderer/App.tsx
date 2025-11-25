@@ -132,6 +132,10 @@ export default function MaestroConsole() {
 
   // Rename Group Modal State
   const [renameGroupModalOpen, setRenameGroupModalOpen] = useState(false);
+
+  // Agent Sessions Browser State (main panel view)
+  const [agentSessionsOpen, setAgentSessionsOpen] = useState(false);
+  const [activeClaudeSessionId, setActiveClaudeSessionId] = useState<string | null>(null);
   const [renameGroupId, setRenameGroupId] = useState<string | null>(null);
   const [renameGroupValue, setRenameGroupValue] = useState('');
   const [renameGroupEmoji, setRenameGroupEmoji] = useState('📂');
@@ -386,9 +390,7 @@ export default function MaestroConsole() {
         isFromAi = true;
       } else if (sessionId.endsWith('-terminal')) {
         // Ignore PTY terminal output - we use runCommand for terminal commands now,
-        // which emits data without the -terminal suffix. The PTY process is only kept
-        // alive for shell state tracking (cwd), not for capturing output.
-        console.log('[onData] Ignoring PTY terminal output (using runCommand instead)');
+        // which emits data without the -terminal suffix
         return;
       } else {
         // Plain session ID = output from runCommand (terminal commands)
@@ -404,7 +406,7 @@ export default function MaestroConsole() {
         const existingLogs = s[targetLogKey];
         const lastLog = existingLogs[existingLogs.length - 1];
 
-        // For terminal commands (runCommand), group all output while command is running
+        // For terminal commands (runCommand), group all stdout while command is running
         // For AI processes, use time-based grouping (500ms window)
         const isTerminalCommand = !isFromAi;
         const shouldGroup = lastLog &&
@@ -419,11 +421,9 @@ export default function MaestroConsole() {
             text: lastLog.text + data
           };
 
-          console.log('[onData] Appending to existing log for', targetLogKey, 'session', actualSessionId);
           return {
             ...s,
             // For terminal commands, keep busy state (will be set to idle by onCommandExit)
-            // For AI, set to idle on each data chunk
             state: isTerminalCommand ? s.state : 'idle' as SessionState,
             [targetLogKey]: updatedLogs
           };
@@ -436,11 +436,9 @@ export default function MaestroConsole() {
             text: data
           };
 
-          console.log('[onData] Creating new log for', targetLogKey, 'session', actualSessionId);
           return {
             ...s,
             // For terminal commands, keep busy state (will be set to idle by onCommandExit)
-            // For AI, set to idle on each data chunk
             state: isTerminalCommand ? s.state : 'idle' as SessionState,
             [targetLogKey]: [...existingLogs, newLog]
           };
@@ -512,9 +510,7 @@ export default function MaestroConsole() {
 
     // Handle stderr from runCommand (separate from stdout)
     const unsubscribeStderr = window.maestro.process.onStderr((sessionId: string, data: string) => {
-      console.log('[onStderr] Received stderr for session:', sessionId, 'Data:', data);
-
-      // runCommand now uses plain session ID (no -terminal suffix)
+      // runCommand uses plain session ID (no suffix)
       const actualSessionId = sessionId;
 
       setSessions(prev => prev.map(s => {
@@ -524,7 +520,6 @@ export default function MaestroConsole() {
         const lastLog = existingLogs[existingLogs.length - 1];
 
         // Group all stderr while command is running (state === 'busy')
-        // This ensures all stderr from a single command goes into one cell
         const shouldGroup = lastLog &&
                            lastLog.source === 'stderr' &&
                            s.state === 'busy';
@@ -548,11 +543,9 @@ export default function MaestroConsole() {
       }));
     });
 
-    // Handle command exit from runCommand (separate from PTY exit)
+    // Handle command exit from runCommand
     const unsubscribeCommandExit = window.maestro.process.onCommandExit((sessionId: string, code: number) => {
-      console.log('[onCommandExit] Command exited for session:', sessionId, 'Code:', code);
-
-      // runCommand now uses plain session ID (no -terminal suffix)
+      // runCommand uses plain session ID (no suffix)
       const actualSessionId = sessionId;
 
       setSessions(prev => prev.map(s => {
@@ -1015,6 +1008,12 @@ export default function MaestroConsole() {
         e.preventDefault();
         handleViewGitDiff();
       }
+      else if (isShortcut(e, 'agentSessions')) {
+        e.preventDefault();
+        if (activeSession?.toolType === 'claude-code') {
+          setAgentSessionsOpen(true);
+        }
+      }
 
       // Forward slash to open file tree filter when file tree has focus
       if (e.key === '/' && activeFocus === 'right' && activeRightTab === 'files') {
@@ -1352,7 +1351,9 @@ export default function MaestroConsole() {
           setSessions,
           currentMode: activeSession.inputMode,
           setRightPanelOpen,
-          setActiveRightTab
+          setActiveRightTab,
+          setActiveFocus,
+          setSelectedFileIndex
         });
 
         setInputValue('');
@@ -1364,6 +1365,13 @@ export default function MaestroConsole() {
 
     const currentMode = activeSession.inputMode;
     const targetLogKey = currentMode === 'ai' ? 'aiLogs' : 'shellLogs';
+
+    console.log('[processInput] Processing input', {
+      currentMode,
+      inputValue: inputValue.substring(0, 50),
+      toolType: activeSession.toolType,
+      sessionId: activeSession.id
+    });
 
     const newEntry: LogEntry = {
       id: generateId(),
@@ -1512,13 +1520,19 @@ export default function MaestroConsole() {
         }
       })();
     } else if (currentMode === 'terminal') {
-      // Terminal mode: Use runCommand for clean stdout/stderr capture (no PTY echoes/prompts)
-      // Use plain session ID (not suffixed) - runCommand is a separate subprocess,
-      // not the PTY process, so it doesn't need the -terminal suffix
-      window.maestro.process.runCommand({
+      // Terminal mode: Use runCommand for clean stdout/stderr capture (no PTY noise)
+      // This spawns a fresh shell with -l -c to run the command, ensuring aliases work
+      console.log('[processInput] Terminal mode: calling runCommand', {
         sessionId: activeSession.id,
         command: capturedInputValue,
         cwd: activeSession.shellCwd || activeSession.cwd
+      });
+      window.maestro.process.runCommand({
+        sessionId: activeSession.id,  // Plain session ID (not suffixed)
+        command: capturedInputValue,
+        cwd: activeSession.shellCwd || activeSession.cwd
+      }).then(result => {
+        console.log('[processInput] runCommand resolved:', result);
       }).catch(error => {
         console.error('Failed to run command:', error);
         setSessions(prev => prev.map(s => {
@@ -2007,6 +2021,16 @@ export default function MaestroConsole() {
           setLogViewerOpen={setLogViewerOpen}
           setProcessMonitorOpen={setProcessMonitorOpen}
           setActiveRightTab={setActiveRightTab}
+          setAgentSessionsOpen={setAgentSessionsOpen}
+          startFreshSession={() => {
+            // Create a fresh AI terminal session by clearing the Claude session ID and AI logs
+            if (activeSession) {
+              setSessions(prev => prev.map(s =>
+                s.id === activeSession.id ? { ...s, claudeSessionId: undefined, aiLogs: [], state: 'idle' } : s
+              ));
+              setActiveClaudeSessionId(null);
+            }
+          }}
         />
       )}
       {lightboxImage && (
@@ -2156,6 +2180,8 @@ export default function MaestroConsole() {
       {/* --- CENTER WORKSPACE --- */}
       <MainPanel
         logViewerOpen={logViewerOpen}
+        agentSessionsOpen={agentSessionsOpen}
+        activeClaudeSessionId={activeClaudeSessionId}
         activeSession={activeSession}
         theme={theme}
         fontFamily={fontFamily}
@@ -2181,6 +2207,28 @@ export default function MaestroConsole() {
         fileTreeFilterOpen={fileTreeFilterOpen}
         setGitDiffPreview={setGitDiffPreview}
         setLogViewerOpen={setLogViewerOpen}
+        setAgentSessionsOpen={setAgentSessionsOpen}
+        setActiveClaudeSessionId={setActiveClaudeSessionId}
+        onResumeClaudeSession={(claudeSessionId: string, messages: LogEntry[]) => {
+          // Update the active session with the selected Claude session ID and load messages
+          // Also reset state to 'idle' since we're just loading historical messages
+          if (activeSession) {
+            setSessions(prev => prev.map(s =>
+              s.id === activeSession.id ? { ...s, claudeSessionId, aiLogs: messages, state: 'idle' } : s
+            ));
+            setActiveClaudeSessionId(claudeSessionId);
+          }
+        }}
+        onNewClaudeSession={() => {
+          // Create a fresh AI terminal session by clearing the Claude session ID and AI logs
+          if (activeSession) {
+            setSessions(prev => prev.map(s =>
+              s.id === activeSession.id ? { ...s, claudeSessionId: undefined, aiLogs: [], state: 'idle' } : s
+            ));
+            setActiveClaudeSessionId(null);
+          }
+          setAgentSessionsOpen(false);
+        }}
         setActiveFocus={setActiveFocus}
         setOutputSearchOpen={setOutputSearchOpen}
         setOutputSearchQuery={setOutputSearchQuery}

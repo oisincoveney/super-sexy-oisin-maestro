@@ -20,4 +20,5 @@ export const DEFAULT_SHORTCUTS: Record<string, Shortcut> = {
   focusInput: { id: 'focusInput', label: 'Focus Input Field', keys: ['Meta', '.'] },
   focusSidebar: { id: 'focusSidebar', label: 'Focus Left Sidebar', keys: ['Meta', 'Shift', 'a'] },
   viewGitDiff: { id: 'viewGitDiff', label: 'View Git Diff', keys: ['Meta', 'Shift', 'd'] },
+  agentSessions: { id: 'agentSessions', label: 'View Agent Sessions', keys: ['Meta', 'Shift', 'l'] },
 };
