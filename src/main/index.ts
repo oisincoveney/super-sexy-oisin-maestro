@@ -311,6 +311,7 @@ app.whenReady().then(() => {
         groupId: s.groupId || null,
         groupName: group?.name || null,
         groupEmoji: group?.emoji || null,
+        usageStats: s.usageStats || null,
       };
     });
   });

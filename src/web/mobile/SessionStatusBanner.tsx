@@ -9,13 +9,14 @@
  * - Session name and working directory (truncated)
  * - Color-coded status indicator
  * - Thinking indicator when AI is processing
+ * - Cost tracker showing session spend
  * - Compact design optimized for mobile viewports
  */
 
 import React from 'react';
 import { useThemeColors } from '../components/ThemeProvider';
 import { StatusDot, type SessionStatus } from '../components/Badge';
-import type { Session } from '../hooks/useSessions';
+import type { Session, UsageStats } from '../hooks/useSessions';
 
 /**
  * Props for SessionStatusBanner component
@@ -69,6 +70,60 @@ function truncatePath(path: string, maxLength: number = 30): string {
   }
 
   return `.../${lastTwo}`;
+}
+
+/**
+ * Format cost in USD for display
+ * Shows appropriate precision based on amount:
+ * - Less than $0.01: shows 4 decimal places (e.g., $0.0012)
+ * - Less than $1.00: shows 2-3 decimal places (e.g., $0.12)
+ * - $1.00 or more: shows 2 decimal places (e.g., $1.50)
+ */
+function formatCost(cost: number): string {
+  if (cost < 0.01) {
+    return `$${cost.toFixed(4)}`;
+  } else if (cost < 1.0) {
+    return `$${cost.toFixed(3)}`;
+  }
+  return `$${cost.toFixed(2)}`;
+}
+
+/**
+ * CostTracker component - displays session cost in a compact format
+ */
+function CostTracker({ usageStats }: { usageStats?: UsageStats | null }) {
+  const colors = useThemeColors();
+
+  // Don't render if no usage stats or no cost data
+  if (!usageStats || usageStats.totalCostUsd === undefined || usageStats.totalCostUsd === null) {
+    return null;
+  }
+
+  const cost = usageStats.totalCostUsd;
+
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '3px',
+        fontSize: '11px',
+        fontWeight: 500,
+        color: colors.textDim,
+        backgroundColor: `${colors.textDim}15`,
+        padding: '2px 6px',
+        borderRadius: '4px',
+        lineHeight: 1,
+        flexShrink: 0,
+      }}
+      title={`Session cost: ${formatCost(cost)}`}
+      aria-label={`Session cost: ${formatCost(cost)}`}
+    >
+      {/* Dollar icon using Unicode */}
+      <span style={{ fontSize: '10px' }}>💰</span>
+      <span>{formatCost(cost)}</span>
+    </span>
+  );
 }
 
 /**
@@ -211,6 +266,9 @@ export function SessionStatusBanner({
           >
             {session.inputMode === 'ai' ? 'AI' : 'Terminal'}
           </span>
+
+          {/* Cost tracker */}
+          <CostTracker usageStats={session.usageStats} />
         </div>
 
         {/* Working directory */}

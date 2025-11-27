@@ -69,6 +69,16 @@ export interface RateLimitConfig {
  *
  * See PRD.md Phase 6 for full requirements.
  */
+// Usage stats type for session cost/token tracking
+export interface SessionUsageStats {
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheReadInputTokens?: number;
+  cacheCreationInputTokens?: number;
+  totalCostUsd?: number;
+  contextWindow?: number;
+}
+
 // Callback type for fetching sessions data
 export type GetSessionsCallback = () => Array<{
   id: string;
@@ -80,6 +90,7 @@ export type GetSessionsCallback = () => Array<{
   groupId: string | null;
   groupName: string | null;
   groupEmoji: string | null;
+  usageStats?: SessionUsageStats | null;
 }>;
 
 // Session detail type for single session endpoint

@@ -13,7 +13,11 @@ import {
   type UseWebSocketOptions,
   type UseWebSocketReturn,
   type WebSocketState,
+  type UsageStats,
 } from './useWebSocket';
+
+// Re-export UsageStats type for components
+export type { UsageStats };
 import type { Theme } from '../../shared/theme-types';
 
 /**

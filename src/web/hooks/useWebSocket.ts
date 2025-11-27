@@ -14,6 +14,18 @@ import type { Theme } from '../../shared/theme-types';
 export type WebSocketState = 'disconnected' | 'connecting' | 'connected' | 'authenticating' | 'authenticated';
 
 /**
+ * Usage stats for session cost/token tracking
+ */
+export interface UsageStats {
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheReadInputTokens?: number;
+  cacheCreationInputTokens?: number;
+  totalCostUsd?: number;
+  contextWindow?: number;
+}
+
+/**
  * Session data received from the server
  */
 export interface SessionData {
@@ -26,6 +38,7 @@ export interface SessionData {
   groupId?: string | null;
   groupName?: string | null;
   groupEmoji?: string | null;
+  usageStats?: UsageStats | null;
 }
 
 /**
