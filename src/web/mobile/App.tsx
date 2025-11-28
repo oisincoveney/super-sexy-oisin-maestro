@@ -27,6 +27,7 @@ import { SessionStatusBanner } from './SessionStatusBanner';
 import { ResponseViewer, type ResponseItem } from './ResponseViewer';
 import { OfflineQueueBanner } from './OfflineQueueBanner';
 import { ConnectionStatusIndicator } from './ConnectionStatusIndicator';
+import { MessageHistory, type LogEntry } from './MessageHistory';
 import type { Session, LastResponsePreview } from '../hooks/useSessions';
 
 /**
@@ -197,6 +198,13 @@ export default function MobileApp() {
   const [showResponseViewer, setShowResponseViewer] = useState(false);
   const [selectedResponse, setSelectedResponse] = useState<LastResponsePreview | null>(null);
   const [responseIndex, setResponseIndex] = useState(0);
+
+  // Message history state (logs from active session)
+  const [sessionLogs, setSessionLogs] = useState<{ aiLogs: LogEntry[]; shellLogs: LogEntry[] }>({
+    aiLogs: [],
+    shellLogs: [],
+  });
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
 
   // Command history hook
   const {
@@ -386,6 +394,11 @@ export default function MobileApp() {
       setSessions(prev => prev.filter(s => s.id !== sessionId));
       setActiveSessionId(prev => prev === sessionId ? null : prev);
     },
+    onActiveSessionChanged: (sessionId: string) => {
+      // Desktop app switched to a different session - sync with web
+      console.log('[Mobile] Desktop active session changed:', sessionId);
+      setActiveSessionId(sessionId);
+    },
   }), [showResponseNotification]);
 
   const { state: connectionState, connect, send, error, reconnectAttempts } = useWebSocket({
@@ -399,6 +412,40 @@ export default function MobileApp() {
   useEffect(() => {
     connect();
   }, [connect]);
+
+  // Fetch session logs when active session changes
+  useEffect(() => {
+    if (!activeSessionId || isOffline) {
+      setSessionLogs({ aiLogs: [], shellLogs: [] });
+      return;
+    }
+
+    const fetchSessionLogs = async () => {
+      setIsLoadingLogs(true);
+      try {
+        const apiUrl = buildApiUrl(`/session/${activeSessionId}`);
+        const response = await fetch(apiUrl);
+        if (response.ok) {
+          const data = await response.json();
+          const session = data.session;
+          setSessionLogs({
+            aiLogs: session?.aiLogs || [],
+            shellLogs: session?.shellLogs || [],
+          });
+          console.log('[Mobile] Fetched session logs:', {
+            aiLogs: session?.aiLogs?.length || 0,
+            shellLogs: session?.shellLogs?.length || 0,
+          });
+        }
+      } catch (err) {
+        console.error('[Mobile] Failed to fetch session logs:', err);
+      } finally {
+        setIsLoadingLogs(false);
+      }
+    };
+
+    fetchSessionLogs();
+  }, [activeSessionId, isOffline]);
 
   // Update sendRef after WebSocket is initialized
   useEffect(() => {
@@ -805,28 +852,10 @@ export default function MobileApp() {
       );
     }
 
-    // Get the last response for the active session
-    const sessionLastResponse = (activeSession as any).lastResponse as LastResponsePreview | null;
+    // Get logs based on current input mode
+    const currentLogs = activeSession.inputMode === 'ai' ? sessionLogs.aiLogs : sessionLogs.shellLogs;
 
-    if (!sessionLastResponse) {
-      return (
-        <div
-          style={{
-            marginBottom: '24px',
-            padding: '16px',
-            textAlign: 'center',
-          }}
-        >
-          <p style={{ fontSize: '14px', color: colors.textDim }}>
-            {activeSession.inputMode === 'ai'
-              ? 'Ask your AI assistant anything'
-              : 'Run shell commands'}
-          </p>
-        </div>
-      );
-    }
-
-    // Show last response in a cell format
+    // Show message history
     return (
       <div
         style={{
@@ -838,65 +867,38 @@ export default function MobileApp() {
           alignItems: 'stretch',
         }}
       >
-        {/* Response cell */}
-        <div
-          onClick={() => handleExpandResponse(sessionLastResponse)}
-          style={{
-            backgroundColor: colors.bgSidebar,
-            border: `1px solid ${colors.border}`,
-            borderRadius: '8px',
-            padding: '12px',
-            cursor: 'pointer',
-            textAlign: 'left',
-          }}
-        >
+        {isLoadingLogs ? (
           <div
             style={{
-              fontSize: '10px',
+              padding: '16px',
+              textAlign: 'center',
               color: colors.textDim,
-              marginBottom: '6px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
+              fontSize: '13px',
             }}
           >
-            {sessionLastResponse.source === 'stdout' ? 'AI Response' : sessionLastResponse.source}
+            Loading conversation...
           </div>
+        ) : currentLogs.length === 0 ? (
           <div
             style={{
-              fontSize: '13px',
-              color: colors.textMain,
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-              fontFamily: 'monospace',
-              lineHeight: 1.4,
-              maxHeight: '200px',
-              overflow: 'hidden',
-              position: 'relative',
+              padding: '16px',
+              textAlign: 'center',
+              color: colors.textDim,
+              fontSize: '14px',
             }}
           >
-            {sessionLastResponse.text}
-            {sessionLastResponse.fullLength > sessionLastResponse.text.length && (
-              <div
-                style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  height: '40px',
-                  background: `linear-gradient(transparent, ${colors.bgSidebar})`,
-                  display: 'flex',
-                  alignItems: 'flex-end',
-                  justifyContent: 'center',
-                  paddingBottom: '4px',
-                }}
-              >
-                <span style={{ fontSize: '11px', color: colors.accent }}>
-                  Tap to see full response
-                </span>
-              </div>
-            )}
+            {activeSession.inputMode === 'ai'
+              ? 'Ask your AI assistant anything'
+              : 'Run shell commands'}
           </div>
-        </div>
+        ) : (
+          <MessageHistory
+            logs={currentLogs}
+            inputMode={activeSession.inputMode as 'ai' | 'terminal'}
+            autoScroll={true}
+            maxHeight="calc(100vh - 350px)"
+          />
+        )}
       </div>
     );
   };

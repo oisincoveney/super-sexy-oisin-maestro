@@ -9,7 +9,7 @@ import { randomUUID } from 'crypto';
 import path from 'path';
 import { existsSync, readFileSync } from 'fs';
 import type { Theme } from '../shared/theme-types';
-import { getLocalIpAddress } from './utils/networkUtils';
+import { getLocalIpAddressSync } from './utils/networkUtils';
 
 const GITHUB_REDIRECT_URL = 'https://github.com/pedramamini/Maestro';
 
@@ -127,9 +127,24 @@ export type GetSessionDetailCallback = (sessionId: string) => SessionDetail | nu
 // Returns true if successful, false if session not found or write failed
 export type WriteToSessionCallback = (sessionId: string, data: string) => boolean;
 
-// Callback type for interrupting a session (sending SIGINT/Ctrl+C)
-// Returns true if successful, false if session not found or interrupt failed
-export type InterruptSessionCallback = (sessionId: string) => boolean;
+// Callback type for executing a command through the desktop's existing logic
+// This forwards the command to the renderer which handles spawn, state, and broadcasts
+// Returns true if command was accepted (session not busy)
+export type ExecuteCommandCallback = (
+  sessionId: string,
+  command: string
+) => Promise<boolean>;
+
+// Callback type for interrupting a session through the desktop's existing logic
+// This forwards to the renderer which handles state updates and broadcasts
+export type InterruptSessionCallback = (sessionId: string) => Promise<boolean>;
+
+// Callback type for switching session input mode through the desktop's existing logic
+// This forwards to the renderer which handles state updates and broadcasts
+export type SwitchModeCallback = (
+  sessionId: string,
+  mode: 'ai' | 'terminal'
+) => Promise<boolean>;
 
 // Re-export Theme type from shared for backwards compatibility
 export type { Theme } from '../shared/theme-types';
@@ -156,7 +171,9 @@ export class WebServer {
   private getSessionDetailCallback: GetSessionDetailCallback | null = null;
   private getThemeCallback: GetThemeCallback | null = null;
   private writeToSessionCallback: WriteToSessionCallback | null = null;
+  private executeCommandCallback: ExecuteCommandCallback | null = null;
   private interruptSessionCallback: InterruptSessionCallback | null = null;
+  private switchModeCallback: SwitchModeCallback | null = null;
   private webAssetsPath: string | null = null;
 
   // Security token - regenerated on each app startup
@@ -383,11 +400,27 @@ export class WebServer {
   }
 
   /**
-   * Set the callback function for interrupting a session
-   * This is called by the /api/session/:id/interrupt endpoint
+   * Set the callback function for executing commands through the desktop
+   * This forwards commands to the renderer which handles spawn, state management, and broadcasts
+   */
+  setExecuteCommandCallback(callback: ExecuteCommandCallback) {
+    this.executeCommandCallback = callback;
+  }
+
+  /**
+   * Set the callback function for interrupting a session through the desktop
+   * This forwards to the renderer which handles state updates and broadcasts
    */
   setInterruptSessionCallback(callback: InterruptSessionCallback) {
     this.interruptSessionCallback = callback;
+  }
+
+  /**
+   * Set the callback function for switching session mode through the desktop
+   * This forwards to the renderer which handles state updates and broadcasts
+   */
+  setSwitchModeCallback(callback: SwitchModeCallback) {
+    this.switchModeCallback = callback;
   }
 
   /**
@@ -709,22 +742,30 @@ export class WebServer {
         });
       }
 
-      const success = this.interruptSessionCallback(id);
-      if (!success) {
+      try {
+        // Forward to desktop's interrupt logic - handles state updates and broadcasts
+        const success = await this.interruptSessionCallback(id);
+        if (!success) {
+          return reply.code(500).send({
+            error: 'Internal Server Error',
+            message: 'Failed to interrupt session',
+            timestamp: Date.now(),
+          });
+        }
+
+        return {
+          success: true,
+          message: 'Interrupt signal sent successfully',
+          sessionId: id,
+          timestamp: Date.now(),
+        };
+      } catch (error: any) {
         return reply.code(500).send({
           error: 'Internal Server Error',
-          message: 'Failed to interrupt session',
+          message: `Failed to interrupt session: ${error.message}`,
           timestamp: Date.now(),
         });
-        return;
       }
-
-      return {
-        success: true,
-        message: 'Interrupt signal sent successfully',
-        sessionId: id,
-        timestamp: Date.now(),
-      };
     });
   }
 
@@ -860,12 +901,55 @@ export class WebServer {
           return;
         }
 
-        // Note: We don't check isSessionLive() here because the web interface
-        // should be able to send commands to any valid session. The callback
-        // validates the session exists and the security token protects access.
+        // Get session details to check state and determine how to handle
+        const sessionDetail = this.getSessionDetailCallback?.(sessionId);
+        if (!sessionDetail) {
+          client.socket.send(JSON.stringify({
+            type: 'error',
+            message: 'Session not found',
+            timestamp: Date.now(),
+          }));
+          return;
+        }
 
-        // Write command to session
-        if (this.writeToSessionCallback) {
+        // Check if session is busy - prevent race conditions between desktop and web
+        if (sessionDetail.state === 'busy') {
+          client.socket.send(JSON.stringify({
+            type: 'error',
+            message: 'Session is busy - please wait for the current operation to complete',
+            sessionId,
+            timestamp: Date.now(),
+          }));
+          console.log(`[WebSocket] Command rejected - session ${sessionId} is busy`);
+          return;
+        }
+
+        const isAiMode = sessionDetail.inputMode === 'ai';
+
+        if (isAiMode && this.executeCommandCallback) {
+          // AI mode: forward to desktop's command execution logic
+          // This ensures single source of truth - desktop handles spawn, state, and broadcasts
+          console.log(`[WebSocket] Forwarding AI command to desktop for session ${sessionId}`);
+
+          this.executeCommandCallback(sessionId, command)
+            .then((success) => {
+              client.socket.send(JSON.stringify({
+                type: 'command_result',
+                success,
+                sessionId,
+                timestamp: Date.now(),
+              }));
+              console.log(`[WebSocket] Command forwarded to desktop for session ${sessionId}: ${success ? 'accepted' : 'rejected'}`);
+            })
+            .catch((error) => {
+              client.socket.send(JSON.stringify({
+                type: 'error',
+                message: `Failed to execute command: ${error.message}`,
+                timestamp: Date.now(),
+              }));
+            });
+        } else if (this.writeToSessionCallback) {
+          // Terminal mode: write directly to process
           const success = this.writeToSessionCallback(sessionId, command + '\n');
           client.socket.send(JSON.stringify({
             type: 'command_result',
@@ -873,11 +957,11 @@ export class WebServer {
             sessionId,
             timestamp: Date.now(),
           }));
-          console.log(`[WebSocket] Command sent to session ${sessionId}: ${success ? 'success' : 'failed'}`);
+          console.log(`[WebSocket] Terminal command sent to session ${sessionId}: ${success ? 'success' : 'failed'}`);
         } else {
           client.socket.send(JSON.stringify({
             type: 'error',
-            message: 'Write callback not configured',
+            message: 'Command execution not configured',
             timestamp: Date.now(),
           }));
         }
@@ -898,15 +982,36 @@ export class WebServer {
           return;
         }
 
-        // Mode switching is handled by the main process
-        // We just acknowledge the request - the actual switch happens via IPC
-        client.socket.send(JSON.stringify({
-          type: 'mode_switch_requested',
-          sessionId,
-          mode,
-          timestamp: Date.now(),
-        }));
-        console.log(`[WebSocket] Mode switch requested for session ${sessionId}: ${mode}`);
+        if (!this.switchModeCallback) {
+          client.socket.send(JSON.stringify({
+            type: 'error',
+            message: 'Mode switching not configured',
+            timestamp: Date.now(),
+          }));
+          return;
+        }
+
+        // Forward to desktop's mode switching logic
+        // This ensures single source of truth - desktop handles state updates and broadcasts
+        console.log(`[WebSocket] Forwarding mode switch to desktop for session ${sessionId}: ${mode}`);
+        this.switchModeCallback(sessionId, mode)
+          .then((success) => {
+            client.socket.send(JSON.stringify({
+              type: 'mode_switch_result',
+              success,
+              sessionId,
+              mode,
+              timestamp: Date.now(),
+            }));
+            console.log(`[WebSocket] Mode switch for session ${sessionId} to ${mode}: ${success ? 'success' : 'failed'}`);
+          })
+          .catch((error) => {
+            client.socket.send(JSON.stringify({
+              type: 'error',
+              message: `Failed to switch mode: ${error.message}`,
+              timestamp: Date.now(),
+            }));
+          });
         break;
       }
 
@@ -1044,6 +1149,18 @@ export class WebServer {
   }
 
   /**
+   * Broadcast active session change to all connected web clients
+   * Called when the user switches sessions in the desktop app
+   */
+  broadcastActiveSessionChange(sessionId: string) {
+    this.broadcastToWebClients({
+      type: 'active_session_changed',
+      sessionId,
+      timestamp: Date.now(),
+    });
+  }
+
+  /**
    * Broadcast theme change to all connected web clients
    * Called when the user changes the theme in the desktop app
    */
@@ -1072,8 +1189,8 @@ export class WebServer {
     }
 
     try {
-      // Detect local IP address for LAN accessibility
-      this.localIpAddress = await getLocalIpAddress();
+      // Detect local IP address for LAN accessibility (sync - no network delay)
+      this.localIpAddress = getLocalIpAddressSync();
       console.log(`Web server using IP address: ${this.localIpAddress}`);
 
       // Setup middleware and routes (must be done before listen)

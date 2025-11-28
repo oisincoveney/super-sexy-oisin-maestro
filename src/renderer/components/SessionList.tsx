@@ -4,7 +4,7 @@ import {
   Radio, Copy, ExternalLink, PanelLeftClose, PanelLeftOpen, Folder, Info, FileText, GitBranch, Bot, Clock,
   ScrollText, Cpu, Menu, Bookmark, Tag
 } from 'lucide-react';
-import QRCode from 'qrcode.react';
+import { QRCodeSVG } from 'qrcode.react';
 import type { Session, Group, Theme, Shortcut } from '../types';
 import { getStatusColor, getContextColor, formatActiveTime } from '../utils/theme';
 import { gitService } from '../services/git';
@@ -140,6 +140,25 @@ export function SessionList(props: SessionListProps) {
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [menuOpen]);
+
+  // Close overlays/menus with Escape key
+  useEffect(() => {
+    const handleEscKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (liveOverlayOpen) {
+          setLiveOverlayOpen(false);
+          e.stopPropagation();
+        } else if (menuOpen) {
+          setMenuOpen(false);
+          e.stopPropagation();
+        }
+      }
+    };
+    if (liveOverlayOpen || menuOpen) {
+      document.addEventListener('keydown', handleEscKey);
+      return () => document.removeEventListener('keydown', handleEscKey);
+    }
+  }, [liveOverlayOpen, menuOpen]);
 
   // Track git file change counts per session
   const [gitFileCounts, setGitFileCounts] = useState<Map<string, number>>(new Map());
@@ -338,12 +357,11 @@ export function SessionList(props: SessionListProps) {
                           Scan with Mobile
                         </div>
                         <div className="p-2 rounded" style={{ backgroundColor: 'white' }}>
-                          <QRCode
+                          <QRCodeSVG
                             value={webInterfaceUrl}
                             size={100}
                             bgColor="#FFFFFF"
                             fgColor="#000000"
-                            alt="Scan to open on mobile"
                           />
                         </div>
                       </div>

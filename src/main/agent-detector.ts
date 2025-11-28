@@ -68,15 +68,35 @@ const AGENT_DEFINITIONS: Omit<AgentConfig, 'available' | 'path'>[] = [
 
 export class AgentDetector {
   private cachedAgents: AgentConfig[] | null = null;
+  private detectionInProgress: Promise<AgentConfig[]> | null = null;
 
   /**
    * Detect which agents are available on the system
+   * Uses promise deduplication to prevent parallel detection when multiple calls arrive simultaneously
    */
   async detectAgents(): Promise<AgentConfig[]> {
     if (this.cachedAgents) {
       return this.cachedAgents;
     }
 
+    // If detection is already in progress, return the same promise to avoid parallel runs
+    if (this.detectionInProgress) {
+      return this.detectionInProgress;
+    }
+
+    // Start detection and track the promise
+    this.detectionInProgress = this.doDetectAgents();
+    try {
+      return await this.detectionInProgress;
+    } finally {
+      this.detectionInProgress = null;
+    }
+  }
+
+  /**
+   * Internal method that performs the actual agent detection
+   */
+  private async doDetectAgents(): Promise<AgentConfig[]> {
     const agents: AgentConfig[] = [];
     const expandedEnv = this.getExpandedEnv();
 

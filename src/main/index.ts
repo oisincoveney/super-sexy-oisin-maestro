@@ -384,20 +384,50 @@ app.whenReady().then(() => {
     return result;
   });
 
-  // Set up callback for web server to interrupt sessions
-  // Note: Interrupts go to the AI process (the one that's typically "busy")
-  webServer.setInterruptSessionCallback((sessionId: string) => {
-    if (!processManager) return false;
+  // Set up callback for web server to execute commands through the desktop
+  // This forwards AI commands to the renderer, ensuring single source of truth
+  // The renderer handles all spawn logic, state management, and broadcasts
+  webServer.setExecuteCommandCallback(async (sessionId: string, command: string) => {
+    if (!mainWindow) {
+      console.log('[executeCommand] mainWindow is null');
+      return false;
+    }
 
-    // Get session's inputMode to determine which process to interrupt
-    const sessions = sessionsStore.get('sessions', []);
-    const session = sessions.find((s: any) => s.id === sessionId);
-    if (!session) return false;
+    // Forward to renderer - it will handle spawn, state, and everything else
+    // This ensures web commands go through exact same code path as desktop commands
+    console.log(`[executeCommand] Forwarding command to renderer for session ${sessionId}`);
+    mainWindow.webContents.send('remote:executeCommand', sessionId, command);
+    return true;
+  });
 
-    // Interrupt the process based on current inputMode
-    const targetSessionId = session.inputMode === 'ai' ? `${sessionId}-ai` : `${sessionId}-terminal`;
-    console.log(`[interrupt] Interrupting ${targetSessionId}`);
-    return processManager.interrupt(targetSessionId);
+  // Set up callback for web server to interrupt sessions through the desktop
+  // This forwards to the renderer which handles state updates and broadcasts
+  webServer.setInterruptSessionCallback(async (sessionId: string) => {
+    if (!mainWindow) {
+      console.log('[interrupt] mainWindow is null');
+      return false;
+    }
+
+    // Forward to renderer - it will handle interrupt, state update, and broadcasts
+    // This ensures web interrupts go through exact same code path as desktop interrupts
+    console.log(`[interrupt] Forwarding interrupt to renderer for session ${sessionId}`);
+    mainWindow.webContents.send('remote:interrupt', sessionId);
+    return true;
+  });
+
+  // Set up callback for web server to switch session mode through the desktop
+  // This forwards to the renderer which handles state updates and broadcasts
+  webServer.setSwitchModeCallback(async (sessionId: string, mode: 'ai' | 'terminal') => {
+    if (!mainWindow) {
+      console.log('[switchMode] mainWindow is null');
+      return false;
+    }
+
+    // Forward to renderer - it will handle mode switch and broadcasts
+    // This ensures web mode switches go through exact same code path as desktop
+    console.log(`[switchMode] Forwarding mode switch to renderer for session ${sessionId}: ${mode}`);
+    mainWindow.webContents.send('remote:switchMode', sessionId, mode);
+    return true;
   });
 
   logger.info('Core services initialized', 'Startup');
@@ -860,6 +890,12 @@ function setupIpcHandlers() {
       return [];
     }
     return webServer.getLiveSessions();
+  });
+
+  ipcMain.handle('live:broadcastActiveSession', async (_, sessionId: string) => {
+    if (webServer) {
+      webServer.broadcastActiveSessionChange(sessionId);
+    }
   });
 
   // Web server management

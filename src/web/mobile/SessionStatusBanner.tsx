@@ -37,24 +37,6 @@ export interface SessionStatusBannerProps {
 }
 
 /**
- * Get a human-readable status label based on session state
- */
-function getStatusLabel(state: string): string {
-  switch (state) {
-    case 'idle':
-      return 'Ready';
-    case 'busy':
-      return 'Thinking...';
-    case 'connecting':
-      return 'Connecting...';
-    case 'error':
-      return 'Error';
-    default:
-      return 'Unknown';
-  }
-}
-
-/**
  * Truncate a file path for display, preserving the most relevant parts
  * Shows ".../<parent>/<current>" format for long paths
  */
@@ -605,7 +587,6 @@ export function SessionStatusBanner({
       ? sessionState as SessionStatus
       : 'error';
   const isThinking = sessionState === 'busy';
-  const statusLabel = getStatusLabel(sessionState);
   const truncatedCwd = truncatePath(session.cwd);
 
   // Access lastResponse from session (if available from web data)
@@ -623,7 +604,7 @@ export function SessionStatusBanner({
       }}
       role="status"
       aria-live="polite"
-      aria-label={`Current session: ${session.name}, status: ${statusLabel}`}
+      aria-label={`Current session: ${session.name}, status: ${status}`}
     >
       {/* Main status row */}
       <div
@@ -705,36 +686,43 @@ export function SessionStatusBanner({
           </span>
         </div>
 
-        {/* Right side: Status indicator */}
+        {/* Right side: Session ID pill + Status indicator */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
+            gap: '8px',
             flexShrink: 0,
             paddingLeft: '12px',
           }}
         >
-          <StatusDot status={status} size="sm" />
+          {/* Session ID pill */}
           <span
             style={{
-              fontSize: '12px',
-              fontWeight: 500,
-              color:
-                status === 'idle'
-                  ? colors.success
-                  : status === 'busy'
-                    ? colors.warning
-                    : status === 'connecting'
-                      ? '#f97316' // Orange
-                      : colors.error,
+              fontSize: '9px',
+              fontFamily: 'monospace',
+              color: colors.textDim,
+              backgroundColor: `${colors.textDim}15`,
+              padding: '2px 6px',
+              borderRadius: '4px',
+              letterSpacing: '0.5px',
+            }}
+            title={`Session ID: ${session.id}`}
+          >
+            {session.id.slice(0, 8)}
+          </span>
+
+          {/* Status dot only (no text for idle) */}
+          <div
+            style={{
               display: 'flex',
               alignItems: 'center',
+              gap: '4px',
             }}
           >
-            {statusLabel}
+            <StatusDot status={status} size="sm" />
             {isThinking && <ThinkingIndicator />}
-          </span>
+          </div>
         </div>
       </div>
 

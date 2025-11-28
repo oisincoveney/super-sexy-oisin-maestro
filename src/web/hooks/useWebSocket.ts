@@ -55,6 +55,7 @@ export interface SessionData {
   groupEmoji?: string | null;
   usageStats?: UsageStats | null;
   lastResponse?: LastResponsePreview | null;
+  claudeSessionId?: string | null;
 }
 
 /**
@@ -69,6 +70,7 @@ export type ServerMessageType =
   | 'session_state_change'
   | 'session_added'
   | 'session_removed'
+  | 'active_session_changed'
   | 'theme'
   | 'pong'
   | 'subscribed'
@@ -158,6 +160,15 @@ export interface SessionRemovedMessage extends ServerMessage {
 }
 
 /**
+ * Active session changed message from server
+ * Sent when the desktop app switches to a different session
+ */
+export interface ActiveSessionChangedMessage extends ServerMessage {
+  type: 'active_session_changed';
+  sessionId: string;
+}
+
+/**
  * Theme message from server
  */
 export interface ThemeMessage extends ServerMessage {
@@ -185,6 +196,7 @@ export type TypedServerMessage =
   | SessionStateChangeMessage
   | SessionAddedMessage
   | SessionRemovedMessage
+  | ActiveSessionChangedMessage
   | ThemeMessage
   | ErrorMessage
   | ServerMessage;
@@ -201,6 +213,8 @@ export interface WebSocketEventHandlers {
   onSessionAdded?: (session: SessionData) => void;
   /** Called when a session is removed */
   onSessionRemoved?: (sessionId: string) => void;
+  /** Called when the active session changes on the desktop */
+  onActiveSessionChanged?: (sessionId: string) => void;
   /** Called when theme is received or updated */
   onThemeUpdate?: (theme: Theme) => void;
   /** Called when connection state changes */
@@ -446,6 +460,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
         case 'session_removed': {
           const removedMsg = message as SessionRemovedMessage;
           handlersRef.current?.onSessionRemoved?.(removedMsg.sessionId);
+          break;
+        }
+
+        case 'active_session_changed': {
+          const activeMsg = message as ActiveSessionChangedMessage;
+          handlersRef.current?.onActiveSessionChanged?.(activeMsg.sessionId);
           break;
         }
 

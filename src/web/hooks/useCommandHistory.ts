@@ -208,7 +208,18 @@ export function useCommandHistory(
   );
 
   /**
-   * Get unique commands (deduplicated by command text, most recent first)
+   * Normalize command for deduplication comparison
+   * - Lowercase
+   * - Trim whitespace
+   * - Remove trailing punctuation (?, !, .)
+   */
+  const normalizeForDedup = useCallback((command: string): string => {
+    return command.toLowerCase().trim().replace(/[?!.]+$/, '');
+  }, []);
+
+  /**
+   * Get unique commands (deduplicated by normalized text, most recent first)
+   * Deduplication ignores case and trailing punctuation
    */
   const getUniqueCommands = useCallback(
     (count = 5): CommandHistoryEntry[] => {
@@ -216,8 +227,9 @@ export function useCommandHistory(
       const unique: CommandHistoryEntry[] = [];
 
       for (const entry of history) {
-        if (!seen.has(entry.command)) {
-          seen.add(entry.command);
+        const normalized = normalizeForDedup(entry.command);
+        if (!seen.has(normalized)) {
+          seen.add(normalized);
           unique.push(entry);
           if (unique.length >= count) break;
         }
@@ -225,7 +237,7 @@ export function useCommandHistory(
 
       return unique;
     },
-    [history]
+    [history, normalizeForDedup]
   );
 
   /**

@@ -83,6 +83,25 @@ contextBridge.exposeInMainWorld('maestro', {
       ipcRenderer.on('process:session-id', handler);
       return () => ipcRenderer.removeListener('process:session-id', handler);
     },
+    // Remote command execution from web interface
+    // This allows web commands to go through the same code path as desktop commands
+    onRemoteCommand: (callback: (sessionId: string, command: string) => void) => {
+      const handler = (_: any, sessionId: string, command: string) => callback(sessionId, command);
+      ipcRenderer.on('remote:executeCommand', handler);
+      return () => ipcRenderer.removeListener('remote:executeCommand', handler);
+    },
+    // Remote mode switch from web interface - forwards to desktop's toggleInputMode logic
+    onRemoteSwitchMode: (callback: (sessionId: string, mode: 'ai' | 'terminal') => void) => {
+      const handler = (_: any, sessionId: string, mode: 'ai' | 'terminal') => callback(sessionId, mode);
+      ipcRenderer.on('remote:switchMode', handler);
+      return () => ipcRenderer.removeListener('remote:switchMode', handler);
+    },
+    // Remote interrupt from web interface - forwards to desktop's handleInterrupt logic
+    onRemoteInterrupt: (callback: (sessionId: string) => void) => {
+      const handler = (_: any, sessionId: string) => callback(sessionId);
+      ipcRenderer.on('remote:interrupt', handler);
+      return () => ipcRenderer.removeListener('remote:interrupt', handler);
+    },
     // Stderr listener for runCommand (separate stream)
     onStderr: (callback: (sessionId: string, data: string) => void) => {
       const handler = (_: any, sessionId: string, data: string) => callback(sessionId, data);
@@ -143,6 +162,8 @@ contextBridge.exposeInMainWorld('maestro', {
     getStatus: (sessionId: string) => ipcRenderer.invoke('live:getStatus', sessionId),
     getDashboardUrl: () => ipcRenderer.invoke('live:getDashboardUrl'),
     getLiveSessions: () => ipcRenderer.invoke('live:getLiveSessions'),
+    broadcastActiveSession: (sessionId: string) =>
+      ipcRenderer.invoke('live:broadcastActiveSession', sessionId),
   },
 
   // Agent API
@@ -277,6 +298,9 @@ export interface MaestroAPI {
     onData: (callback: (sessionId: string, data: string) => void) => () => void;
     onExit: (callback: (sessionId: string, code: number) => void) => () => void;
     onSessionId: (callback: (sessionId: string, claudeSessionId: string) => void) => () => void;
+    onRemoteCommand: (callback: (sessionId: string, command: string) => void) => () => void;
+    onRemoteSwitchMode: (callback: (sessionId: string, mode: 'ai' | 'terminal') => void) => () => void;
+    onRemoteInterrupt: (callback: (sessionId: string) => void) => () => void;
     onStderr: (callback: (sessionId: string, data: string) => void) => () => void;
     onCommandExit: (callback: (sessionId: string, code: number) => void) => () => void;
     onUsage: (callback: (sessionId: string, usageStats: {
