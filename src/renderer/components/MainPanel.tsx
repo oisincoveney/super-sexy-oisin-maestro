@@ -44,6 +44,10 @@ interface MainPanelProps {
   slashCommandOpen: boolean;
   slashCommands: SlashCommand[];
   selectedSlashCommandIndex: number;
+  // Tab completion props
+  tabCompletionOpen?: boolean;
+  tabCompletionSuggestions?: import('../hooks/useTabCompletion').TabCompletionSuggestion[];
+  selectedTabCompletionIndex?: number;
   previewFile: { name: string; content: string; path: string } | null;
   markdownRawMode: boolean;
   shortcuts: Record<string, Shortcut>;
@@ -72,6 +76,9 @@ interface MainPanelProps {
   setCommandHistorySelectedIndex: (index: number) => void;
   setSlashCommandOpen: (open: boolean) => void;
   setSelectedSlashCommandIndex: (index: number) => void;
+  // Tab completion setters
+  setTabCompletionOpen?: (open: boolean) => void;
+  setSelectedTabCompletionIndex?: (index: number) => void;
   setPreviewFile: (file: { name: string; content: string; path: string } | null) => void;
   setMarkdownRawMode: (mode: boolean) => void;
   setAboutModalOpen: (open: boolean) => void;
@@ -115,6 +122,8 @@ export function MainPanel(props: MainPanelProps) {
     logViewerOpen, agentSessionsOpen, activeClaudeSessionId, activeSession, theme, activeFocus, outputSearchOpen, outputSearchQuery,
     inputValue, enterToSendAI, enterToSendTerminal, stagedImages, commandHistoryOpen, commandHistoryFilter,
     commandHistorySelectedIndex, slashCommandOpen, slashCommands, selectedSlashCommandIndex,
+    tabCompletionOpen, tabCompletionSuggestions, selectedTabCompletionIndex,
+    setTabCompletionOpen, setSelectedTabCompletionIndex,
     previewFile, markdownRawMode, shortcuts, rightPanelOpen, maxOutputLines, gitDiffPreview,
     fileTreeFilterOpen, setGitDiffPreview, setLogViewerOpen, setAgentSessionsOpen, setActiveClaudeSessionId,
     onResumeClaudeSession, onNewClaudeSession, setActiveFocus, setOutputSearchOpen, setOutputSearchQuery,
@@ -943,6 +952,11 @@ export function MainPanel(props: MainPanelProps) {
                 slashCommands={slashCommands}
                 selectedSlashCommandIndex={selectedSlashCommandIndex}
                 setSelectedSlashCommandIndex={setSelectedSlashCommandIndex}
+                tabCompletionOpen={tabCompletionOpen}
+                setTabCompletionOpen={setTabCompletionOpen}
+                tabCompletionSuggestions={tabCompletionSuggestions}
+                selectedTabCompletionIndex={selectedTabCompletionIndex}
+                setSelectedTabCompletionIndex={setSelectedTabCompletionIndex}
                 inputRef={inputRef}
                 handleInputKeyDown={handleInputKeyDown}
                 handlePaste={handlePaste}

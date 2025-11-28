@@ -22,6 +22,7 @@ import { BatchRunnerModal } from './components/BatchRunnerModal';
 // Import custom hooks
 import { useBatchProcessor } from './hooks/useBatchProcessor';
 import { useSettings, useActivityTracker } from './hooks';
+import { useTabCompletion } from './hooks/useTabCompletion';
 
 // Import contexts
 import { useLayerStack } from './contexts/LayerStackContext';
@@ -194,6 +195,10 @@ export default function MaestroConsole() {
   const [commandHistoryOpen, setCommandHistoryOpen] = useState(false);
   const [commandHistoryFilter, setCommandHistoryFilter] = useState('');
   const [commandHistorySelectedIndex, setCommandHistorySelectedIndex] = useState(0);
+
+  // Tab Completion State (terminal mode only)
+  const [tabCompletionOpen, setTabCompletionOpen] = useState(false);
+  const [selectedTabCompletionIndex, setSelectedTabCompletionIndex] = useState(0);
 
   // Flash notification state (for inline notifications like "Commands disabled while agent is working")
   const [flashNotification, setFlashNotification] = useState<string | null>(null);
@@ -903,6 +908,15 @@ export default function MaestroConsole() {
     [sessions, activeSessionId]
   );
   const theme = THEMES[activeThemeId];
+
+  // Tab completion hook for terminal mode
+  const { getSuggestions: getTabCompletionSuggestions } = useTabCompletion(activeSession);
+  const tabCompletionSuggestions = useMemo(() => {
+    if (!tabCompletionOpen || !activeSession || activeSession.inputMode !== 'terminal') {
+      return [];
+    }
+    return getTabCompletionSuggestions(inputValue);
+  }, [tabCompletionOpen, activeSession, inputValue, getTabCompletionSuggestions]);
 
   // Broadcast active session change to web clients
   useEffect(() => {
@@ -1997,6 +2011,9 @@ export default function MaestroConsole() {
       if (s.id !== activeSessionId) return s;
       return { ...s, inputMode: s.inputMode === 'ai' ? 'terminal' : 'ai' };
     }));
+    // Close any open dropdowns when switching modes
+    setTabCompletionOpen(false);
+    setSlashCommandOpen(false);
   };
 
   // Toggle global live mode (enables web interface for all sessions)
@@ -2957,6 +2974,39 @@ export default function MaestroConsole() {
       return; // Let the modal handle keys
     }
 
+    // Handle tab completion dropdown (terminal mode only)
+    if (tabCompletionOpen && activeSession?.inputMode === 'terminal') {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedTabCompletionIndex(prev =>
+          Math.min(prev + 1, tabCompletionSuggestions.length - 1)
+        );
+        return;
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedTabCompletionIndex(prev => Math.max(prev - 1, 0));
+        return;
+      } else if (e.key === 'Tab') {
+        e.preventDefault();
+        if (tabCompletionSuggestions[selectedTabCompletionIndex]) {
+          setInputValue(tabCompletionSuggestions[selectedTabCompletionIndex].value);
+        }
+        setTabCompletionOpen(false);
+        return;
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (tabCompletionSuggestions[selectedTabCompletionIndex]) {
+          setInputValue(tabCompletionSuggestions[selectedTabCompletionIndex].value);
+        }
+        setTabCompletionOpen(false);
+        return;
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setTabCompletionOpen(false);
+        return;
+      }
+    }
+
     // Handle slash command autocomplete
     if (slashCommandOpen) {
       const isTerminalMode = activeSession.inputMode === 'terminal';
@@ -3079,6 +3129,23 @@ export default function MaestroConsole() {
         setCommandHistoryOpen(true);
         setCommandHistoryFilter(inputValue);
         setCommandHistorySelectedIndex(0);
+      }
+    } else if (e.key === 'Tab') {
+      // Tab completion only in terminal mode when not showing slash commands
+      if (activeSession?.inputMode === 'terminal' && !slashCommandOpen && inputValue.trim()) {
+        e.preventDefault();
+        // Get suggestions and show dropdown if there are any
+        const suggestions = getTabCompletionSuggestions(inputValue);
+        if (suggestions.length > 0) {
+          // If only one suggestion, auto-complete it
+          if (suggestions.length === 1) {
+            setInputValue(suggestions[0].value);
+          } else {
+            // Show dropdown for multiple suggestions
+            setSelectedTabCompletionIndex(0);
+            setTabCompletionOpen(true);
+          }
+        }
       }
     }
   };
@@ -3750,6 +3817,11 @@ export default function MaestroConsole() {
         setCommandHistorySelectedIndex={setCommandHistorySelectedIndex}
         setSlashCommandOpen={setSlashCommandOpen}
         setSelectedSlashCommandIndex={setSelectedSlashCommandIndex}
+        tabCompletionOpen={tabCompletionOpen}
+        setTabCompletionOpen={setTabCompletionOpen}
+        tabCompletionSuggestions={tabCompletionSuggestions}
+        selectedTabCompletionIndex={selectedTabCompletionIndex}
+        setSelectedTabCompletionIndex={setSelectedTabCompletionIndex}
         setPreviewFile={setPreviewFile}
         setMarkdownRawMode={setMarkdownRawMode}
         setAboutModalOpen={setAboutModalOpen}
