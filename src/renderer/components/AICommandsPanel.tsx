@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Edit2, Save, X, Terminal, Lock, ChevronDown, ChevronRight, Variable } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, X, Terminal, Lock, ChevronDown, ChevronRight, Variable, Zap } from 'lucide-react';
 import type { Theme, CustomAICommand } from '../types';
 import { TEMPLATE_VARIABLES } from '../utils/templateVariables';
+import { slashCommands } from '../slashCommands';
 
 interface AICommandsPanelProps {
   theme: Theme;
@@ -143,6 +144,62 @@ export function AICommandsPanel({ theme, customAICommands, setCustomAICommands }
             </div>
           </div>
         )}
+      </div>
+
+      {/* Built-in System Commands (read-only) */}
+      <div
+        className="rounded-lg border overflow-hidden"
+        style={{ backgroundColor: theme.colors.bgMain, borderColor: theme.colors.border }}
+      >
+        <div className="px-3 py-2 flex items-center gap-2 border-b" style={{ borderColor: theme.colors.border }}>
+          <Zap className="w-3.5 h-3.5" style={{ color: theme.colors.warning }} />
+          <span className="text-xs font-bold uppercase" style={{ color: theme.colors.textDim }}>
+            Built-in System Commands
+          </span>
+        </div>
+        <div className="p-3 space-y-2">
+          <p className="text-[10px] mb-2" style={{ color: theme.colors.textDim }}>
+            These commands are built into the system and perform special actions. They cannot be edited or deleted.
+          </p>
+          {slashCommands.map((cmd) => (
+            <div
+              key={cmd.command}
+              className="flex items-center justify-between py-1.5 px-2 rounded"
+              style={{ backgroundColor: theme.colors.bgActivity }}
+            >
+              <div className="flex items-center gap-3">
+                <code
+                  className="text-xs font-mono font-bold px-1.5 py-0.5 rounded"
+                  style={{ backgroundColor: theme.colors.bgSidebar, color: theme.colors.warning }}
+                >
+                  {cmd.command}
+                </code>
+                <span className="text-xs" style={{ color: theme.colors.textMain }}>
+                  {cmd.description}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                {cmd.aiOnly && (
+                  <span
+                    className="text-[9px] px-1.5 py-0.5 rounded font-medium"
+                    style={{ backgroundColor: theme.colors.accent + '20', color: theme.colors.accent }}
+                  >
+                    AI
+                  </span>
+                )}
+                {cmd.terminalOnly && (
+                  <span
+                    className="text-[9px] px-1.5 py-0.5 rounded font-medium"
+                    style={{ backgroundColor: theme.colors.success + '20', color: theme.colors.success }}
+                  >
+                    Terminal
+                  </span>
+                )}
+                <Lock className="w-3 h-3 ml-1" style={{ color: theme.colors.textDim }} />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {!isCreating && (

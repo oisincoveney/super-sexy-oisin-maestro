@@ -24,6 +24,7 @@ interface MainPanelProps {
   activeSession: Session | null;
   theme: Theme;
   fontFamily: string;
+  isMobileLandscape?: boolean;
   activeFocus: FocusArea;
   outputSearchOpen: boolean;
   outputSearchQuery: string;
@@ -126,7 +127,8 @@ export function MainPanel(props: MainPanelProps) {
     setAboutModalOpen, setRightPanelOpen, setGitLogOpen, inputRef, logsEndRef, terminalOutputRef,
     fileTreeContainerRef, fileTreeFilterInputRef, toggleInputMode, processInput, handleInterrupt,
     handleInputKeyDown, handlePaste, handleDrop, getContextColor, setActiveSessionId,
-    batchRunState, onStopBatchRun, showConfirmation, onRemoveQueuedMessage
+    batchRunState, onStopBatchRun, showConfirmation, onRemoveQueuedMessage,
+    isMobileLandscape = false
   } = props;
 
   const isAutoModeActive = batchRunState?.isRunning || false;
@@ -411,7 +413,8 @@ export function MainPanel(props: MainPanelProps) {
           style={{ backgroundColor: theme.colors.bgMain, ringColor: theme.colors.accent }}
           onClick={() => setActiveFocus('main')}
         >
-          {/* Top Bar */}
+          {/* Top Bar (hidden in mobile landscape for focused reading) */}
+          {!isMobileLandscape && (
           <div ref={headerRef} className="h-16 border-b flex items-center justify-between px-6 shrink-0" style={{ borderColor: theme.colors.border, backgroundColor: theme.colors.bgSidebar }}>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2 text-sm font-medium">
@@ -988,48 +991,59 @@ export function MainPanel(props: MainPanelProps) {
                     >
                       Recent Sessions
                     </div>
-                    <div className="max-h-64 overflow-y-auto scrollbar-thin">
-                      {recentClaudeSessions.slice(0, 5).map((session) => (
-                        <button
-                          key={session.sessionId}
-                          onClick={() => {
-                            onResumeRecentSession(session.sessionId);
-                            setSessionsTooltipOpen(false);
-                          }}
-                          className="w-full text-left px-3 py-2 hover:bg-white/5 transition-colors flex items-center gap-2"
-                        >
-                          <Play className="w-3 h-3 shrink-0" style={{ color: theme.colors.accent }} />
-                          <div className="flex-1 min-w-0">
-                            {session.sessionName ? (
-                              <>
-                                <div className="text-xs font-medium truncate" style={{ color: theme.colors.textMain }}>
-                                  {session.sessionName}
-                                </div>
-                                <div className="text-[10px] truncate" style={{ color: theme.colors.textDim }}>
+                    <div className="max-h-80 overflow-y-auto scrollbar-thin">
+                      {recentClaudeSessions.slice(0, 8).map((session) => {
+                        const isStarred = starredSessions.has(session.sessionId);
+                        const sessionName = namedSessions[session.sessionId] || session.sessionName;
+                        const hasName = !!sessionName;
+
+                        return (
+                          <button
+                            key={session.sessionId}
+                            onClick={() => {
+                              onResumeRecentSession(session.sessionId);
+                              setSessionsTooltipOpen(false);
+                            }}
+                            className="w-full text-left px-3 py-2 hover:bg-white/5 transition-colors flex items-center gap-2"
+                          >
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Play className="w-3 h-3" style={{ color: theme.colors.accent }} />
+                              {isStarred && (
+                                <Star className="w-3 h-3 fill-current" style={{ color: theme.colors.warning }} />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              {hasName ? (
+                                <>
+                                  <div className="text-xs font-medium truncate" style={{ color: theme.colors.textMain }}>
+                                    {sessionName}
+                                  </div>
+                                  <div className="text-[10px] truncate" style={{ color: theme.colors.textDim }}>
+                                    {session.firstMessage || `Session ${session.sessionId.slice(0, 8)}...`}
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="text-xs truncate" style={{ color: theme.colors.textMain }}>
                                   {session.firstMessage || `Session ${session.sessionId.slice(0, 8)}...`}
                                 </div>
-                              </>
-                            ) : (
-                              <div className="text-xs truncate" style={{ color: theme.colors.textMain }}>
-                                {session.firstMessage || `Session ${session.sessionId.slice(0, 8)}...`}
+                              )}
+                              <div className="text-[10px]" style={{ color: theme.colors.textDim }}>
+                                {(() => {
+                                  const date = new Date(session.timestamp);
+                                  const now = new Date();
+                                  const diffMs = now.getTime() - date.getTime();
+                                  const diffMins = Math.floor(diffMs / 60000);
+                                  const diffHours = Math.floor(diffMins / 60);
+                                  if (diffMins < 1) return 'just now';
+                                  if (diffMins < 60) return `${diffMins}m ago`;
+                                  if (diffHours < 24) return `${diffHours}h ago`;
+                                  return date.toLocaleDateString();
+                                })()}
                               </div>
-                            )}
-                            <div className="text-[10px]" style={{ color: theme.colors.textDim }}>
-                              {(() => {
-                                const date = new Date(session.timestamp);
-                                const now = new Date();
-                                const diffMs = now.getTime() - date.getTime();
-                                const diffMins = Math.floor(diffMs / 60000);
-                                const diffHours = Math.floor(diffMins / 60);
-                                if (diffMins < 1) return 'just now';
-                                if (diffMins < 60) return `${diffMins}m ago`;
-                                if (diffHours < 24) return `${diffHours}h ago`;
-                                return date.toLocaleDateString();
-                              })()}
                             </div>
-                          </div>
-                        </button>
-                      ))}
+                          </button>
+                        );
+                      })}
                     </div>
                       <div
                         className="px-3 py-2 text-xs border-t text-center cursor-pointer hover:bg-white/5"
@@ -1053,6 +1067,7 @@ export function MainPanel(props: MainPanelProps) {
               )}
             </div>
           </div>
+          )}
 
           {/* Show File Preview in main area when open, otherwise show terminal output and input */}
           {previewFile ? (
@@ -1101,7 +1116,8 @@ export function MainPanel(props: MainPanelProps) {
                 audioFeedbackCommand={props.audioFeedbackCommand}
               />
 
-              {/* Input Area */}
+              {/* Input Area (hidden in mobile landscape for focused reading) */}
+              {!isMobileLandscape && (
               <InputArea
                 session={activeSession}
                 theme={theme}
@@ -1138,6 +1154,7 @@ export function MainPanel(props: MainPanelProps) {
                 onInputFocus={handleInputFocus}
                 isAutoModeActive={isAutoModeActive}
               />
+              )}
             </>
           )}
 

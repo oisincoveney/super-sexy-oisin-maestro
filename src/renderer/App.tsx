@@ -21,7 +21,7 @@ import { BatchRunnerModal } from './components/BatchRunnerModal';
 
 // Import custom hooks
 import { useBatchProcessor } from './hooks/useBatchProcessor';
-import { useSettings, useActivityTracker } from './hooks';
+import { useSettings, useActivityTracker, useMobileLandscape } from './hooks';
 import { useTabCompletion } from './hooks/useTabCompletion';
 
 // Import contexts
@@ -65,6 +65,9 @@ export default function MaestroConsole() {
 
   // --- TOAST NOTIFICATIONS ---
   const { addToast, setDefaultDuration: setToastDefaultDuration } = useToast();
+
+  // --- MOBILE LANDSCAPE MODE (reading-only view) ---
+  const isMobileLandscape = useMobileLandscape();
 
   // --- SETTINGS (from useSettings hook) ---
   const settings = useSettings();
@@ -1343,6 +1346,48 @@ export default function MaestroConsole() {
       setAgentSessionsOpen(true);
     }
   }, [activeSession]);
+
+  // Handler to resume a Claude session directly (loads messages into main panel)
+  const handleResumeSession = useCallback(async (claudeSessionId: string) => {
+    if (!activeSession?.cwd) return;
+
+    try {
+      // Load the session messages
+      const result = await window.maestro.claude.readSessionMessages(
+        activeSession.cwd,
+        claudeSessionId,
+        { offset: 0, limit: 100 }
+      );
+
+      // Convert to log entries
+      const messages: LogEntry[] = result.messages.map((msg: { type: string; content: string; timestamp: string; uuid: string }) => ({
+        id: msg.uuid || generateId(),
+        timestamp: new Date(msg.timestamp).getTime(),
+        source: msg.type === 'user' ? 'user' as const : 'stdout' as const,
+        text: msg.content || ''
+      }));
+
+      // Update the session
+      setSessions(prev => prev.map(s => {
+        if (s.id !== activeSession.id) return s;
+        // Move the session to front of recent list if it exists
+        const existingRecent = s.recentClaudeSessions || [];
+        const recentSession = existingRecent.find(r => r.sessionId === claudeSessionId);
+        const firstMessage = messages.find(m => m.source === 'user')?.text || '';
+        const newRecentEntry = {
+          sessionId: claudeSessionId,
+          firstMessage: firstMessage.slice(0, 100),
+          timestamp: new Date().toISOString()
+        };
+        const filtered = existingRecent.filter(r => r.sessionId !== claudeSessionId);
+        const updatedRecent = [recentSession ? { ...recentSession, timestamp: new Date().toISOString() } : newRecentEntry, ...filtered].slice(0, 10);
+        return { ...s, claudeSessionId, aiLogs: messages, state: 'idle', inputMode: 'ai', recentClaudeSessions: updatedRecent };
+      }));
+      setActiveClaudeSessionId(claudeSessionId);
+    } catch (error) {
+      console.error('Failed to resume session:', error);
+    }
+  }, [activeSession?.cwd, activeSession?.id]);
 
   // Handler to open lightbox with optional context images for navigation
   const handleSetLightboxImage = useCallback((image: string | null, contextImages?: string[]) => {
@@ -3506,7 +3551,7 @@ export default function MaestroConsole() {
   }, [activeFocus, activeRightTab, flatFileList, selectedFileIndex, activeSession?.fileExplorerExpanded, activeSessionId, setSessions, toggleFolder, handleFileClick]);
 
   return (
-      <div className="flex h-screen w-full font-mono overflow-hidden transition-colors duration-300 pt-10"
+      <div className={`flex h-screen w-full font-mono overflow-hidden transition-colors duration-300 ${isMobileLandscape ? 'pt-0' : 'pt-10'}`}
            style={{
              backgroundColor: theme.colors.bgMain,
              color: theme.colors.textMain,
@@ -3514,13 +3559,15 @@ export default function MaestroConsole() {
              fontSize: `${fontSize}px`
            }}>
 
-      {/* --- DRAGGABLE TITLE BAR --- */}
+      {/* --- DRAGGABLE TITLE BAR (hidden in mobile landscape) --- */}
+      {!isMobileLandscape && (
       <div
         className="fixed top-0 left-0 right-0 h-10"
         style={{
           WebkitAppRegion: 'drag',
         } as React.CSSProperties}
       />
+      )}
 
       {/* --- MODALS --- */}
       {quickActionOpen && (
@@ -3700,54 +3747,56 @@ export default function MaestroConsole() {
         />
       )}
 
-      {/* --- LEFT SIDEBAR --- */}
-      <ErrorBoundary>
-        <SessionList
-          theme={theme}
-          sessions={sessions}
-          groups={groups}
-          sortedSessions={sortedSessions}
-          activeSessionId={activeSessionId}
-          leftSidebarOpen={leftSidebarOpen}
-          leftSidebarWidthState={leftSidebarWidth}
-          activeFocus={activeFocus}
-          selectedSidebarIndex={selectedSidebarIndex}
-          editingGroupId={editingGroupId}
-          editingSessionId={editingSessionId}
-          draggingSessionId={draggingSessionId}
-          shortcuts={shortcuts}
-          isLiveMode={isLiveMode}
-          webInterfaceUrl={webInterfaceUrl}
-          toggleGlobalLive={toggleGlobalLive}
-          bookmarksCollapsed={bookmarksCollapsed}
-          setBookmarksCollapsed={setBookmarksCollapsed}
-          setActiveFocus={setActiveFocus}
-          setActiveSessionId={setActiveSessionId}
-          setLeftSidebarOpen={setLeftSidebarOpen}
-          setLeftSidebarWidthState={setLeftSidebarWidth}
-          setShortcutsHelpOpen={setShortcutsHelpOpen}
-          setSettingsModalOpen={setSettingsModalOpen}
-          setSettingsTab={setSettingsTab}
-          setAboutModalOpen={setAboutModalOpen}
-          setLogViewerOpen={setLogViewerOpen}
-          setProcessMonitorOpen={setProcessMonitorOpen}
-          toggleGroup={toggleGroup}
-          handleDragStart={handleDragStart}
-          handleDragOver={handleDragOver}
-          handleDropOnGroup={handleDropOnGroup}
-          handleDropOnUngrouped={handleDropOnUngrouped}
-          finishRenamingGroup={finishRenamingGroup}
-          finishRenamingSession={finishRenamingSession}
-          startRenamingGroup={startRenamingGroup}
-          startRenamingSession={startRenamingSession}
-          showConfirmation={showConfirmation}
-          setGroups={setGroups}
-          setSessions={setSessions}
-          createNewGroup={createNewGroup}
-          addNewSession={addNewSession}
-          activeBatchSessionIds={activeBatchSessionIds}
-        />
-      </ErrorBoundary>
+      {/* --- LEFT SIDEBAR (hidden in mobile landscape) --- */}
+      {!isMobileLandscape && (
+        <ErrorBoundary>
+          <SessionList
+            theme={theme}
+            sessions={sessions}
+            groups={groups}
+            sortedSessions={sortedSessions}
+            activeSessionId={activeSessionId}
+            leftSidebarOpen={leftSidebarOpen}
+            leftSidebarWidthState={leftSidebarWidth}
+            activeFocus={activeFocus}
+            selectedSidebarIndex={selectedSidebarIndex}
+            editingGroupId={editingGroupId}
+            editingSessionId={editingSessionId}
+            draggingSessionId={draggingSessionId}
+            shortcuts={shortcuts}
+            isLiveMode={isLiveMode}
+            webInterfaceUrl={webInterfaceUrl}
+            toggleGlobalLive={toggleGlobalLive}
+            bookmarksCollapsed={bookmarksCollapsed}
+            setBookmarksCollapsed={setBookmarksCollapsed}
+            setActiveFocus={setActiveFocus}
+            setActiveSessionId={setActiveSessionId}
+            setLeftSidebarOpen={setLeftSidebarOpen}
+            setLeftSidebarWidthState={setLeftSidebarWidth}
+            setShortcutsHelpOpen={setShortcutsHelpOpen}
+            setSettingsModalOpen={setSettingsModalOpen}
+            setSettingsTab={setSettingsTab}
+            setAboutModalOpen={setAboutModalOpen}
+            setLogViewerOpen={setLogViewerOpen}
+            setProcessMonitorOpen={setProcessMonitorOpen}
+            toggleGroup={toggleGroup}
+            handleDragStart={handleDragStart}
+            handleDragOver={handleDragOver}
+            handleDropOnGroup={handleDropOnGroup}
+            handleDropOnUngrouped={handleDropOnUngrouped}
+            finishRenamingGroup={finishRenamingGroup}
+            finishRenamingSession={finishRenamingSession}
+            startRenamingGroup={startRenamingGroup}
+            startRenamingSession={startRenamingSession}
+            showConfirmation={showConfirmation}
+            setGroups={setGroups}
+            setSessions={setSessions}
+            createNewGroup={createNewGroup}
+            addNewSession={addNewSession}
+            activeBatchSessionIds={activeBatchSessionIds}
+          />
+        </ErrorBoundary>
+      )}
 
       {/* --- CENTER WORKSPACE --- */}
       <MainPanel
@@ -3757,6 +3806,7 @@ export default function MaestroConsole() {
         activeSession={activeSession}
         theme={theme}
         fontFamily={fontFamily}
+        isMobileLandscape={isMobileLandscape}
         activeFocus={activeFocus}
         outputSearchOpen={outputSearchOpen}
         outputSearchQuery={outputSearchQuery}
@@ -4027,46 +4077,49 @@ export default function MaestroConsole() {
         }}
       />
 
-      {/* --- RIGHT PANEL --- */}
-      <ErrorBoundary>
-        <RightPanel
-          ref={rightPanelRef}
-          session={activeSession}
-          theme={theme}
-          shortcuts={shortcuts}
-          rightPanelOpen={rightPanelOpen}
-          setRightPanelOpen={setRightPanelOpen}
-          rightPanelWidth={rightPanelWidth}
-          setRightPanelWidthState={setRightPanelWidth}
-          activeRightTab={activeRightTab}
-          setActiveRightTab={setActiveRightTab}
-          activeFocus={activeFocus}
-          setActiveFocus={setActiveFocus}
-          fileTreeFilter={fileTreeFilter}
-          setFileTreeFilter={setFileTreeFilter}
-          fileTreeFilterOpen={fileTreeFilterOpen}
-          setFileTreeFilterOpen={setFileTreeFilterOpen}
-          filteredFileTree={filteredFileTree}
-          selectedFileIndex={selectedFileIndex}
-          setSelectedFileIndex={setSelectedFileIndex}
-          previewFile={previewFile}
-          fileTreeContainerRef={fileTreeContainerRef}
-          fileTreeFilterInputRef={fileTreeFilterInputRef}
-          toggleFolder={toggleFolder}
-          handleFileClick={handleFileClick}
-          expandAllFolders={expandAllFolders}
-          collapseAllFolders={collapseAllFolders}
-          updateSessionWorkingDirectory={updateSessionWorkingDirectory}
-          refreshFileTree={refreshFileTree}
-          setSessions={setSessions}
-          updateScratchPad={updateScratchPad}
-          updateScratchPadState={updateScratchPadState}
-          batchRunState={activeBatchRunState}
-          onOpenBatchRunner={handleOpenBatchRunner}
-          onStopBatchRun={handleStopBatchRun}
-          onJumpToClaudeSession={handleJumpToClaudeSession}
-        />
-      </ErrorBoundary>
+      {/* --- RIGHT PANEL (hidden in mobile landscape) --- */}
+      {!isMobileLandscape && (
+        <ErrorBoundary>
+          <RightPanel
+            ref={rightPanelRef}
+            session={activeSession}
+            theme={theme}
+            shortcuts={shortcuts}
+            rightPanelOpen={rightPanelOpen}
+            setRightPanelOpen={setRightPanelOpen}
+            rightPanelWidth={rightPanelWidth}
+            setRightPanelWidthState={setRightPanelWidth}
+            activeRightTab={activeRightTab}
+            setActiveRightTab={setActiveRightTab}
+            activeFocus={activeFocus}
+            setActiveFocus={setActiveFocus}
+            fileTreeFilter={fileTreeFilter}
+            setFileTreeFilter={setFileTreeFilter}
+            fileTreeFilterOpen={fileTreeFilterOpen}
+            setFileTreeFilterOpen={setFileTreeFilterOpen}
+            filteredFileTree={filteredFileTree}
+            selectedFileIndex={selectedFileIndex}
+            setSelectedFileIndex={setSelectedFileIndex}
+            previewFile={previewFile}
+            fileTreeContainerRef={fileTreeContainerRef}
+            fileTreeFilterInputRef={fileTreeFilterInputRef}
+            toggleFolder={toggleFolder}
+            handleFileClick={handleFileClick}
+            expandAllFolders={expandAllFolders}
+            collapseAllFolders={collapseAllFolders}
+            updateSessionWorkingDirectory={updateSessionWorkingDirectory}
+            refreshFileTree={refreshFileTree}
+            setSessions={setSessions}
+            updateScratchPad={updateScratchPad}
+            updateScratchPadState={updateScratchPadState}
+            batchRunState={activeBatchRunState}
+            onOpenBatchRunner={handleOpenBatchRunner}
+            onStopBatchRun={handleStopBatchRun}
+            onJumpToClaudeSession={handleJumpToClaudeSession}
+            onResumeSession={handleResumeSession}
+          />
+        </ErrorBoundary>
+      )}
 
       {/* --- BATCH RUNNER MODAL --- */}
       {batchRunnerModalOpen && activeSession && (
