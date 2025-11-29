@@ -441,6 +441,23 @@ export function InputArea(props: InputAreaProps) {
               </div>
             )}
 
+            {/* Write-mode locked indicator - center */}
+            {isWriteModeLocked && !isReadOnlyMode && (
+              <div
+                className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wide cursor-pointer hover:opacity-80 transition-opacity"
+                style={{
+                  backgroundColor: `${theme.colors.warning}25`,
+                  color: theme.colors.warning,
+                  border: `1px solid ${theme.colors.warning}50`
+                }}
+                title={`Click to switch to ${writeModeLocked?.lockingTabName || 'busy tab'}`}
+                onClick={onSwitchToLockedTab}
+              >
+                <span className="animate-pulse">●</span>
+                Waiting for {writeModeLocked?.lockingTabName || 'another tab'}...
+              </div>
+            )}
+
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setEnterToSend(!enterToSend)}
