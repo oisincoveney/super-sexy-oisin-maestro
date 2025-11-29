@@ -947,6 +947,8 @@ export default function MaestroConsole() {
   const addHistoryEntryRef = useRef<typeof addHistoryEntry | null>(null);
   const spawnAgentWithPromptRef = useRef<typeof spawnAgentWithPrompt | null>(null);
   const startNewClaudeSessionRef = useRef<typeof startNewClaudeSession | null>(null);
+  // Ref for processQueuedMessage - allows batch exit handler to process queued messages
+  const processQueuedMessageRef = useRef<((sessionId: string, entry: LogEntry) => Promise<void>) | null>(null);
 
   // Ref for handling remote commands from web interface
   // This allows web commands to go through the exact same code path as desktop commands
@@ -1213,11 +1215,50 @@ export default function MaestroConsole() {
             // Clean up listeners and resolve
             cleanup();
 
-            // Reset session state to idle, but do NOT overwrite the main session's claudeSessionId
-            // The batch task's claudeSessionId is separate and returned via resolve() for tracking purposes
-            setSessions(prev => prev.map(s =>
-              s.id === sessionId ? { ...s, state: 'idle' as SessionState, busySource: undefined, thinkingStartTime: undefined } : s
-            ));
+            // Check for queued messages BEFORE updating state (using sessionsRef for latest state)
+            const currentSession = sessionsRef.current.find(s => s.id === sessionId);
+            let queuedMessageToProcess: { sessionId: string; message: LogEntry } | null = null;
+
+            if (currentSession && currentSession.messageQueue.length > 0) {
+              queuedMessageToProcess = {
+                sessionId: sessionId,
+                message: currentSession.messageQueue[0]
+              };
+            }
+
+            // Update state - if there are queued messages, keep busy and move next to aiLogs
+            setSessions(prev => prev.map(s => {
+              if (s.id !== sessionId) return s;
+
+              if (s.messageQueue.length > 0) {
+                const [nextMessage, ...remainingQueue] = s.messageQueue;
+                return {
+                  ...s,
+                  state: 'busy' as SessionState,
+                  busySource: 'ai',
+                  aiLogs: [...s.aiLogs, nextMessage],
+                  messageQueue: remainingQueue,
+                  thinkingStartTime: Date.now(),
+                  pendingAICommandForSynopsis: undefined
+                };
+              }
+
+              // No queued messages - set to idle
+              return {
+                ...s,
+                state: 'idle' as SessionState,
+                busySource: undefined,
+                thinkingStartTime: undefined,
+                pendingAICommandForSynopsis: undefined
+              };
+            }));
+
+            // Process queued message AFTER state update
+            if (queuedMessageToProcess && processQueuedMessageRef.current) {
+              setTimeout(() => {
+                processQueuedMessageRef.current!(queuedMessageToProcess!.sessionId, queuedMessageToProcess!.message);
+              }, 0);
+            }
 
             resolve({ success: true, response: responseText, claudeSessionId });
           }
@@ -3161,6 +3202,9 @@ export default function MaestroConsole() {
       }));
     }
   };
+
+  // Update ref for processQueuedMessage so batch exit handler can use it
+  processQueuedMessageRef.current = processQueuedMessage;
 
   const handleInterrupt = async () => {
     if (!activeSession) return;
