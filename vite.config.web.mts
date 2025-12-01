@@ -18,7 +18,7 @@ const packageJson = JSON.parse(
 );
 const appVersion = process.env.VITE_APP_VERSION || packageJson.version;
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
 
   // Entry point for web interface
@@ -33,6 +33,11 @@ export default defineConfig({
 
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),
+  },
+
+  esbuild: {
+    // Strip console.log and console.debug in production builds
+    drop: mode === 'production' ? ['console', 'debugger'] : [],
   },
 
   resolve: {
@@ -153,4 +158,4 @@ export default defineConfig({
   optimizeDeps: {
     include: ['react', 'react-dom'],
   },
-});
+}));

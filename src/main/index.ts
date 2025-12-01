@@ -2629,8 +2629,8 @@ function setupIpcHandlers() {
     }
 
     if (sessionId) {
-      // Filter by session ID
-      filteredEntries = filteredEntries.filter(entry => entry.sessionId === sessionId);
+      // Filter by session ID, but also include legacy entries without a sessionId
+      filteredEntries = filteredEntries.filter(entry => entry.sessionId === sessionId || !entry.sessionId);
     }
 
     return filteredEntries;

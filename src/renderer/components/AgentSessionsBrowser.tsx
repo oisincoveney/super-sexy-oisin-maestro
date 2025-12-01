@@ -1236,11 +1236,11 @@ export function AgentSessionsBrowser({
                   const searchResultInfo = getSearchResultInfo(session.sessionId);
                   const isStarred = starredSessions.has(session.sessionId);
                   return (
-                    <button
+                    <div
                       key={session.sessionId}
                       ref={i === selectedIndex ? selectedItemRef : null}
                       onClick={() => handleViewSession(session)}
-                      className="w-full text-left px-6 py-4 flex items-start gap-4 hover:bg-white/5 transition-colors border-b group"
+                      className="w-full text-left px-6 py-4 flex items-start gap-4 hover:bg-white/5 transition-colors border-b group cursor-pointer"
                       style={{
                         backgroundColor: i === selectedIndex ? theme.colors.accent + '15' : 'transparent',
                         borderColor: theme.colors.border + '50',
@@ -1427,7 +1427,7 @@ export function AgentSessionsBrowser({
                           ACTIVE
                         </span>
                       )}
-                    </button>
+                    </div>
                   );
                 })}
                 {/* Pagination indicator */}

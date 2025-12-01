@@ -123,6 +123,8 @@ interface MainPanelProps {
   onToggleTabReadOnlyMode?: () => void;
   // Scroll position persistence
   onScrollPositionChange?: (scrollTop: number) => void;
+  // Input blur handler for persisting AI input state
+  onInputBlur?: () => void;
 }
 
 export function MainPanel(props: MainPanelProps) {
@@ -247,12 +249,22 @@ export function MainPanel(props: MainPanelProps) {
   }, []);
 
   // Handler for input focus - select session in sidebar
-  const handleInputFocus = () => {
+  // Memoized to avoid recreating on every render
+  const handleInputFocus = useCallback(() => {
     if (activeSession) {
       setActiveSessionId(activeSession.id);
       setActiveFocus('main');
     }
-  };
+  }, [activeSession, setActiveSessionId, setActiveFocus]);
+
+  // Memoized session click handler for InputArea's ThinkingStatusPill
+  // Avoids creating new function reference on every render
+  const handleSessionClick = useCallback((sessionId: string, tabId?: string) => {
+    setActiveSessionId(sessionId);
+    if (tabId && onTabSelect) {
+      onTabSelect(tabId);
+    }
+  }, [setActiveSessionId, onTabSelect]);
 
   // Handler to view git diff
   const handleViewGitDiff = async () => {
@@ -813,15 +825,10 @@ export function MainPanel(props: MainPanelProps) {
                 processInput={processInput}
                 handleInterrupt={handleInterrupt}
                 onInputFocus={handleInputFocus}
+                onInputBlur={props.onInputBlur}
                 isAutoModeActive={isAutoModeActive}
                 sessions={sessions}
-                onSessionClick={(sessionId, tabId) => {
-                  setActiveSessionId(sessionId);
-                  // Also switch to the busy tab if provided
-                  if (tabId && onTabSelect) {
-                    onTabSelect(tabId);
-                  }
-                }}
+                onSessionClick={handleSessionClick}
                 autoRunState={batchRunState}
                 onStopAutoRun={onStopBatchRun}
                 onOpenQueueBrowser={onOpenQueueBrowser}

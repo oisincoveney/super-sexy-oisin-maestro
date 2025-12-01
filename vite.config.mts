@@ -8,12 +8,16 @@ const packageJson = JSON.parse(readFileSync(path.join(__dirname, 'package.json')
 // Use VITE_APP_VERSION env var if set (during CI builds), otherwise use package.json
 const appVersion = process.env.VITE_APP_VERSION || packageJson.version;
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
   root: path.join(__dirname, 'src/renderer'),
   base: './',
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),
+  },
+  esbuild: {
+    // Strip console.log and console.debug in production builds
+    drop: mode === 'production' ? ['console', 'debugger'] : [],
   },
   build: {
     outDir: path.join(__dirname, 'dist/renderer'),
@@ -22,4 +26,4 @@ export default defineConfig({
   server: {
     port: 5173,
   },
-});
+}));

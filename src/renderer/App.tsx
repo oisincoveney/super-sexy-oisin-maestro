@@ -130,8 +130,10 @@ export default function MaestroConsole() {
     setActiveSessionIdInternal(id);
   }, []);
 
-  // Input State - terminal mode uses local state, AI mode uses active tab's inputValue
+  // Input State - both modes use local state for responsive typing
+  // AI mode syncs to tab state on blur/submit for persistence
   const [terminalInputValue, setTerminalInputValue] = useState('');
+  const [aiInputValueLocal, setAiInputValueLocal] = useState('');
   const [slashCommandOpen, setSlashCommandOpen] = useState(false);
   const [selectedSlashCommandIndex, setSelectedSlashCommandIndex] = useState(0);
 
@@ -1606,11 +1608,25 @@ export default function MaestroConsole() {
   const isAiMode = activeSession?.inputMode === 'ai';
   const activeTab = activeSession ? getActiveTab(activeSession) : undefined;
 
-  // AI input value is derived from active tab's inputValue
-  const aiInputValue = activeTab?.inputValue ?? '';
+  // Track previous active tab to detect tab switches
+  const prevActiveTabIdRef = useRef<string | undefined>(activeTab?.id);
 
-  // Setter for AI input value - updates the active tab's inputValue in session state
-  const setAiInputValue = useCallback((value: string) => {
+  // Sync local AI input with tab's persisted value when switching tabs
+  useEffect(() => {
+    if (activeTab && activeTab.id !== prevActiveTabIdRef.current) {
+      // Tab changed - load the new tab's persisted input value
+      setAiInputValueLocal(activeTab.inputValue ?? '');
+      prevActiveTabIdRef.current = activeTab.id;
+    }
+    // Note: We intentionally only depend on activeTab?.id, NOT activeTab?.inputValue
+    // The inputValue changes when we blur (syncAiInputToSession), but we don't want
+    // to read it back into local state - that would cause a feedback loop.
+    // We only need to load inputValue when switching TO a different tab.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab?.id]);
+
+  // Function to persist AI input to session state (called on blur/submit)
+  const syncAiInputToSession = useCallback((value: string) => {
     if (!activeSession) return;
     setSessions(prev => prev.map(s => {
       if (s.id !== activeSession.id) return s;
@@ -1627,8 +1643,9 @@ export default function MaestroConsole() {
     }));
   }, [activeSession]);
 
-  const inputValue = isAiMode ? aiInputValue : terminalInputValue;
-  const setInputValue = isAiMode ? setAiInputValue : setTerminalInputValue;
+  // Use local state for responsive typing - no session state update on every keystroke
+  const inputValue = isAiMode ? aiInputValueLocal : terminalInputValue;
+  const setInputValue = isAiMode ? setAiInputValueLocal : setTerminalInputValue;
 
   // Images are stored per-tab and only used in AI mode
   // Get staged images from the active tab
@@ -3467,6 +3484,11 @@ export default function MaestroConsole() {
     if (!activeSession || (!inputValue.trim() && stagedImages.length === 0)) {
       console.log('[processInput] EARLY RETURN - missing activeSession or empty input');
       return;
+    }
+
+    // Sync local AI input to session state on submit (will be cleared anyway, but keeps state consistent)
+    if (isAiMode) {
+      syncAiInputToSession(inputValue);
     }
 
     // Block slash commands when agent is busy (in AI mode)
@@ -5881,6 +5903,12 @@ export default function MaestroConsole() {
             setSessions(prev => prev.map(s =>
               s.id === activeSession.id ? { ...s, terminalScrollTop: scrollTop } : s
             ));
+          }
+        }}
+        onInputBlur={() => {
+          // Persist AI input to session state on blur (only in AI mode)
+          if (isAiMode) {
+            syncAiInputToSession(aiInputValueLocal);
           }
         }}
       />

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useMemo, useCallback } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import { Terminal, Cpu, Keyboard, ImageIcon, X, ArrowUp, StopCircle, Eye, History, File, Folder } from 'lucide-react';
 import type { Session, Theme, BatchRunState } from '../types';
 import type { TabCompletionSuggestion } from '../hooks/useTabCompletion';
@@ -41,6 +41,7 @@ interface InputAreaProps {
   processInput: () => void;
   handleInterrupt: () => void;
   onInputFocus: () => void;
+  onInputBlur?: () => void;
   // Auto mode props
   isAutoModeActive?: boolean;
   // Tab completion props
@@ -71,7 +72,7 @@ export const InputArea = React.memo(function InputArea(props: InputAreaProps) {
     slashCommandOpen, setSlashCommandOpen, slashCommands,
     selectedSlashCommandIndex, setSelectedSlashCommandIndex,
     inputRef, handleInputKeyDown, handlePaste, handleDrop,
-    toggleInputMode, processInput, handleInterrupt, onInputFocus,
+    toggleInputMode, processInput, handleInterrupt, onInputFocus, onInputBlur,
     isAutoModeActive = false,
     tabCompletionOpen = false, setTabCompletionOpen,
     tabCompletionSuggestions = [], selectedTabCompletionIndex = 0,
@@ -130,31 +131,6 @@ export const InputArea = React.memo(function InputArea(props: InputAreaProps) {
   // Refs for slash command items to enable scroll-into-view
   const slashCommandItemRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // Ref to track pending RAF for textarea auto-grow (prevents layout thrashing)
-  const autoGrowRafRef = useRef<number | null>(null);
-
-  // Memoized auto-grow handler using requestAnimationFrame to avoid layout thrashing
-  const handleAutoGrow = useCallback((textarea: HTMLTextAreaElement) => {
-    // Cancel any pending RAF to avoid stacking
-    if (autoGrowRafRef.current !== null) {
-      cancelAnimationFrame(autoGrowRafRef.current);
-    }
-    // Schedule the height update for the next frame
-    autoGrowRafRef.current = requestAnimationFrame(() => {
-      textarea.style.height = 'auto';
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 112)}px`;
-      autoGrowRafRef.current = null;
-    });
-  }, []);
-
-  // Cleanup RAF on unmount
-  useEffect(() => {
-    return () => {
-      if (autoGrowRafRef.current !== null) {
-        cancelAnimationFrame(autoGrowRafRef.current);
-      }
-    };
-  }, []);
 
   // Memoize command history filtering to avoid expensive Set operations on every keystroke
   const commandHistoryFilterLower = commandHistoryFilter.toLowerCase();
@@ -409,6 +385,7 @@ export const InputArea = React.memo(function InputArea(props: InputAreaProps) {
               placeholder={isTerminalMode ? "Run shell command..." : `Talking to ${session.name} powered by Claude`}
               value={inputValue}
               onFocus={onInputFocus}
+              onBlur={onInputBlur}
               onChange={e => {
                 const value = e.target.value;
                 setInputValue(value);
@@ -422,8 +399,9 @@ export const InputArea = React.memo(function InputArea(props: InputAreaProps) {
                   setSlashCommandOpen(false);
                 }
 
-                // Auto-grow logic using RAF to prevent layout thrashing
-                handleAutoGrow(e.target);
+                // Auto-grow logic - limit to 5 lines (~112px with text-sm)
+                e.target.style.height = 'auto';
+                e.target.style.height = `${Math.min(e.target.scrollHeight, 112)}px`;
               }}
               onKeyDown={handleInputKeyDown}
               onPaste={handlePaste}
