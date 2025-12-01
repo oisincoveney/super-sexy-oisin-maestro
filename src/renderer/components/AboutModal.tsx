@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { X, Wand2, ExternalLink, FileCode, BarChart3, Loader2 } from 'lucide-react';
 import type { Theme, Session, AutoRunStats } from '../types';
 import { useLayerStack } from '../contexts/LayerStackContext';
@@ -31,6 +31,7 @@ export function AboutModal({ theme, sessions, autoRunStats, onClose }: AboutModa
   const [globalStats, setGlobalStats] = useState<ClaudeGlobalStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [isStatsComplete, setIsStatsComplete] = useState(false);
+  const badgeEscapeHandlerRef = useRef<(() => boolean) | null>(null);
 
   // Load global stats from all Claude projects on mount with streaming updates
   useEffect(() => {
@@ -85,6 +86,17 @@ export function AboutModal({ theme, sessions, autoRunStats, onClose }: AboutModa
   };
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Custom escape handler that checks for badge overlay first
+  const handleEscape = useCallback(() => {
+    // If badge overlay is open, close it first
+    if (badgeEscapeHandlerRef.current) {
+      badgeEscapeHandlerRef.current();
+      return;
+    }
+    // Otherwise close the modal
+    onClose();
+  }, [onClose]);
+
   // Register layer on mount
   useEffect(() => {
     const id = registerLayer({
@@ -94,7 +106,7 @@ export function AboutModal({ theme, sessions, autoRunStats, onClose }: AboutModa
       capturesFocus: true,
       focusTrap: 'strict',
       ariaLabel: 'About Maestro',
-      onEscape: onClose,
+      onEscape: handleEscape,
     });
     layerIdRef.current = id;
 
@@ -106,14 +118,14 @@ export function AboutModal({ theme, sessions, autoRunStats, onClose }: AboutModa
         unregisterLayer(layerIdRef.current);
       }
     };
-  }, [registerLayer, unregisterLayer]);
+  }, [registerLayer, unregisterLayer, handleEscape]);
 
   // Update handler when dependencies change
   useEffect(() => {
     if (layerIdRef.current) {
-      updateLayerHandler(layerIdRef.current, onClose);
+      updateLayerHandler(layerIdRef.current, handleEscape);
     }
-  }, [onClose, updateLayerHandler]);
+  }, [handleEscape, updateLayerHandler]);
 
   return (
     <div
@@ -131,7 +143,7 @@ export function AboutModal({ theme, sessions, autoRunStats, onClose }: AboutModa
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="p-6 space-y-5 overflow-y-auto">
+        <div className="p-5 space-y-4 overflow-y-auto">
           {/* Logo and Title */}
           <div className="flex items-center gap-4">
             <Wand2 className="w-12 h-12" style={{ color: theme.colors.accent }} />
@@ -177,7 +189,11 @@ export function AboutModal({ theme, sessions, autoRunStats, onClose }: AboutModa
           </div>
 
           {/* Achievements Section */}
-          <AchievementCard theme={theme} autoRunStats={autoRunStats} />
+          <AchievementCard
+            theme={theme}
+            autoRunStats={autoRunStats}
+            onEscapeWithBadgeOpen={(handler) => { badgeEscapeHandlerRef.current = handler; }}
+          />
 
           {/* Global Usage Stats - show loading or stats from all Claude projects */}
           <div className="p-4 rounded border" style={{ borderColor: theme.colors.border, backgroundColor: theme.colors.bgActivity }}>
@@ -256,22 +272,21 @@ export function AboutModal({ theme, sessions, autoRunStats, onClose }: AboutModa
           </div>
 
           {/* Project Link */}
-          <div className="pt-2">
-            <button
-              onClick={() => window.maestro.shell.openExternal('https://github.com/pedramamini/Maestro')}
-              className="w-full flex items-center justify-between p-3 rounded border hover:bg-white/5 transition-colors"
-              style={{ borderColor: theme.colors.border }}
-            >
-              <div className="flex items-center gap-2">
-                <FileCode className="w-4 h-4" style={{ color: theme.colors.accent }} />
-                <span className="text-sm font-medium" style={{ color: theme.colors.textMain }}>View on GitHub</span>
-              </div>
-              <ExternalLink className="w-4 h-4" style={{ color: theme.colors.textDim }} />
-            </button>
-          </div>
+          <button
+            onClick={() => window.maestro.shell.openExternal('https://github.com/pedramamini/Maestro')}
+            className="w-full flex items-center justify-between p-3 rounded border hover:bg-white/5 transition-colors"
+            style={{ borderColor: theme.colors.border }}
+          >
+            <div className="flex items-center gap-2">
+              <FileCode className="w-4 h-4" style={{ color: theme.colors.accent }} />
+              <span className="text-sm font-medium" style={{ color: theme.colors.textMain }}>View on GitHub</span>
+            </div>
+            <ExternalLink className="w-4 h-4" style={{ color: theme.colors.textDim }} />
+          </button>
 
           {/* Made in Austin */}
-          <div className="pt-3 text-center flex flex-col items-center gap-2">
+          <div className="pt-1 text-center flex flex-col items-center gap-1">
+            <span className="text-xs mb-1" style={{ color: theme.colors.textDim }}>Made in Austin, TX</span>
             {/* Texas Flag - Lone Star Flag */}
             <button
               onClick={() => window.maestro.shell.openExternal('https://www.sanjacsaloon.com')}
@@ -296,7 +311,6 @@ export function AboutModal({ theme, sessions, autoRunStats, onClose }: AboutModa
                 />
               </svg>
             </button>
-            <span className="text-xs" style={{ color: theme.colors.textDim }}>Made in Austin, TX</span>
           </div>
         </div>
       </div>

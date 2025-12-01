@@ -29,6 +29,10 @@ export function PlaygroundPanel({ theme, themeMode, onClose }: PlaygroundPanelPr
   const { registerLayer, unregisterLayer, updateLayerHandler } = useLayerStack();
   const layerIdRef = useRef<string>();
   const containerRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  // Keep ref up to date
+  onCloseRef.current = onClose;
 
   const [activeTab, setActiveTab] = useState<TabId>('achievements');
 
@@ -50,7 +54,7 @@ export function PlaygroundPanel({ theme, themeMode, onClose }: PlaygroundPanelPr
       capturesFocus: true,
       focusTrap: 'strict',
       ariaLabel: 'Developer Playground',
-      onEscape: onClose,
+      onEscape: () => onCloseRef.current(),
     });
     layerIdRef.current = id;
     containerRef.current?.focus();
@@ -60,14 +64,14 @@ export function PlaygroundPanel({ theme, themeMode, onClose }: PlaygroundPanelPr
         unregisterLayer(layerIdRef.current);
       }
     };
-  }, [registerLayer, unregisterLayer, onClose]);
+  }, [registerLayer, unregisterLayer]);
 
   // Update handler when dependencies change
   useEffect(() => {
     if (layerIdRef.current) {
-      updateLayerHandler(layerIdRef.current, onClose);
+      updateLayerHandler(layerIdRef.current, () => onCloseRef.current());
     }
-  }, [onClose, updateLayerHandler]);
+  }, [updateLayerHandler]);
 
   // Build mock AutoRunStats
   const mockAutoRunStats: AutoRunStats = {

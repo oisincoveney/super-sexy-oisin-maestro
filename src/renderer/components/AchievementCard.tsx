@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Trophy, Clock, Zap, Star, ExternalLink, ChevronRight, ChevronDown, History } from 'lucide-react';
 import type { Theme } from '../types';
 import type { AutoRunStats } from '../types';
@@ -130,9 +130,46 @@ function BadgeTooltip({ badge, theme, isUnlocked, position, onClose }: BadgeTool
  * Achievement card component for displaying in the About modal
  * Shows current badge, progress to next level, and stats
  */
-export function AchievementCard({ theme, autoRunStats }: AchievementCardProps) {
+export function AchievementCard({ theme, autoRunStats, onEscapeWithBadgeOpen }: AchievementCardProps & { onEscapeWithBadgeOpen?: (handler: (() => boolean) | null) => void }) {
   const [selectedBadge, setSelectedBadge] = useState<number | null>(null);
   const [historyExpanded, setHistoryExpanded] = useState(false);
+  const badgeContainerRef = useRef<HTMLDivElement>(null);
+
+  // Register escape handler with parent when badge is selected
+  useEffect(() => {
+    if (onEscapeWithBadgeOpen) {
+      if (selectedBadge !== null) {
+        // Return a handler that closes the badge and returns true (handled)
+        onEscapeWithBadgeOpen(() => {
+          setSelectedBadge(null);
+          return true;
+        });
+      } else {
+        onEscapeWithBadgeOpen(null);
+      }
+    }
+  }, [selectedBadge, onEscapeWithBadgeOpen]);
+
+  // Handle click outside to close badge tooltip
+  useEffect(() => {
+    if (selectedBadge === null) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (badgeContainerRef.current && !badgeContainerRef.current.contains(e.target as Node)) {
+        setSelectedBadge(null);
+      }
+    };
+
+    // Use setTimeout to avoid immediate trigger from the click that opened it
+    const timeoutId = setTimeout(() => {
+      document.addEventListener('click', handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [selectedBadge]);
 
   // Determine tooltip position based on badge level
   const getTooltipPosition = (level: number): 'left' | 'center' | 'right' => {
@@ -287,7 +324,7 @@ export function AchievementCard({ theme, autoRunStats }: AchievementCardProps) {
       </div>
 
       {/* Badge progression preview */}
-      <div>
+      <div ref={badgeContainerRef}>
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs" style={{ color: theme.colors.textDim }}>
             Badge Progression
@@ -339,11 +376,6 @@ export function AchievementCard({ theme, autoRunStats }: AchievementCardProps) {
             );
           })}
         </div>
-        {selectedBadge === null && (
-          <div className="text-xs text-center mt-2" style={{ color: theme.colors.textDim }}>
-            Click a badge to view details
-          </div>
-        )}
       </div>
 
       {/* Badge Unlock History - only visible at level 2+ */}
