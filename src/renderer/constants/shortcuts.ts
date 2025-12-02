@@ -27,6 +27,8 @@ export const DEFAULT_SHORTCUTS: Record<string, Shortcut> = {
   systemLogs: { id: 'systemLogs', label: 'System Log Viewer', keys: ['Alt', 'Meta', 'l'] },
   processMonitor: { id: 'processMonitor', label: 'System Process Monitor', keys: ['Alt', 'Meta', 'p'] },
   jumpToBottom: { id: 'jumpToBottom', label: 'Jump to Bottom', keys: ['Meta', 'Shift', 'j'] },
+  prevTab: { id: 'prevTab', label: 'Previous Tab', keys: ['Meta', 'Shift', '['] },
+  nextTab: { id: 'nextTab', label: 'Next Tab', keys: ['Meta', 'Shift', ']'] },
 };
 
 // Non-editable shortcuts (displayed in help but not configurable)
@@ -46,8 +48,6 @@ export const TAB_SHORTCUTS: Record<string, Shortcut> = {
   toggleReadOnlyMode: { id: 'toggleReadOnlyMode', label: 'Toggle Read-Only Mode', keys: ['Meta', 'r'] },
   toggleSaveToHistory: { id: 'toggleSaveToHistory', label: 'Toggle Save to History', keys: ['Meta', 's'] },
   filterUnreadTabs: { id: 'filterUnreadTabs', label: 'Filter Unread Tabs', keys: ['Meta', 'u'] },
-  prevTab: { id: 'prevTab', label: 'Previous Tab', keys: ['Meta', '['] },
-  nextTab: { id: 'nextTab', label: 'Next Tab', keys: ['Meta', ']'] },
   goToTab1: { id: 'goToTab1', label: 'Go to Tab 1', keys: ['Meta', '1'] },
   goToTab2: { id: 'goToTab2', label: 'Go to Tab 2', keys: ['Meta', '2'] },
   goToTab3: { id: 'goToTab3', label: 'Go to Tab 3', keys: ['Meta', '3'] },

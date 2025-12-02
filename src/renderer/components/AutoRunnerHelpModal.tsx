@@ -3,6 +3,7 @@ import { X, CheckSquare, Play, History, Eye, Square, Keyboard } from 'lucide-rea
 import type { Theme } from '../types';
 import { useLayerStack } from '../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
+import { formatShortcutKeys } from '../utils/shortcutFormatter';
 
 interface AutoRunnerHelpModalProps {
   theme: Theme;
@@ -125,7 +126,7 @@ export function AutoRunnerHelpModal({ theme, onClose }: AutoRunnerHelpModalProps
                       border: `1px solid ${theme.colors.border}`
                     }}
                   >
-                    ⌘L
+                    {formatShortcutKeys(['Meta', 'l'])}
                   </kbd>{' '}
                   to quickly insert a new checkbox at your cursor position.
                 </span>

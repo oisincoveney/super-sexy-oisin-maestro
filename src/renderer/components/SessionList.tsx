@@ -9,6 +9,7 @@ import type { Session, Group, Theme, Shortcut, AutoRunStats } from '../types';
 import { CONDUCTOR_BADGES, getBadgeForTime } from '../constants/conductorBadges';
 import { getStatusColor, getContextColor, formatActiveTime } from '../utils/theme';
 import { gitService } from '../services/git';
+import { formatShortcutKeys } from '../utils/shortcutFormatter';
 
 // ============================================================================
 // SessionContextMenu - Right-click context menu for session items
@@ -739,7 +740,7 @@ export function SessionList(props: SessionListProps) {
                         <div className="text-xs" style={{ color: theme.colors.textDim }}>View all available shortcuts</div>
                       </div>
                       <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: theme.colors.bgActivity, color: theme.colors.textDim }}>
-                        {shortcuts.help.keys.join('+').replace('Meta', '⌘')}
+                        {formatShortcutKeys(shortcuts.help.keys)}
                       </span>
                     </button>
                     <button
@@ -752,7 +753,7 @@ export function SessionList(props: SessionListProps) {
                         <div className="text-xs" style={{ color: theme.colors.textDim }}>Configure preferences</div>
                       </div>
                       <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: theme.colors.bgActivity, color: theme.colors.textDim }}>
-                        {shortcuts.settings.keys.join('+').replace('Meta', '⌘')}
+                        {formatShortcutKeys(shortcuts.settings.keys)}
                       </span>
                     </button>
                     <button
@@ -765,7 +766,7 @@ export function SessionList(props: SessionListProps) {
                         <div className="text-xs" style={{ color: theme.colors.textDim }}>View application logs</div>
                       </div>
                       <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: theme.colors.bgActivity, color: theme.colors.textDim }}>
-                        {shortcuts.systemLogs.keys.join('+').replace('Meta', '⌘').replace('Alt', '⌥')}
+                        {formatShortcutKeys(shortcuts.systemLogs.keys)}
                       </span>
                     </button>
                     <button
@@ -778,7 +779,7 @@ export function SessionList(props: SessionListProps) {
                         <div className="text-xs" style={{ color: theme.colors.textDim }}>View running processes</div>
                       </div>
                       <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: theme.colors.bgActivity, color: theme.colors.textDim }}>
-                        {shortcuts.processMonitor.keys.join('+').replace('Meta', '⌘').replace('Alt', '⌥')}
+                        {formatShortcutKeys(shortcuts.processMonitor.keys)}
                       </span>
                     </button>
                     <div className="my-1 border-t" style={{ borderColor: theme.colors.border }} />
@@ -826,7 +827,7 @@ export function SessionList(props: SessionListProps) {
                       <div className="text-xs" style={{ color: theme.colors.textDim }}>View all available shortcuts</div>
                     </div>
                     <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: theme.colors.bgActivity, color: theme.colors.textDim }}>
-                      {shortcuts.help.keys.join('+').replace('Meta', '⌘')}
+                      {formatShortcutKeys(shortcuts.help.keys)}
                     </span>
                   </button>
                   <button
@@ -839,7 +840,7 @@ export function SessionList(props: SessionListProps) {
                       <div className="text-xs" style={{ color: theme.colors.textDim }}>Configure preferences</div>
                     </div>
                     <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: theme.colors.bgActivity, color: theme.colors.textDim }}>
-                      {shortcuts.settings.keys.join('+').replace('Meta', '⌘')}
+                      {formatShortcutKeys(shortcuts.settings.keys)}
                     </span>
                   </button>
                   <button
@@ -852,7 +853,7 @@ export function SessionList(props: SessionListProps) {
                       <div className="text-xs" style={{ color: theme.colors.textDim }}>View application logs</div>
                     </div>
                     <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: theme.colors.bgActivity, color: theme.colors.textDim }}>
-                      {shortcuts.systemLogs.keys.join('+').replace('Meta', '⌘').replace('Alt', '⌥')}
+                      {formatShortcutKeys(shortcuts.systemLogs.keys)}
                     </span>
                   </button>
                   <button
@@ -865,7 +866,7 @@ export function SessionList(props: SessionListProps) {
                       <div className="text-xs" style={{ color: theme.colors.textDim }}>View running processes</div>
                     </div>
                     <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: theme.colors.bgActivity, color: theme.colors.textDim }}>
-                      {shortcuts.processMonitor.keys.join('+').replace('Meta', '⌘').replace('Alt', '⌥')}
+                      {formatShortcutKeys(shortcuts.processMonitor.keys)}
                     </span>
                   </button>
                   <div className="my-1 border-t" style={{ borderColor: theme.colors.border }} />
@@ -1826,7 +1827,7 @@ export function SessionList(props: SessionListProps) {
         <button
           onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
           className="flex items-center justify-center p-2 rounded hover:bg-white/5 transition-colors w-8 h-8 shrink-0"
-          title={`${leftSidebarOpen ? "Collapse" : "Expand"} Sidebar (${shortcuts.toggleSidebar.keys.join('+').replace('Meta', 'Cmd')})`}
+          title={`${leftSidebarOpen ? "Collapse" : "Expand"} Sidebar (${formatShortcutKeys(shortcuts.toggleSidebar.keys)})`}
         >
           {leftSidebarOpen ? <PanelLeftClose className="w-4 h-4 opacity-50" /> : <PanelLeftOpen className="w-4 h-4 opacity-50" />}
         </button>

@@ -2642,15 +2642,17 @@ export default function MaestroConsole() {
     if (mainKey === 'arrowup' && key === 'arrowup') return true;
     if (mainKey === 'arrowdown' && key === 'arrowdown') return true;
     if (mainKey === 'backspace' && key === 'backspace') return true;
-    if (mainKey === '{' && key === '[') return true;
-    if (mainKey === '}' && key === ']') return true;
+    // Handle Shift+[ producing { and Shift+] producing }
+    if (mainKey === '[' && (key === '[' || key === '{')) return true;
+    if (mainKey === ']' && (key === ']' || key === '}')) return true;
 
     return key === mainKey;
   };
 
   // Check if a key event matches a tab shortcut (AI mode only)
+  // Checks both TAB_SHORTCUTS and editable shortcuts (for prevTab/nextTab)
   const isTabShortcut = (e: KeyboardEvent, actionId: string) => {
-    const sc = TAB_SHORTCUTS[actionId];
+    const sc = TAB_SHORTCUTS[actionId] || shortcuts[actionId];
     if (!sc) return false;
     const keys = sc.keys.map(k => k.toLowerCase());
 
@@ -2668,8 +2670,9 @@ export default function MaestroConsole() {
     if (altPressed !== configAlt) return false;
 
     const mainKey = keys[keys.length - 1];
-    if (mainKey === '[' && key === '[') return true;
-    if (mainKey === ']' && key === ']') return true;
+    // Handle Shift+[ producing { and Shift+] producing }
+    if (mainKey === '[' && (key === '[' || key === '{')) return true;
+    if (mainKey === ']' && (key === ']' || key === '}')) return true;
 
     // For Alt+Meta shortcuts on macOS, e.key produces special characters (e.g., Alt+t = †)
     // Use e.code to get the physical key pressed instead

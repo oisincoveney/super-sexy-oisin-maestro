@@ -4,6 +4,7 @@ import type { Session, Group, Theme, Shortcut } from '../types';
 import { useLayerStack } from '../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
 import { gitService } from '../services/git';
+import { formatShortcutKeys } from '../utils/shortcutFormatter';
 
 interface QuickAction {
   id: string;
@@ -470,7 +471,7 @@ export function QuickActionsModal(props: QuickActionsModalProps) {
                   </div>
                   {a.shortcut && (
                     <span className="text-xs font-mono opacity-60">
-                      {a.shortcut.keys.join('+')}
+                      {formatShortcutKeys(a.shortcut.keys)}
                     </span>
                   )}
                 </button>

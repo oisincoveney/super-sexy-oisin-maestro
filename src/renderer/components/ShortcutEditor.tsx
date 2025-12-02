@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { Theme, Shortcut } from '../types';
+import { formatShortcutKeys } from '../utils/shortcutFormatter';
 
 interface ShortcutEditorProps {
   theme: Theme;
@@ -54,7 +55,7 @@ export function ShortcutEditor({ theme, shortcuts, setShortcuts }: ShortcutEdito
               ringColor: theme.colors.accent
             }}
           >
-            {recordingId === sc.id ? 'Press keys...' : sc.keys.join(' + ')}
+            {recordingId === sc.id ? 'Press keys...' : formatShortcutKeys(sc.keys)}
           </button>
         </div>
       ))}

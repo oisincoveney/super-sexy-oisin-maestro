@@ -10,6 +10,7 @@ import { AgentSessionsBrowser } from './AgentSessionsBrowser';
 import { TabBar } from './TabBar';
 import { gitService } from '../services/git';
 import { getActiveTab, getBusyTabs } from '../utils/tabHelpers';
+import { formatShortcutKeys } from '../utils/shortcutFormatter';
 import type { Session, Theme, Shortcut, FocusArea, BatchRunState } from '../types';
 
 interface SlashCommand {
@@ -744,7 +745,7 @@ export function MainPanel(props: MainPanelProps) {
               </button>
 
               {!rightPanelOpen && (
-                <button onClick={() => setRightPanelOpen(true)} className="p-2 rounded hover:bg-white/5" title={`Show right panel (${shortcuts.toggleRightPanel.keys.join('+').replace('Meta', 'Cmd')})`}>
+                <button onClick={() => setRightPanelOpen(true)} className="p-2 rounded hover:bg-white/5" title={`Show right panel (${formatShortcutKeys(shortcuts.toggleRightPanel.keys)})`}>
                   <Columns className="w-4 h-4" />
                 </button>
               )}

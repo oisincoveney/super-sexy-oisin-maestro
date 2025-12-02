@@ -4,6 +4,7 @@ import type { AgentConfig, Theme, Shortcut, ShellInfo, CustomAICommand } from '.
 import { useLayerStack } from '../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
 import { AICommandsPanel } from './AICommandsPanel';
+import { formatShortcutKeys } from '../utils/shortcutFormatter';
 
 // Feature flags - set to true to enable dormant features
 const FEATURE_FLAGS = {
@@ -1346,7 +1347,7 @@ export function SettingsModal(props: SettingsModalProps) {
                           ringColor: theme.colors.accent
                         }}
                       >
-                        {recordingId === sc.id ? 'Press keys...' : sc.keys.join(' + ')}
+                        {recordingId === sc.id ? 'Press keys...' : formatShortcutKeys(sc.keys)}
                       </button>
                     </div>
                   ))}

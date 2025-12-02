@@ -5,6 +5,7 @@ import { fuzzyMatch } from '../utils/search';
 import { useLayerStack } from '../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
 import { TAB_SHORTCUTS, FIXED_SHORTCUTS } from '../constants/shortcuts';
+import { formatShortcutKeys } from '../utils/shortcutFormatter';
 
 interface ShortcutsHelpModalProps {
   theme: Theme;
@@ -103,7 +104,7 @@ export function ShortcutsHelpModal({ theme, shortcuts, onClose }: ShortcutsHelpM
             <div key={i} className="flex justify-between items-center text-sm">
               <span style={{ color: theme.colors.textDim }}>{sc.label}</span>
               <kbd className="px-2 py-1 rounded border font-mono text-xs font-bold" style={{ backgroundColor: theme.colors.bgActivity, borderColor: theme.colors.border, color: theme.colors.textMain }}>
-                {sc.keys.join(' ')}
+                {formatShortcutKeys(sc.keys)}
               </kbd>
             </div>
           ))}

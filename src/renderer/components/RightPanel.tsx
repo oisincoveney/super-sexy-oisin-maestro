@@ -4,6 +4,7 @@ import type { Session, Theme, RightPanelTab, Shortcut, BatchRunState } from '../
 import { FileExplorerPanel } from './FileExplorerPanel';
 import { HistoryPanel, HistoryPanelHandle } from './HistoryPanel';
 import { Scratchpad } from './Scratchpad';
+import { formatShortcutKeys } from '../utils/shortcutFormatter';
 
 export interface RightPanelHandle {
   refreshHistoryPanel: () => void;
@@ -147,7 +148,7 @@ export const RightPanel = forwardRef<RightPanelHandle, RightPanelProps>(function
         <button
           onClick={() => setRightPanelOpen(!rightPanelOpen)}
           className="flex items-center justify-center p-2 rounded hover:bg-white/5 transition-colors w-12 shrink-0"
-          title={`${rightPanelOpen ? "Collapse" : "Expand"} Right Panel (${shortcuts.toggleRightPanel.keys.join('+').replace('Meta', 'Cmd')})`}
+          title={`${rightPanelOpen ? "Collapse" : "Expand"} Right Panel (${formatShortcutKeys(shortcuts.toggleRightPanel.keys)})`}
         >
           {rightPanelOpen ? <PanelRightClose className="w-4 h-4 opacity-50" /> : <PanelRightOpen className="w-4 h-4 opacity-50" />}
         </button>

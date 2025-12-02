@@ -9,6 +9,7 @@ import { useLayerStack } from '../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
 import { MermaidRenderer } from './MermaidRenderer';
 import { getEncoding } from 'js-tiktoken';
+import { formatShortcutKeys } from '../utils/shortcutFormatter';
 
 interface FileStats {
   size: number;
@@ -579,16 +580,7 @@ export function FilePreview({ file, onClose, theme, markdownRawMode, setMarkdown
   const formatShortcut = (shortcutId: string): string => {
     const shortcut = shortcuts[shortcutId];
     if (!shortcut) return '';
-
-    const keys = shortcut.keys.map(key => {
-      if (key === 'Meta') return '⌘';
-      if (key === 'Ctrl') return 'Ctrl';
-      if (key === 'Alt') return '⌥';
-      if (key === 'Shift') return '⇧';
-      return key.toUpperCase();
-    });
-
-    return keys.join('');
+    return formatShortcutKeys(shortcut.keys);
   };
 
   // Highlight search matches in content (for markdown/text)
