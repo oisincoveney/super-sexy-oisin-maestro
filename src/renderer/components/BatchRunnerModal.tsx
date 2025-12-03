@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { X, RotateCcw, Play, Variable, ChevronDown, ChevronRight, Save, GripVertical, Plus, Repeat, FolderOpen } from 'lucide-react';
+import { X, RotateCcw, Play, Variable, ChevronDown, ChevronRight, Save, GripVertical, Plus, Repeat, FolderOpen, Bookmark } from 'lucide-react';
 import type { Theme, BatchDocumentEntry, BatchRunConfig, Playbook, PlaybookDocumentEntry } from '../types';
 import { useLayerStack } from '../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
@@ -144,7 +144,11 @@ export function BatchRunnerModal(props: BatchRunnerModalProps) {
   const [loadedPlaybook, setLoadedPlaybook] = useState<Playbook | null>(null);
   const [loadingPlaybooks, setLoadingPlaybooks] = useState(true);
   const [showPlaybookDropdown, setShowPlaybookDropdown] = useState(false);
+  const [showSavePlaybookModal, setShowSavePlaybookModal] = useState(false);
+  const [newPlaybookName, setNewPlaybookName] = useState('');
+  const [savingPlaybook, setSavingPlaybook] = useState(false);
   const playbackDropdownRef = useRef<HTMLDivElement>(null);
+  const savePlaybookInputRef = useRef<HTMLInputElement>(null);
 
   const { registerLayer, unregisterLayer, updateLayerHandler } = useLayerStack();
   const layerIdRef = useRef<string>();
@@ -226,7 +230,10 @@ export function BatchRunnerModal(props: BatchRunnerModalProps) {
       type: 'modal',
       priority: MODAL_PRIORITIES.BATCH_RUNNER,
       onEscape: () => {
-        if (showDocSelector) {
+        if (showSavePlaybookModal) {
+          setShowSavePlaybookModal(false);
+          setNewPlaybookName('');
+        } else if (showDocSelector) {
           setShowDocSelector(false);
         } else {
           onClose();
@@ -240,20 +247,23 @@ export function BatchRunnerModal(props: BatchRunnerModalProps) {
         unregisterLayer(layerIdRef.current);
       }
     };
-  }, [registerLayer, unregisterLayer, showDocSelector]);
+  }, [registerLayer, unregisterLayer, showDocSelector, showSavePlaybookModal]);
 
   // Update handler when dependencies change
   useEffect(() => {
     if (layerIdRef.current) {
       updateLayerHandler(layerIdRef.current, () => {
-        if (showDocSelector) {
+        if (showSavePlaybookModal) {
+          setShowSavePlaybookModal(false);
+          setNewPlaybookName('');
+        } else if (showDocSelector) {
           setShowDocSelector(false);
         } else {
           onClose();
         }
       });
     }
-  }, [onClose, updateLayerHandler, showDocSelector]);
+  }, [onClose, updateLayerHandler, showDocSelector, showSavePlaybookModal]);
 
   // Focus textarea on mount (if not showing doc selector)
   useEffect(() => {
@@ -441,6 +451,42 @@ export function BatchRunnerModal(props: BatchRunnerModalProps) {
     );
   }, [sessionId, showConfirmation, loadedPlaybook]);
 
+  // Handle saving a new playbook
+  const handleSaveAsPlaybook = useCallback(async () => {
+    const trimmedName = newPlaybookName.trim();
+    if (!trimmedName || savingPlaybook) return;
+
+    setSavingPlaybook(true);
+    try {
+      const result = await window.maestro.playbooks.create(sessionId, {
+        name: trimmedName,
+        documents: documents.map(d => ({
+          filename: d.filename,
+          resetOnCompletion: d.resetOnCompletion
+        })),
+        loopEnabled,
+        prompt
+      });
+
+      if (result.success) {
+        setPlaybooks(prev => [...prev, result.playbook]);
+        setLoadedPlaybook(result.playbook);
+        setShowSavePlaybookModal(false);
+        setNewPlaybookName('');
+      }
+    } catch (error) {
+      console.error('Failed to save playbook:', error);
+    }
+    setSavingPlaybook(false);
+  }, [sessionId, newPlaybookName, documents, loopEnabled, prompt, savingPlaybook]);
+
+  // Focus input when save modal opens
+  useEffect(() => {
+    if (showSavePlaybookModal) {
+      setTimeout(() => savePlaybookInputRef.current?.focus(), 100);
+    }
+  }, [showSavePlaybookModal]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -585,19 +631,30 @@ export function BatchRunnerModal(props: BatchRunnerModalProps) {
               )}
             </div>
 
-            {/* Loaded playbook indicator with modification status */}
-            {loadedPlaybook && (
-              <div className="flex items-center gap-2">
-                {isPlaybookModified && (
-                  <span
-                    className="text-xs px-2 py-0.5 rounded-full"
-                    style={{ backgroundColor: theme.colors.warning + '20', color: theme.colors.warning }}
-                  >
-                    Modified
-                  </span>
-                )}
-              </div>
-            )}
+            {/* Right side: Save as Playbook OR modification status */}
+            <div className="flex items-center gap-2">
+              {/* Save as Playbook button - shown when >1 doc and no playbook loaded */}
+              {documents.length > 1 && !loadedPlaybook && (
+                <button
+                  onClick={() => setShowSavePlaybookModal(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg border hover:bg-white/5 transition-colors"
+                  style={{ borderColor: theme.colors.border, color: theme.colors.textMain }}
+                >
+                  <Bookmark className="w-4 h-4" style={{ color: theme.colors.accent }} />
+                  <span className="text-sm">Save as Playbook</span>
+                </button>
+              )}
+
+              {/* Loaded playbook indicator with modification status */}
+              {loadedPlaybook && isPlaybookModified && (
+                <span
+                  className="text-xs px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: theme.colors.warning + '20', color: theme.colors.warning }}
+                >
+                  Modified
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Documents Section */}
@@ -999,6 +1056,89 @@ export function BatchRunnerModal(props: BatchRunnerModalProps) {
                 style={{ backgroundColor: theme.colors.accent }}
               >
                 Add ({selectedDocsInSelector.size})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Save Playbook Modal */}
+      {showSavePlaybookModal && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]"
+          onClick={() => {
+            setShowSavePlaybookModal(false);
+            setNewPlaybookName('');
+          }}
+        >
+          <div
+            className="w-[400px] border rounded-lg shadow-2xl overflow-hidden"
+            style={{ backgroundColor: theme.colors.bgSidebar, borderColor: theme.colors.border }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: theme.colors.border }}>
+              <h3 className="text-sm font-bold" style={{ color: theme.colors.textMain }}>
+                Save as Playbook
+              </h3>
+              <button
+                onClick={() => {
+                  setShowSavePlaybookModal(false);
+                  setNewPlaybookName('');
+                }}
+                style={{ color: theme.colors.textDim }}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-4">
+              <label className="block text-xs font-bold uppercase mb-2" style={{ color: theme.colors.textDim }}>
+                Playbook Name
+              </label>
+              <input
+                ref={savePlaybookInputRef}
+                type="text"
+                value={newPlaybookName}
+                onChange={(e) => setNewPlaybookName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newPlaybookName.trim()) {
+                    handleSaveAsPlaybook();
+                  }
+                }}
+                placeholder="Enter a name for this playbook..."
+                className="w-full px-3 py-2 rounded border bg-transparent outline-none focus:ring-1"
+                style={{
+                  borderColor: theme.colors.border,
+                  color: theme.colors.textMain,
+                }}
+              />
+              <p className="text-xs mt-2" style={{ color: theme.colors.textDim }}>
+                Saves the current document list, order, reset settings, loop mode, and prompt.
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t flex justify-end gap-2" style={{ borderColor: theme.colors.border }}>
+              <button
+                onClick={() => {
+                  setShowSavePlaybookModal(false);
+                  setNewPlaybookName('');
+                }}
+                className="px-4 py-2 rounded border hover:bg-white/5 transition-colors"
+                style={{ borderColor: theme.colors.border, color: theme.colors.textMain }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveAsPlaybook}
+                disabled={!newPlaybookName.trim() || savingPlaybook}
+                className="flex items-center gap-2 px-4 py-2 rounded text-white font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ backgroundColor: theme.colors.accent }}
+              >
+                <Bookmark className="w-4 h-4" />
+                {savingPlaybook ? 'Saving...' : 'Save'}
               </button>
             </div>
           </div>
