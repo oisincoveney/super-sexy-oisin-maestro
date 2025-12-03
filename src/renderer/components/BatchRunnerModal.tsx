@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { X, RotateCcw, Play, Variable, ChevronDown, ChevronRight, Save, GripVertical, Plus } from 'lucide-react';
+import { X, RotateCcw, Play, Variable, ChevronDown, ChevronRight, Save, GripVertical, Plus, Repeat } from 'lucide-react';
 import type { Theme, BatchDocumentEntry, BatchRunConfig } from '../types';
 import { useLayerStack } from '../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
@@ -125,6 +125,9 @@ export function BatchRunnerModal(props: BatchRunnerModalProps) {
   const [showDocSelector, setShowDocSelector] = useState(false);
   const [selectedDocsInSelector, setSelectedDocsInSelector] = useState<Set<string>>(new Set());
 
+  // Loop mode state
+  const [loopEnabled, setLoopEnabled] = useState(false);
+
   // Prompt state
   const [prompt, setPrompt] = useState(initialPrompt || DEFAULT_BATCH_PROMPT);
   const [variablesExpanded, setVariablesExpanded] = useState(false);
@@ -225,7 +228,7 @@ export function BatchRunnerModal(props: BatchRunnerModalProps) {
     onGo({
       documents,
       prompt,
-      loopEnabled: false // Will be added in Phase 4.2.1
+      loopEnabled
     });
     onClose();
   };
@@ -470,6 +473,60 @@ export function BatchRunnerModal(props: BatchRunnerModalProps) {
             {documents.length > 1 && (
               <div className="mt-2 text-xs" style={{ color: theme.colors.textDim }}>
                 Total: {loadingTaskCounts ? '...' : totalTaskCount} tasks across {documents.length} documents
+              </div>
+            )}
+
+            {/* Loop Mode Toggle - only shown when multiple documents exist */}
+            {documents.length > 1 && (
+              <div className="mt-4 flex items-center gap-3">
+                <button
+                  onClick={() => setLoopEnabled(!loopEnabled)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors ${
+                    loopEnabled ? 'border-accent' : 'border-border hover:bg-white/5'
+                  }`}
+                  style={{
+                    borderColor: loopEnabled ? theme.colors.accent : theme.colors.border,
+                    backgroundColor: loopEnabled ? theme.colors.accent + '15' : 'transparent'
+                  }}
+                >
+                  <Repeat
+                    className="w-4 h-4"
+                    style={{ color: loopEnabled ? theme.colors.accent : theme.colors.textDim }}
+                  />
+                  <span
+                    className="text-sm font-medium"
+                    style={{ color: loopEnabled ? theme.colors.accent : theme.colors.textMain }}
+                  >
+                    Loop
+                  </span>
+                </button>
+                <span className="text-xs" style={{ color: theme.colors.textDim }}>
+                  Loop back to first document when finished
+                </span>
+              </div>
+            )}
+
+            {/* Loop Indicator - curved arrow from last doc back to first */}
+            {loopEnabled && documents.length > 1 && (
+              <div className="flex justify-center mt-3">
+                <svg width="50" height="24" viewBox="0 0 50 24" fill="none">
+                  {/* Curved arrow from bottom back to top */}
+                  <path
+                    d="M5 20 Q 25 28, 45 12 Q 50 8, 45 4"
+                    stroke={theme.colors.accent}
+                    strokeWidth="2"
+                    fill="none"
+                    strokeLinecap="round"
+                  />
+                  {/* Arrow head pointing left (back to start) */}
+                  <path
+                    d="M45 4 L 40 2 M 45 4 L 42 8"
+                    stroke={theme.colors.accent}
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </div>
             )}
           </div>
