@@ -100,11 +100,20 @@ export interface BatchDocumentEntry {
   isDuplicate: boolean;    // True if this is a duplicate (can be removed)
 }
 
+// Git worktree configuration for Auto Run
+export interface WorktreeConfig {
+  enabled: boolean;              // Whether to use a worktree
+  path: string;                  // Absolute path for the worktree
+  branchName: string;            // Branch name to use/create
+  createPROnCompletion: boolean; // Create PR when Auto Run finishes
+}
+
 // Configuration for starting a batch run
 export interface BatchRunConfig {
   documents: BatchDocumentEntry[];  // Ordered list of docs to run
   prompt: string;
   loopEnabled: boolean;    // Loop back to first doc when done
+  worktree?: WorktreeConfig;     // Optional worktree configuration
 }
 
 // Batch processing state
@@ -130,6 +139,11 @@ export interface BatchRunState {
 
   // Folder path for file operations
   folderPath: string;
+
+  // Worktree tracking
+  worktreeActive: boolean;       // Currently running in a worktree
+  worktreePath?: string;         // Path to the active worktree
+  worktreeBranch?: string;       // Branch name in the worktree
 
   // Legacy fields (kept for backwards compatibility during migration)
   totalTasks: number;
@@ -162,6 +176,12 @@ export interface Playbook {
   documents: PlaybookDocumentEntry[];  // Ordered list of documents
   loopEnabled: boolean;
   prompt: string;                    // Custom agent prompt
+
+  // Optional worktree settings (path not stored - user selects each time)
+  worktreeSettings?: {
+    branchNameTemplate: string;    // e.g., "autorun-{playbook}-{timestamp}"
+    createPROnCompletion: boolean;
+  };
 }
 
 // Usage statistics from Claude Code CLI
