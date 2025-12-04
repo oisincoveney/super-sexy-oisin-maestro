@@ -73,7 +73,7 @@ export interface WorkLogItem {
 }
 
 // History entry types for the History panel
-export type HistoryEntryType = 'AUTO' | 'USER';
+export type HistoryEntryType = 'AUTO' | 'USER' | 'LOOP_SUMMARY';
 
 export interface HistoryEntry {
   id: string;

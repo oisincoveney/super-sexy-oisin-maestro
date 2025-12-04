@@ -1286,46 +1286,55 @@ export default function MaestroConsole() {
       setSessions(prev => prev.map(s => {
         if (s.id !== actualSessionId) return s;
 
-        // Calculate context window usage percentage
-        // For a conversation, context contains all inputs and outputs
-        // inputTokens = full input token count (already includes cache hits)
-        // outputTokens = response tokens (become part of context in follow-up turns)
-        // Note: cache tokens are about billing optimization, not context size
-        // The actual context footprint is input + output tokens
-        const contextTokens = usageStats.inputTokens + usageStats.outputTokens;
-        const contextPercentage = Math.min(Math.round((contextTokens / usageStats.contextWindow) * 100), 100);
-
-        // Accumulate cost if there's already usage stats (session-level for backwards compat)
-        const existingCost = s.usageStats?.totalCostUsd || 0;
-
         // Current cycle tokens = output tokens from this response
         // (These are the NEW tokens added to the context, not the cumulative total)
         const cycleTokens = (s.currentCycleTokens || 0) + usageStats.outputTokens;
 
         // Update the specific tab's usageStats if we have a tabId
+        // Token counts need to be accumulated across exchanges for accurate context window tracking
+        // Claude Code CLI reports per-exchange tokens, not cumulative session tokens
         let updatedAiTabs = s.aiTabs;
+        let accumulatedTabStats: typeof usageStats | null = null;
         if (tabId && s.aiTabs) {
           updatedAiTabs = s.aiTabs.map(tab => {
             if (tab.id !== tabId) return tab;
-            // Accumulate cost for this specific tab
-            const tabExistingCost = tab.usageStats?.totalCostUsd || 0;
+            // Accumulate all stats for this specific tab
+            const existing = tab.usageStats;
+            accumulatedTabStats = {
+              inputTokens: (existing?.inputTokens || 0) + usageStats.inputTokens,
+              outputTokens: (existing?.outputTokens || 0) + usageStats.outputTokens,
+              cacheReadInputTokens: (existing?.cacheReadInputTokens || 0) + usageStats.cacheReadInputTokens,
+              cacheCreationInputTokens: (existing?.cacheCreationInputTokens || 0) + usageStats.cacheCreationInputTokens,
+              totalCostUsd: (existing?.totalCostUsd || 0) + usageStats.totalCostUsd,
+              contextWindow: usageStats.contextWindow // Use latest context window size
+            };
             return {
               ...tab,
-              usageStats: {
-                ...usageStats,
-                totalCostUsd: tabExistingCost + usageStats.totalCostUsd
-              }
+              usageStats: accumulatedTabStats
             };
           });
         }
+
+        // Calculate context window usage percentage from accumulated tab stats
+        // For a conversation, context contains all inputs and outputs accumulated over the session
+        const effectiveStats = accumulatedTabStats || usageStats;
+        const contextTokens = effectiveStats.inputTokens + effectiveStats.outputTokens;
+        const contextPercentage = Math.min(Math.round((contextTokens / effectiveStats.contextWindow) * 100), 100);
+
+        // Accumulate session-level stats for backwards compatibility
+        const existingSessionStats = s.usageStats;
 
         return {
           ...s,
           contextUsage: contextPercentage,
           currentCycleTokens: cycleTokens,
           usageStats: {
-            ...usageStats,
-            totalCostUsd: existingCost + usageStats.totalCostUsd
+            inputTokens: (existingSessionStats?.inputTokens || 0) + usageStats.inputTokens,
+            outputTokens: (existingSessionStats?.outputTokens || 0) + usageStats.outputTokens,
+            cacheReadInputTokens: (existingSessionStats?.cacheReadInputTokens || 0) + usageStats.cacheReadInputTokens,
+            cacheCreationInputTokens: (existingSessionStats?.cacheCreationInputTokens || 0) + usageStats.cacheCreationInputTokens,
+            totalCostUsd: (existingSessionStats?.totalCostUsd || 0) + usageStats.totalCostUsd,
+            contextWindow: usageStats.contextWindow
           },
           aiTabs: updatedAiTabs
         };

@@ -404,6 +404,8 @@ interface MaestroAPI {
       prompt: string;
     }>) => Promise<{ success: boolean; playbook?: any; error?: string }>;
     delete: (sessionId: string, playbookId: string) => Promise<{ success: boolean; error?: string }>;
+    export: (sessionId: string, playbookId: string, autoRunFolderPath: string) => Promise<{ success: boolean; filePath?: string; error?: string }>;
+    import: (sessionId: string, autoRunFolderPath: string) => Promise<{ success: boolean; playbook?: any; importedDocs?: string[]; error?: string }>;
   };
 }
 

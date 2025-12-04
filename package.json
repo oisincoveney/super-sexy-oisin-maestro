@@ -101,7 +101,9 @@
     "@fastify/static": "^7.0.4",
     "@fastify/websocket": "^9.0.0",
     "@types/dompurify": "^3.0.5",
+    "adm-zip": "^0.5.16",
     "ansi-to-html": "^0.7.2",
+    "archiver": "^7.0.1",
     "canvas-confetti": "^1.9.4",
     "diff": "^8.0.2",
     "dompurify": "^3.3.0",
@@ -120,6 +122,8 @@
     "ws": "^8.16.0"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
+    "@types/archiver": "^7.0.0",
     "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^20.10.6",
     "@types/qrcode": "^1.5.6",

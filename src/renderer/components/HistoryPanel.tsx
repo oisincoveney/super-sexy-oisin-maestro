@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef, useMemo } from 'react';
-import { Bot, User, ExternalLink, Check, X, Clock, HelpCircle } from 'lucide-react';
+import { Bot, User, ExternalLink, Check, X, Clock, HelpCircle, RefreshCw } from 'lucide-react';
 import type { Session, Theme, HistoryEntry, HistoryEntryType } from '../types';
 import { HistoryDetailModal } from './HistoryDetailModal';
 import { HistoryHelpModal } from './HistoryHelpModal';
@@ -282,7 +282,7 @@ const LOAD_MORE_COUNT = 50;         // Entries to add when scrolling
 
 export const HistoryPanel = React.memo(forwardRef<HistoryPanelHandle, HistoryPanelProps>(function HistoryPanel({ session, theme, onJumpToClaudeSession, onResumeSession, onOpenSessionAsTab }, ref) {
   const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
-  const [activeFilters, setActiveFilters] = useState<Set<HistoryEntryType>>(new Set(['AUTO', 'USER']));
+  const [activeFilters, setActiveFilters] = useState<Set<HistoryEntryType>>(new Set(['AUTO', 'USER', 'LOOP_SUMMARY']));
   const [isLoading, setIsLoading] = useState(true);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const [detailModalEntry, setDetailModalEntry] = useState<HistoryEntry | null>(null);
@@ -572,8 +572,24 @@ export const HistoryPanel = React.memo(forwardRef<HistoryPanelHandle, HistoryPan
         return { bg: theme.colors.warning + '20', text: theme.colors.warning, border: theme.colors.warning + '40' };
       case 'USER':
         return { bg: theme.colors.accent + '20', text: theme.colors.accent, border: theme.colors.accent + '40' };
+      case 'LOOP_SUMMARY':
+        return { bg: theme.colors.success + '20', text: theme.colors.success, border: theme.colors.success + '40' };
       default:
         return { bg: theme.colors.bgActivity, text: theme.colors.textDim, border: theme.colors.border };
+    }
+  };
+
+  // Get icon for entry type
+  const getEntryIcon = (type: HistoryEntryType) => {
+    switch (type) {
+      case 'AUTO':
+        return Bot;
+      case 'USER':
+        return User;
+      case 'LOOP_SUMMARY':
+        return RefreshCw;
+      default:
+        return Bot;
     }
   };
 
@@ -583,10 +599,12 @@ export const HistoryPanel = React.memo(forwardRef<HistoryPanelHandle, HistoryPan
       <div className="flex items-start gap-3 mb-4 pt-2">
         {/* Left-justified filter pills */}
         <div className="flex gap-2 flex-shrink-0">
-          {(['AUTO', 'USER'] as HistoryEntryType[]).map(type => {
+          {(['AUTO', 'USER', 'LOOP_SUMMARY'] as HistoryEntryType[]).map(type => {
             const isActive = activeFilters.has(type);
             const colors = getPillColor(type);
-            const Icon = type === 'AUTO' ? Bot : User;
+            const Icon = getEntryIcon(type);
+            // Use shorter label for LOOP_SUMMARY
+            const displayLabel = type === 'LOOP_SUMMARY' ? 'LOOP' : type;
 
             return (
               <button
@@ -602,7 +620,7 @@ export const HistoryPanel = React.memo(forwardRef<HistoryPanelHandle, HistoryPan
                 }}
               >
                 <Icon className="w-3 h-3" />
-                {type}
+                {displayLabel}
               </button>
             );
           })}
@@ -680,7 +698,7 @@ export const HistoryPanel = React.memo(forwardRef<HistoryPanelHandle, HistoryPan
           <>
           {filteredEntries.map((entry, index) => {
             const colors = getPillColor(entry.type);
-            const Icon = entry.type === 'AUTO' ? Bot : User;
+            const Icon = getEntryIcon(entry.type);
             const isSelected = index === selectedIndex;
 
             return (
@@ -739,7 +757,7 @@ export const HistoryPanel = React.memo(forwardRef<HistoryPanelHandle, HistoryPan
                       }}
                     >
                       <Icon className="w-2.5 h-2.5" />
-                      {entry.type}
+                      {entry.type === 'LOOP_SUMMARY' ? 'LOOP' : entry.type}
                     </span>
 
                     {/* Session Name or ID Octet (clickable) - opens session as new tab */}

@@ -85,6 +85,21 @@ interface UseBatchProcessorReturn {
 }
 
 /**
+ * Format duration in human-readable format for loop summaries
+ */
+function formatLoopDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  const seconds = Math.floor(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  if (minutes < 60) return `${minutes}m ${remainingSeconds}s`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `${hours}h ${remainingMinutes}m`;
+}
+
+/**
  * Count unchecked tasks in markdown content
  * Matches lines like: - [ ] task description
  */
@@ -244,6 +259,12 @@ ${docList}
       return;
     }
 
+    // Debug log: show document configuration
+    console.log('[BatchProcessor] Starting batch with documents:', documents.map(d => ({
+      filename: d.filename,
+      resetOnCompletion: d.resetOnCompletion
+    })));
+
     // Track batch start time for completion notification
     const batchStartTime = Date.now();
 
@@ -313,8 +334,10 @@ ${docList}
     let initialTotalTasks = 0;
     for (const doc of documents) {
       const { taskCount } = await readDocAndCountTasks(folderPath, doc.filename);
+      console.log(`[BatchProcessor] Document ${doc.filename}: ${taskCount} tasks`);
       initialTotalTasks += taskCount;
     }
+    console.log(`[BatchProcessor] Initial total tasks: ${initialTotalTasks}`);
 
     if (initialTotalTasks === 0) {
       console.warn('No unchecked tasks found across all documents for session:', sessionId);
@@ -362,6 +385,14 @@ ${docList}
     const claudeSessionIds: string[] = [];
     let totalCompletedTasks = 0;
     let loopIteration = 0;
+
+    // Per-loop tracking for loop summary
+    let loopStartTime = Date.now();
+    let loopTasksCompleted = 0;
+    let loopTasksDiscovered = 0;
+    let loopTotalInputTokens = 0;
+    let loopTotalOutputTokens = 0;
+    let loopTotalCost = 0;
 
     // Main processing loop (handles loop mode)
     while (true) {
@@ -449,6 +480,14 @@ ${docList}
             // Update counters
             docTasksCompleted += tasksCompletedThisRun;
             totalCompletedTasks += tasksCompletedThisRun;
+            loopTasksCompleted += tasksCompletedThisRun;
+
+            // Track token usage for loop summary
+            if (result.usageStats) {
+              loopTotalInputTokens += result.usageStats.inputTokens || 0;
+              loopTotalOutputTokens += result.usageStats.outputTokens || 0;
+              loopTotalCost += result.usageStats.totalCostUsd || 0;
+            }
 
             // Track non-reset document completions for loop exit logic
             if (!docEntry.resetOnCompletion) {
@@ -533,6 +572,7 @@ ${docList}
         }
 
         // Document complete - handle reset-on-completion if enabled
+        console.log(`[BatchProcessor] Document ${docEntry.filename} complete. resetOnCompletion=${docEntry.resetOnCompletion}, docTasksCompleted=${docTasksCompleted}`);
         if (docEntry.resetOnCompletion && docTasksCompleted > 0) {
           console.log(`[BatchProcessor] Resetting document ${docEntry.filename} (reset-on-completion enabled)`);
 
@@ -613,17 +653,60 @@ ${docList}
         break;
       }
 
-      // Continue looping
-      loopIteration++;
-      console.log(`[BatchProcessor] Starting loop iteration ${loopIteration + 1}`);
-
-      // Re-scan all documents to get fresh task counts (tasks may have been added/removed)
+      // Re-scan all documents to get fresh task counts for next loop (tasks may have been added/removed)
       let newTotalTasks = 0;
       for (const doc of documents) {
         const { taskCount } = await readDocAndCountTasks(folderPath, doc.filename);
         newTotalTasks += taskCount;
       }
-      console.log(`[BatchProcessor] Loop ${loopIteration + 1}: ${newTotalTasks} tasks across all documents`);
+
+      // Calculate loop elapsed time
+      const loopElapsedMs = Date.now() - loopStartTime;
+
+      // Add loop summary history entry
+      const loopSummary = `Loop ${loopIteration + 1} completed: ${loopTasksCompleted} task${loopTasksCompleted !== 1 ? 's' : ''} accomplished`;
+      const loopDetails = [
+        `**Loop ${loopIteration + 1} Summary**`,
+        '',
+        `- **Tasks Accomplished:** ${loopTasksCompleted}`,
+        `- **Duration:** ${formatLoopDuration(loopElapsedMs)}`,
+        loopTotalInputTokens > 0 || loopTotalOutputTokens > 0
+          ? `- **Tokens:** ${(loopTotalInputTokens + loopTotalOutputTokens).toLocaleString()} (${loopTotalInputTokens.toLocaleString()} in / ${loopTotalOutputTokens.toLocaleString()} out)`
+          : '',
+        loopTotalCost > 0 ? `- **Cost:** $${loopTotalCost.toFixed(4)}` : '',
+        `- **Tasks Discovered for Next Loop:** ${newTotalTasks}`,
+      ].filter(line => line !== '').join('\n');
+
+      onAddHistoryEntry({
+        type: 'LOOP_SUMMARY',
+        timestamp: Date.now(),
+        summary: loopSummary,
+        fullResponse: loopDetails,
+        projectPath: session.cwd,
+        sessionId: sessionId,
+        success: true,
+        elapsedTimeMs: loopElapsedMs,
+        usageStats: loopTotalInputTokens > 0 || loopTotalOutputTokens > 0 ? {
+          inputTokens: loopTotalInputTokens,
+          outputTokens: loopTotalOutputTokens,
+          cacheReadInputTokens: 0,
+          cacheCreationInputTokens: 0,
+          totalCostUsd: loopTotalCost,
+          contextWindow: 0
+        } : undefined
+      });
+
+      // Reset per-loop tracking for next iteration
+      loopStartTime = Date.now();
+      loopTasksCompleted = 0;
+      loopTasksDiscovered = newTotalTasks;
+      loopTotalInputTokens = 0;
+      loopTotalOutputTokens = 0;
+      loopTotalCost = 0;
+
+      // Continue looping
+      loopIteration++;
+      console.log(`[BatchProcessor] Starting loop iteration ${loopIteration + 1}: ${newTotalTasks} tasks across all documents`);
 
       setBatchRunStates(prev => ({
         ...prev,

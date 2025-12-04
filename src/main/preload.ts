@@ -543,6 +543,10 @@ contextBridge.exposeInMainWorld('maestro', {
     ) => ipcRenderer.invoke('playbooks:update', sessionId, playbookId, updates),
     delete: (sessionId: string, playbookId: string) =>
       ipcRenderer.invoke('playbooks:delete', sessionId, playbookId),
+    export: (sessionId: string, playbookId: string, autoRunFolderPath: string) =>
+      ipcRenderer.invoke('playbooks:export', sessionId, playbookId, autoRunFolderPath),
+    import: (sessionId: string, autoRunFolderPath: string) =>
+      ipcRenderer.invoke('playbooks:import', sessionId, autoRunFolderPath),
   },
 });
 

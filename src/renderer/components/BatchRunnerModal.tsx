@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { X, RotateCcw, Play, Variable, ChevronDown, ChevronRight, Save, GripVertical, Plus, Repeat, FolderOpen, Bookmark, GitBranch, AlertTriangle, Loader2, Maximize2 } from 'lucide-react';
+import { X, RotateCcw, Play, Variable, ChevronDown, ChevronRight, Save, GripVertical, Plus, Repeat, FolderOpen, Bookmark, GitBranch, AlertTriangle, Loader2, Maximize2, Download, Upload } from 'lucide-react';
 import type { Theme, BatchDocumentEntry, BatchRunConfig, Playbook, PlaybookDocumentEntry, WorktreeConfig } from '../types';
 import { useLayerStack } from '../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
@@ -723,6 +723,35 @@ export function BatchRunnerModal(props: BatchRunnerModalProps) {
     setPlaybookToDelete(null);
   }, []);
 
+  // Handle exporting a playbook
+  const handleExportPlaybook = useCallback(async (playbook: Playbook) => {
+    try {
+      const result = await window.maestro.playbooks.export(sessionId, playbook.id, folderPath);
+      if (!result.success && result.error !== 'Export cancelled') {
+        console.error('Failed to export playbook:', result.error);
+      }
+    } catch (error) {
+      console.error('Failed to export playbook:', error);
+    }
+  }, [sessionId, folderPath]);
+
+  // Handle importing a playbook
+  const handleImportPlaybook = useCallback(async () => {
+    try {
+      const result = await window.maestro.playbooks.import(sessionId, folderPath);
+      if (result.success && result.playbook) {
+        // Add to local playbooks list
+        setPlaybooks(prev => [...prev, result.playbook]);
+        // Load the imported playbook
+        loadPlaybook(result.playbook);
+      } else if (result.error && result.error !== 'Import cancelled') {
+        console.error('Failed to import playbook:', result.error);
+      }
+    } catch (error) {
+      console.error('Failed to import playbook:', error);
+    }
+  }, [sessionId, folderPath, loadPlaybook]);
+
   // Handle saving a new playbook
   const handleSaveAsPlaybook = useCallback(async (name: string) => {
     if (savingPlaybook) return;
@@ -934,6 +963,17 @@ export function BatchRunnerModal(props: BatchRunnerModalProps) {
                             {pb.documents.length} doc{pb.documents.length !== 1 ? 's' : ''}
                           </span>
                           <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleExportPlaybook(pb);
+                            }}
+                            className="p-1 rounded hover:bg-white/10 transition-colors shrink-0"
+                            style={{ color: theme.colors.textDim }}
+                            title="Export playbook"
+                          >
+                            <Download className="w-3 h-3" />
+                          </button>
+                          <button
                             onClick={(e) => handleDeletePlaybook(pb, e)}
                             className="p-1 rounded hover:bg-white/10 transition-colors shrink-0"
                             style={{ color: theme.colors.textDim }}
@@ -943,6 +983,23 @@ export function BatchRunnerModal(props: BatchRunnerModalProps) {
                           </button>
                         </div>
                       ))}
+                    </div>
+                    {/* Import playbook button */}
+                    <div
+                      className="border-t px-3 py-2"
+                      style={{ borderColor: theme.colors.border }}
+                    >
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleImportPlaybook();
+                        }}
+                        className="flex items-center gap-2 w-full px-2 py-1.5 rounded hover:bg-white/5 transition-colors text-sm"
+                        style={{ color: theme.colors.accent }}
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        Import Playbook
+                      </button>
                     </div>
                   </div>
                 )}
@@ -965,7 +1022,7 @@ export function BatchRunnerModal(props: BatchRunnerModalProps) {
                 </button>
               )}
 
-              {/* Save Update and Discard buttons - shown when playbook is loaded and modified */}
+              {/* Save Update, Save as New, and Discard buttons - shown when playbook is loaded and modified */}
               {loadedPlaybook && isPlaybookModified && (
                 <>
                   <button
@@ -976,6 +1033,16 @@ export function BatchRunnerModal(props: BatchRunnerModalProps) {
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span className="text-sm">Discard</span>
+                  </button>
+                  <button
+                    onClick={() => setShowSavePlaybookModal(true)}
+                    disabled={savingPlaybook}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ borderColor: theme.colors.border, color: theme.colors.textMain }}
+                    title="Save as a new playbook with a different name"
+                  >
+                    <Bookmark className="w-3.5 h-3.5" />
+                    <span className="text-sm">Save as New</span>
                   </button>
                   <button
                     onClick={handleSaveUpdate}
