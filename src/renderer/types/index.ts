@@ -228,6 +228,7 @@ export interface AutoRunStats {
   totalRuns: number;              // Total number of AutoRun sessions completed
   currentBadgeLevel: number;      // Current badge level (1-11)
   lastBadgeUnlockLevel: number;   // Last badge level that triggered unlock notification
+  lastAcknowledgedBadgeLevel: number; // Last badge level user clicked "Take a Bow" on
   badgeHistory: BadgeUnlockRecord[]; // History of badge unlocks with timestamps
 }
 

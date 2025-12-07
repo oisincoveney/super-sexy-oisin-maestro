@@ -150,7 +150,7 @@ export default function MaestroConsole() {
     shortcuts, setShortcuts,
     customAICommands, setCustomAICommands,
     globalStats, updateGlobalStats,
-    autoRunStats, recordAutoRunComplete,
+    autoRunStats, recordAutoRunComplete, acknowledgeBadge, getUnacknowledgedBadgeLevel,
   } = settings;
 
   // --- STATE ---
@@ -568,6 +568,27 @@ export default function MaestroConsole() {
       }
     }
   }, [settingsLoaded, sessionsLoaded]);
+
+  // Check for unacknowledged badges on startup (show missed standing ovations)
+  useEffect(() => {
+    if (settingsLoaded && sessionsLoaded) {
+      const unacknowledgedLevel = getUnacknowledgedBadgeLevel();
+      if (unacknowledgedLevel !== null) {
+        const badge = CONDUCTOR_BADGES.find(b => b.level === unacknowledgedLevel);
+        if (badge) {
+          // Show the standing ovation overlay for the missed badge
+          // Small delay to ensure UI is fully rendered
+          setTimeout(() => {
+            setStandingOvationData({
+              badge,
+              isNewRecord: false, // We don't know if it was a record, so default to false
+              recordTimeMs: autoRunStats.longestRunMs,
+            });
+          }, 1000);
+        }
+      }
+    }
+  }, [settingsLoaded, sessionsLoaded]); // Only run once on startup
 
   // Set up process event listeners for real-time output
   useEffect(() => {
@@ -6073,7 +6094,11 @@ export default function MaestroConsole() {
           isNewRecord={standingOvationData.isNewRecord}
           recordTimeMs={standingOvationData.recordTimeMs}
           cumulativeTimeMs={autoRunStats.cumulativeTimeMs}
-          onClose={() => setStandingOvationData(null)}
+          onClose={() => {
+            // Mark badge as acknowledged when user clicks "Take a Bow"
+            acknowledgeBadge(standingOvationData.badge.level);
+            setStandingOvationData(null);
+          }}
         />
       )}
 

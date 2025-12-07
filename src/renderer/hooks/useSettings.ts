@@ -22,6 +22,7 @@ const DEFAULT_AUTO_RUN_STATS: AutoRunStats = {
   totalRuns: 0,
   currentBadgeLevel: 0,
   lastBadgeUnlockLevel: 0,
+  lastAcknowledgedBadgeLevel: 0,
   badgeHistory: [],
 };
 
@@ -135,6 +136,8 @@ export interface UseSettingsReturn {
   autoRunStats: AutoRunStats;
   setAutoRunStats: (value: AutoRunStats) => void;
   recordAutoRunComplete: (elapsedTimeMs: number) => { newBadgeLevel: number | null; isNewRecord: boolean };
+  acknowledgeBadge: (level: number) => void;
+  getUnacknowledgedBadgeLevel: () => number | null;
 }
 
 export function useSettings(): UseSettingsReturn {
@@ -417,6 +420,7 @@ export function useSettings(): UseSettingsReturn {
         totalRuns: prev.totalRuns + 1,
         currentBadgeLevel: newBadgeLevelCalc,
         lastBadgeUnlockLevel: newBadgeLevel !== null ? newBadgeLevelCalc : prev.lastBadgeUnlockLevel,
+        lastAcknowledgedBadgeLevel: prev.lastAcknowledgedBadgeLevel ?? 0,
         badgeHistory: updatedBadgeHistory,
       };
 
@@ -425,6 +429,28 @@ export function useSettings(): UseSettingsReturn {
     });
 
     return { newBadgeLevel, isNewRecord };
+  };
+
+  // Acknowledge that user has seen the standing ovation for a badge level
+  const acknowledgeBadge = (level: number) => {
+    setAutoRunStatsState(prev => {
+      const updated: AutoRunStats = {
+        ...prev,
+        lastAcknowledgedBadgeLevel: Math.max(level, prev.lastAcknowledgedBadgeLevel ?? 0),
+      };
+      window.maestro.settings.set('autoRunStats', updated);
+      return updated;
+    });
+  };
+
+  // Get the highest unacknowledged badge level (if any)
+  const getUnacknowledgedBadgeLevel = (): number | null => {
+    const acknowledged = autoRunStatsState.lastAcknowledgedBadgeLevel ?? 0;
+    const current = autoRunStatsState.currentBadgeLevel;
+    if (current > acknowledged) {
+      return current;
+    }
+    return null;
   };
 
   // Load settings from electron-store on mount
@@ -585,5 +611,7 @@ export function useSettings(): UseSettingsReturn {
     autoRunStats,
     setAutoRunStats,
     recordAutoRunComplete,
+    acknowledgeBadge,
+    getUnacknowledgedBadgeLevel,
   };
 }
