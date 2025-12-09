@@ -19,7 +19,7 @@ Maestro ships with a variety of themes that fall under three categories: Dark, L
 <img width="3592" height="2302" alt="image" src="https://github.com/user-attachments/assets/64c6a699-cb64-4d5a-a245-69ab29cb59e3" />
 
 ### Gruvbox Dark
-<img width="3592" height="2302" alt="image" src="https://github.com/user-attachments/assets/e388a66c-6aff-4fb3-9ddf-b52f17ef7d1e" />
+<img width="3592" height="2302" alt="image" src="https://github.com/user-attachments/assets/3dab3ae6-ff18-4d66-aca5-ff5ef57096f2" />
 
 ## Light
 
@@ -59,6 +59,7 @@ It's a vibe.
 ### InQuest
 An homage to InQuest.net, acquired by OPSWAT in 2024.
 <img width="3592" height="2302" alt="image" src="https://github.com/user-attachments/assets/706961b2-037a-4228-9b69-0958847f2bcc" />
+
 
 
 
