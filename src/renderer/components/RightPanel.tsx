@@ -59,6 +59,7 @@ interface RightPanelProps {
   autoRunDocumentList: string[];        // List of document filenames (without .md)
   autoRunDocumentTree?: Array<{ name: string; type: 'file' | 'folder'; path: string; children?: unknown[] }>;  // Tree structure for subfolders
   autoRunContent: string;               // Content of currently selected document
+  autoRunContentVersion?: number;       // Version counter for external file changes (forces sync)
   autoRunIsLoadingDocuments: boolean;   // Loading state
   onAutoRunContentChange: (content: string) => void;
   onAutoRunModeChange: (mode: 'edit' | 'preview') => void;
@@ -91,7 +92,7 @@ export const RightPanel = forwardRef<RightPanelHandle, RightPanelProps>(function
     filteredFileTree, selectedFileIndex, setSelectedFileIndex, previewFile, fileTreeContainerRef,
     fileTreeFilterInputRef, toggleFolder, handleFileClick, expandAllFolders, collapseAllFolders,
     updateSessionWorkingDirectory, refreshFileTree, setSessions, onAutoRefreshChange, onShowFlash,
-    autoRunDocumentList, autoRunDocumentTree, autoRunContent, autoRunIsLoadingDocuments,
+    autoRunDocumentList, autoRunDocumentTree, autoRunContent, autoRunContentVersion, autoRunIsLoadingDocuments,
     onAutoRunContentChange, onAutoRunModeChange, onAutoRunStateChange,
     onAutoRunSelectDocument, onAutoRunCreateDocument, onAutoRunRefresh, onAutoRunOpenSetup,
     batchRunState, currentSessionBatchState, onOpenBatchRunner, onStopBatchRun, onJumpToClaudeSession, onResumeSession,
@@ -300,6 +301,7 @@ export const RightPanel = forwardRef<RightPanelHandle, RightPanelProps>(function
             documentList={autoRunDocumentList}
             documentTree={autoRunDocumentTree}
             content={autoRunContent}
+            contentVersion={autoRunContentVersion}
             onContentChange={onAutoRunContentChange}
             mode={session.autoRunMode || 'edit'}
             onModeChange={onAutoRunModeChange}
@@ -344,6 +346,15 @@ export const RightPanel = forwardRef<RightPanelHandle, RightPanelProps>(function
               </span>
             )}
           </div>
+
+          {/* Current document name - for single document runs */}
+          {currentSessionBatchState.documents && currentSessionBatchState.documents.length === 1 && (
+            <div className="mb-2">
+              <span className="text-xs" style={{ color: theme.colors.textDim }}>
+                {currentSessionBatchState.documents[0]}.md
+              </span>
+            </div>
+          )}
 
           {/* Document progress with inline progress bar - only for multi-document runs */}
           {currentSessionBatchState.documents && currentSessionBatchState.documents.length > 1 && (

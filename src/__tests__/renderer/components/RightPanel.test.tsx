@@ -576,7 +576,7 @@ describe('RightPanel', () => {
       expect(screen.getByText(/Document 2\/3: doc2.md/)).toBeInTheDocument();
     });
 
-    it('should not show document progress for single-document runs', () => {
+    it('should not show document progress bar for single-document runs but should show document name', () => {
       const currentSessionBatchState: BatchRunState = {
         isRunning: true,
         isStopping: false,
@@ -594,7 +594,10 @@ describe('RightPanel', () => {
       const props = createDefaultProps({ currentSessionBatchState });
       render(<RightPanel {...props} />);
 
+      // Should not show "Document 1/1" format (multi-doc progress)
       expect(screen.queryByText(/Document 1\/1/)).not.toBeInTheDocument();
+      // But should show the document name
+      expect(screen.getByText('doc1.md')).toBeInTheDocument();
     });
 
     it('should show total tasks completed', () => {

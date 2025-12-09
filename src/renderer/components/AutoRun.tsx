@@ -27,6 +27,7 @@ interface AutoRunProps {
   // Content state
   content: string;
   onContentChange: (content: string) => void;
+  contentVersion?: number;  // Incremented on external file changes to force-sync
 
   // Mode state
   mode: 'edit' | 'preview';
@@ -360,6 +361,7 @@ const AutoRunInner = forwardRef<AutoRunHandle, AutoRunProps>(function AutoRunInn
   documentTree,
   content,
   onContentChange,
+  contentVersion = 0,  // Used to force-sync on external file changes
   mode: externalMode,
   onModeChange,
   initialCursorPosition = 0,
@@ -528,12 +530,16 @@ const AutoRunInner = forwardRef<AutoRunHandle, AutoRunProps>(function AutoRunInn
 
   // Track content prop to detect external changes (for session switch sync)
   const prevContentForSyncRef = useRef(content);
+  // Track contentVersion to detect external file changes (from disk watcher)
+  const prevContentVersionRef = useRef(contentVersion);
 
   // Sync local content from prop when session changes (switching sessions)
   // or when content changes externally (e.g., switching documents, batch run modifying tasks)
+  // or when file changes on disk (contentVersion increments)
   useEffect(() => {
     const sessionChanged = sessionId !== prevSessionIdRef.current;
     const contentChanged = content !== prevContentForSyncRef.current;
+    const versionChanged = contentVersion !== prevContentVersionRef.current;
 
     if (sessionChanged) {
       // Reset editing flag so content can sync properly when returning to this session
@@ -541,12 +547,22 @@ const AutoRunInner = forwardRef<AutoRunHandle, AutoRunProps>(function AutoRunInn
       setLocalContent(content);
       prevSessionIdRef.current = sessionId;
       prevContentForSyncRef.current = content;
+      prevContentVersionRef.current = contentVersion;
+    } else if (versionChanged) {
+      // External file change detected (disk watcher) - force sync regardless of editing state
+      // This is authoritative - the file on disk is the source of truth
+      isEditingRef.current = false;
+      setLocalContent(content);
+      prevContentForSyncRef.current = content;
+      prevContentVersionRef.current = contentVersion;
+      // Also update lastSavedContentRef to prevent auto-save from overwriting
+      lastSavedContentRef.current = content;
     } else if (contentChanged && !isEditingRef.current) {
       // Content changed externally (document switch, batch run, etc.) - sync if not editing
       setLocalContent(content);
       prevContentForSyncRef.current = content;
     }
-  }, [sessionId, content]);
+  }, [sessionId, content, contentVersion]);
 
   // Sync local content to parent on blur
   const syncContentToParent = useCallback(() => {

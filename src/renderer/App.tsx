@@ -320,6 +320,7 @@ export default function MaestroConsole() {
   const [autoRunDocumentList, setAutoRunDocumentList] = useState<string[]>([]);
   const [autoRunDocumentTree, setAutoRunDocumentTree] = useState<Array<{ name: string; type: 'file' | 'folder'; path: string; children?: unknown[] }>>([]);
   const [autoRunContent, setAutoRunContent] = useState<string>('');
+  const [autoRunContentVersion, setAutoRunContentVersion] = useState(0);  // Incremented on external file changes
   const [autoRunIsLoadingDocuments, setAutoRunIsLoadingDocuments] = useState(false);
 
   // Restore focus when LogViewer closes to ensure global hotkeys work
@@ -1129,11 +1130,16 @@ export default function MaestroConsole() {
         ).then(result => {
           const duration = Date.now() - startTime;
           if (result.success && result.response && addHistoryEntryRef.current) {
+            // IMPORTANT: Pass explicit sessionId and projectPath to prevent cross-agent bleed
+            // when user switches agents while synopsis is running in background
             addHistoryEntryRef.current({
               type: 'USER',
               summary: result.response,
               claudeSessionId: synopsisData!.claudeSessionId,
-              usageStats: result.usageStats
+              usageStats: result.usageStats,
+              sessionId: synopsisData!.sessionId,
+              projectPath: synopsisData!.cwd,
+              sessionName: synopsisData!.tabName,
             });
 
             // Show toast for synopsis completion
@@ -2417,12 +2423,31 @@ export default function MaestroConsole() {
   // Helper to add history entry
   // Note: usageStats should be passed explicitly for per-task tracking (e.g., batch runs)
   // Do NOT use cumulative session stats here - they represent lifetime totals, not per-entry metrics
-  const addHistoryEntry = useCallback(async (entry: { type: 'AUTO' | 'USER'; summary: string; fullResponse?: string; claudeSessionId?: string; usageStats?: UsageStats }) => {
-    if (!activeSession) return;
+  // IMPORTANT: For background operations (like synopsis), pass explicit sessionId/projectPath to avoid
+  // cross-agent bleed when the user switches agents while the background task is running
+  const addHistoryEntry = useCallback(async (entry: {
+    type: 'AUTO' | 'USER';
+    summary: string;
+    fullResponse?: string;
+    claudeSessionId?: string;
+    usageStats?: UsageStats;
+    // Optional overrides for background operations (prevents cross-agent bleed)
+    sessionId?: string;
+    projectPath?: string;
+    sessionName?: string;
+  }) => {
+    // Use provided values or fall back to activeSession
+    const targetSessionId = entry.sessionId || activeSession?.id;
+    const targetProjectPath = entry.projectPath || activeSession?.cwd;
 
-    // Get session name from active tab
-    const activeTab = getActiveTab(activeSession);
-    const sessionName = activeTab?.name;
+    if (!targetSessionId || !targetProjectPath) return;
+
+    // Get session name from entry, or from active tab if using activeSession
+    let sessionName = entry.sessionName;
+    if (!sessionName && activeSession && !entry.sessionId) {
+      const activeTab = getActiveTab(activeSession);
+      sessionName = activeTab?.name;
+    }
 
     await window.maestro.history.add({
       id: generateId(),
@@ -2431,10 +2456,10 @@ export default function MaestroConsole() {
       summary: entry.summary,
       fullResponse: entry.fullResponse,
       claudeSessionId: entry.claudeSessionId,
-      sessionId: activeSession.id,
+      sessionId: targetSessionId,
       sessionName: sessionName,
-      projectPath: activeSession.cwd,
-      contextUsage: activeSession.contextUsage,
+      projectPath: targetProjectPath,
+      contextUsage: activeSession?.contextUsage,
       // Only include usageStats if explicitly provided (per-task tracking)
       // Never use cumulative session stats - they're lifetime totals
       usageStats: entry.usageStats
@@ -3777,6 +3802,8 @@ export default function MaestroConsole() {
         );
         if (contentResult.success) {
           setAutoRunContent(contentResult.content || '');
+          // Increment version to force AutoRun editor to sync (even if user was editing)
+          setAutoRunContentVersion(v => v + 1);
         }
       }
     });
@@ -6868,6 +6895,7 @@ export default function MaestroConsole() {
             autoRunDocumentList={autoRunDocumentList}
             autoRunDocumentTree={autoRunDocumentTree}
             autoRunContent={autoRunContent}
+            autoRunContentVersion={autoRunContentVersion}
             autoRunIsLoadingDocuments={autoRunIsLoadingDocuments}
             onAutoRunContentChange={handleAutoRunContentChange}
             onAutoRunModeChange={handleAutoRunModeChange}
