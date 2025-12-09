@@ -468,6 +468,7 @@ ${docList}
     }));
 
     // AUTORUN LOG: Start
+    console.log('[AUTORUN] Logging start event');
     window.maestro.logger.autorun(
       `Auto Run started`,
       session.name,

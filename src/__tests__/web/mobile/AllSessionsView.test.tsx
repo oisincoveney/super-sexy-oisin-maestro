@@ -104,13 +104,13 @@ describe('AllSessionsView', () => {
     it('renders with header and title', () => {
       render(<AllSessionsView {...createDefaultProps()} />);
 
-      expect(screen.getByRole('heading', { name: 'All Sessions' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'All Agents' })).toBeInTheDocument();
     });
 
     it('renders Done button to close view', () => {
       render(<AllSessionsView {...createDefaultProps()} />);
 
-      const doneButton = screen.getByRole('button', { name: /close all sessions view/i });
+      const doneButton = screen.getByRole('button', { name: /close all agents view/i });
       expect(doneButton).toBeInTheDocument();
       expect(doneButton).toHaveTextContent('Done');
     });
@@ -118,7 +118,7 @@ describe('AllSessionsView', () => {
     it('renders search input', () => {
       render(<AllSessionsView {...createDefaultProps()} />);
 
-      expect(screen.getByPlaceholderText('Search sessions...')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Search agents...')).toBeInTheDocument();
     });
 
     it('renders search icon', () => {
@@ -502,7 +502,7 @@ describe('AllSessionsView', () => {
 
       render(<AllSessionsView {...createDefaultProps({ sessions })} />);
 
-      const searchInput = screen.getByPlaceholderText('Search sessions...');
+      const searchInput = screen.getByPlaceholderText('Search agents...');
       fireEvent.change(searchInput, { target: { value: 'Frontend' } });
 
       expect(screen.getByText('Frontend Project')).toBeInTheDocument();
@@ -518,7 +518,7 @@ describe('AllSessionsView', () => {
 
       render(<AllSessionsView {...createDefaultProps({ sessions })} />);
 
-      const searchInput = screen.getByPlaceholderText('Search sessions...');
+      const searchInput = screen.getByPlaceholderText('Search agents...');
       fireEvent.change(searchInput, { target: { value: 'project-a' } });
 
       expect(screen.getByText('Session 1')).toBeInTheDocument();
@@ -533,7 +533,7 @@ describe('AllSessionsView', () => {
 
       render(<AllSessionsView {...createDefaultProps({ sessions })} />);
 
-      const searchInput = screen.getByPlaceholderText('Search sessions...');
+      const searchInput = screen.getByPlaceholderText('Search agents...');
       fireEvent.change(searchInput, { target: { value: 'gemini' } });
 
       expect(screen.getByText('Gemini Session')).toBeInTheDocument();
@@ -547,7 +547,7 @@ describe('AllSessionsView', () => {
 
       render(<AllSessionsView {...createDefaultProps({ sessions })} />);
 
-      const searchInput = screen.getByPlaceholderText('Search sessions...');
+      const searchInput = screen.getByPlaceholderText('Search agents...');
       fireEvent.change(searchInput, { target: { value: 'MY PROJECT' } });
 
       expect(screen.getByText('My Project')).toBeInTheDocument();
@@ -557,7 +557,7 @@ describe('AllSessionsView', () => {
       const sessions = [createMockSession()];
       render(<AllSessionsView {...createDefaultProps({ sessions })} />);
 
-      const searchInput = screen.getByPlaceholderText('Search sessions...');
+      const searchInput = screen.getByPlaceholderText('Search agents...');
 
       // Initially no clear button
       expect(screen.queryByRole('button', { name: /clear search/i })).not.toBeInTheDocument();
@@ -576,7 +576,7 @@ describe('AllSessionsView', () => {
 
       render(<AllSessionsView {...createDefaultProps({ sessions })} />);
 
-      const searchInput = screen.getByPlaceholderText('Search sessions...');
+      const searchInput = screen.getByPlaceholderText('Search agents...');
       fireEvent.change(searchInput, { target: { value: 'One' } });
 
       expect(screen.queryByText('Session Two')).not.toBeInTheDocument();
@@ -597,7 +597,7 @@ describe('AllSessionsView', () => {
 
       render(<AllSessionsView {...createDefaultProps({ sessions, searchQuery: 'Frontend' })} />);
 
-      expect(screen.getByPlaceholderText('Search sessions...')).toHaveValue('Frontend');
+      expect(screen.getByPlaceholderText('Search agents...')).toHaveValue('Frontend');
       expect(screen.getByText('Frontend')).toBeInTheDocument();
       expect(screen.queryByText('Backend')).not.toBeInTheDocument();
     });
@@ -609,7 +609,7 @@ describe('AllSessionsView', () => {
 
       render(<AllSessionsView {...createDefaultProps({ sessions })} />);
 
-      const searchInput = screen.getByPlaceholderText('Search sessions...');
+      const searchInput = screen.getByPlaceholderText('Search agents...');
       fireEvent.change(searchInput, { target: { value: '   ' } });
 
       // Should show all sessions when search is only whitespace
@@ -630,7 +630,7 @@ describe('AllSessionsView', () => {
 
       render(<AllSessionsView {...createDefaultProps({ sessions })} />);
 
-      const searchInput = screen.getByPlaceholderText('Search sessions...');
+      const searchInput = screen.getByPlaceholderText('Search agents...');
       fireEvent.change(searchInput, { target: { value: 'xyz' } });
 
       expect(screen.getByText('No sessions found')).toBeInTheDocument();
@@ -643,7 +643,7 @@ describe('AllSessionsView', () => {
       const onClose = vi.fn();
       render(<AllSessionsView {...createDefaultProps({ onClose })} />);
 
-      const doneButton = screen.getByRole('button', { name: /close all sessions view/i });
+      const doneButton = screen.getByRole('button', { name: /close all agents view/i });
       fireEvent.click(doneButton);
 
       expect(mockTriggerHaptic).toHaveBeenCalledWith([10]);
@@ -817,7 +817,7 @@ describe('AllSessionsView', () => {
     it('has proper heading hierarchy', () => {
       render(<AllSessionsView {...createDefaultProps()} />);
 
-      expect(screen.getByRole('heading', { level: 1, name: 'All Sessions' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 1, name: 'All Agents' })).toBeInTheDocument();
     });
 
     it('session cards have proper aria-pressed state', () => {
@@ -849,7 +849,7 @@ describe('AllSessionsView', () => {
     it('search input is accessible', () => {
       render(<AllSessionsView {...createDefaultProps()} />);
 
-      const searchInput = screen.getByPlaceholderText('Search sessions...');
+      const searchInput = screen.getByPlaceholderText('Search agents...');
       expect(searchInput).toHaveAttribute('type', 'text');
     });
 
@@ -857,7 +857,7 @@ describe('AllSessionsView', () => {
       const sessions = [createMockSession()];
       render(<AllSessionsView {...createDefaultProps({ sessions })} />);
 
-      const searchInput = screen.getByPlaceholderText('Search sessions...');
+      const searchInput = screen.getByPlaceholderText('Search agents...');
       fireEvent.change(searchInput, { target: { value: 'test' } });
 
       expect(screen.getByRole('button', { name: /clear search/i })).toBeInTheDocument();
@@ -904,7 +904,7 @@ describe('AllSessionsView', () => {
       render(<AllSessionsView {...createDefaultProps({ sessions, onSelectSession, onClose })} />);
 
       // 1. Search for "end"
-      const searchInput = screen.getByPlaceholderText('Search sessions...');
+      const searchInput = screen.getByPlaceholderText('Search agents...');
       fireEvent.change(searchInput, { target: { value: 'end' } });
 
       // Only Frontend and Backend should match

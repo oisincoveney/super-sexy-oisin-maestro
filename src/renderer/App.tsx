@@ -4819,17 +4819,23 @@ export default function MaestroConsole() {
 
           // Build spawn args with resume if we have a session ID
           // Use the ACTIVE TAB's claudeSessionId (not the deprecated session-level one)
-          const spawnArgs = [...agent.args];
           const freshActiveTab = getActiveTab(freshSession);
           const tabClaudeSessionId = freshActiveTab?.claudeSessionId;
           const isNewSession = !tabClaudeSessionId;
+          const isReadOnly = activeBatchRunState.isRunning || freshActiveTab?.readOnlyMode;
+
+          // Filter out --dangerously-skip-permissions when read-only mode is active
+          // (it would override --permission-mode plan)
+          const spawnArgs = isReadOnly
+            ? agent.args.filter(arg => arg !== '--dangerously-skip-permissions')
+            : [...agent.args];
 
           if (tabClaudeSessionId) {
             spawnArgs.push('--resume', tabClaudeSessionId);
           }
 
           // Add read-only/plan mode when auto mode is active OR tab has readOnlyMode enabled
-          if (activeBatchRunState.isRunning || freshActiveTab?.readOnlyMode) {
+          if (isReadOnly) {
             spawnArgs.push('--permission-mode', 'plan');
           }
 
@@ -5082,15 +5088,22 @@ export default function MaestroConsole() {
 
         // Build spawn args with resume if we have a Claude session ID
         // Use the ACTIVE TAB's claudeSessionId (not the deprecated session-level one)
-        const spawnArgs = [...agent.args];
         const activeTab = getActiveTab(session);
         const tabClaudeSessionId = activeTab?.claudeSessionId;
+        const isReadOnly = activeTab?.readOnlyMode;
+
+        // Filter out --dangerously-skip-permissions when read-only mode is active
+        // (it would override --permission-mode plan)
+        const spawnArgs = isReadOnly
+          ? agent.args.filter(arg => arg !== '--dangerously-skip-permissions')
+          : [...agent.args];
+
         if (tabClaudeSessionId) {
           spawnArgs.push('--resume', tabClaudeSessionId);
         }
 
         // Add read-only/plan mode if the active tab has readOnlyMode enabled
-        if (activeTab?.readOnlyMode) {
+        if (isReadOnly) {
           spawnArgs.push('--permission-mode', 'plan');
         }
 
@@ -5226,8 +5239,14 @@ export default function MaestroConsole() {
 
       // Build spawn args with resume if we have a session ID
       // Use the TARGET TAB's claudeSessionId (not the active tab or deprecated session-level one)
-      const spawnArgs = [...(agent.args || [])];
       const tabClaudeSessionId = targetTab?.claudeSessionId;
+      const isReadOnly = item.readOnlyMode || targetTab?.readOnlyMode;
+
+      // Filter out --dangerously-skip-permissions when read-only mode is active
+      // (it would override --permission-mode plan)
+      const spawnArgs = isReadOnly
+        ? (agent.args || []).filter(arg => arg !== '--dangerously-skip-permissions')
+        : [...(agent.args || [])];
 
       if (tabClaudeSessionId) {
         spawnArgs.push('--resume', tabClaudeSessionId);
@@ -5235,7 +5254,7 @@ export default function MaestroConsole() {
 
       // Add read-only/plan mode if the queued item was from a read-only tab
       // or if the target tab currently has readOnlyMode enabled
-      if (item.readOnlyMode || targetTab?.readOnlyMode) {
+      if (isReadOnly) {
         spawnArgs.push('--permission-mode', 'plan');
       }
 

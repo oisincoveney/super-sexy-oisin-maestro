@@ -501,7 +501,7 @@ export function AllSessionsView({
             color: colors.textMain,
           }}
         >
-          All Sessions
+          All Agents
         </h1>
         <button
           onClick={handleClose}
@@ -517,7 +517,7 @@ export function AllSessionsView({
             touchAction: 'manipulation',
             WebkitTapHighlightColor: 'transparent',
           }}
-          aria-label="Close All Sessions view"
+          aria-label="Close All Agents view"
         >
           Done
         </button>
@@ -547,7 +547,7 @@ export function AllSessionsView({
           <span style={{ color: colors.textDim, fontSize: '14px' }}>🔍</span>
           <input
             type="text"
-            placeholder="Search sessions..."
+            placeholder="Search agents..."
             value={localSearchQuery}
             onChange={handleSearchChange}
             style={{

@@ -158,7 +158,7 @@ export function StandingOvationOverlay({
     }
   }, [updateLayerHandler]);
 
-  // Generate shareable achievement card as canvas
+  // Generate shareable achievement card as canvas using theme colors
   const generateShareImage = useCallback(async (): Promise<HTMLCanvasElement> => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d')!;
@@ -169,10 +169,30 @@ export function StandingOvationOverlay({
     canvas.width = width;
     canvas.height = height;
 
-    // Background gradient
+    // Helper to ensure solid color (strip alpha if present, default to fallback)
+    const ensureSolidColor = (color: string, fallback: string): string => {
+      if (!color || color === 'transparent') return fallback;
+      // Handle rgba - extract rgb and ignore alpha
+      if (color.startsWith('rgba')) {
+        const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        if (match) {
+          return `rgb(${match[1]}, ${match[2]}, ${match[3]})`;
+        }
+      }
+      return color;
+    };
+
+    // Theme-aware colors
+    const bgColor = ensureSolidColor(theme.colors.bgSidebar, '#1a1a2e');
+    const bgSecondary = ensureSolidColor(theme.colors.bgActivity, '#16213e');
+    const textMain = ensureSolidColor(theme.colors.textMain, '#FFFFFF');
+    const textDim = ensureSolidColor(theme.colors.textDim, '#AAAAAA');
+    const borderColor = ensureSolidColor(theme.colors.border, '#333333');
+
+    // Background gradient using theme colors
     const bgGradient = ctx.createLinearGradient(0, 0, width, height);
-    bgGradient.addColorStop(0, '#1a1a2e');
-    bgGradient.addColorStop(1, '#16213e');
+    bgGradient.addColorStop(0, bgColor);
+    bgGradient.addColorStop(1, bgSecondary);
     ctx.fillStyle = bgGradient;
     ctx.roundRect(0, 0, width, height, 16);
     ctx.fill();
@@ -200,7 +220,7 @@ export function StandingOvationOverlay({
     ctx.fill();
 
     // Trophy text
-    ctx.fillStyle = '#FFFFFF';
+    ctx.fillStyle = textMain;
     ctx.font = 'bold 28px system-ui';
     ctx.textAlign = 'center';
     ctx.fillText('🏆', width / 2, 70);
@@ -213,7 +233,7 @@ export function StandingOvationOverlay({
 
     // Achievement type
     ctx.font = '16px system-ui';
-    ctx.fillStyle = '#FFFFFF';
+    ctx.fillStyle = textMain;
     ctx.fillText(isNewRecord ? 'New Personal Record!' : 'Achievement Unlocked!', width / 2, 145);
 
     // Level badge
@@ -228,7 +248,7 @@ export function StandingOvationOverlay({
 
     // Flavor text
     ctx.font = 'italic 14px system-ui';
-    ctx.fillStyle = '#CCCCCC';
+    ctx.fillStyle = textDim;
     const flavorLines = wrapText(ctx, `"${badge.flavorText}"`, width - 80);
     let yOffset = 250;
     flavorLines.forEach(line => {
@@ -236,38 +256,42 @@ export function StandingOvationOverlay({
       yOffset += 18;
     });
 
-    // Stats box
+    // Stats box with theme border
     const statsY = 300;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.fillStyle = bgSecondary;
+    ctx.beginPath();
     ctx.roundRect(50, statsY - 10, width - 100, 50, 8);
     ctx.fill();
+    ctx.strokeStyle = borderColor;
+    ctx.lineWidth = 1;
+    ctx.stroke();
 
     ctx.font = '14px system-ui';
-    ctx.fillStyle = '#AAAAAA';
+    ctx.fillStyle = textDim;
     ctx.textAlign = 'left';
     ctx.fillText('Total AutoRun:', 70, statsY + 15);
-    ctx.fillStyle = '#FFFFFF';
+    ctx.fillStyle = textMain;
     ctx.font = 'bold 14px system-ui';
     ctx.fillText(formatCumulativeTime(cumulativeTimeMs), 180, statsY + 15);
 
     if (recordTimeMs) {
-      ctx.fillStyle = '#AAAAAA';
+      ctx.fillStyle = textDim;
       ctx.font = '14px system-ui';
       ctx.textAlign = 'left';
       ctx.fillText('Longest Run:', 350, statsY + 15);
-      ctx.fillStyle = isNewRecord ? goldColor : '#FFFFFF';
+      ctx.fillStyle = isNewRecord ? goldColor : textMain;
       ctx.font = 'bold 14px system-ui';
       ctx.fillText(formatCumulativeTime(recordTimeMs), 450, statsY + 15);
     }
 
     // Footer branding
     ctx.font = 'bold 12px system-ui';
-    ctx.fillStyle = '#666666';
+    ctx.fillStyle = textDim;
     ctx.textAlign = 'center';
     ctx.fillText('MAESTRO • Agent Orchestration Command Center', width / 2, height - 20);
 
     return canvas;
-  }, [badge, cumulativeTimeMs, recordTimeMs, isNewRecord, purpleAccent]);
+  }, [badge, cumulativeTimeMs, recordTimeMs, isNewRecord, purpleAccent, theme.colors]);
 
   // Helper to wrap text
   const wrapText = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] => {
