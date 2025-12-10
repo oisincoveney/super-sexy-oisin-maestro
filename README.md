@@ -123,7 +123,7 @@ Each session shows a color-coded status indicator:
 - 🟠 **Pulsing Orange** - Attempting to establish connection
 
 ## Screenshots
-All these screenshots were captured in the them "Pedurple". For screenshots of other themes, see [THEMES.md](THEMES.md)
+All these screenshots were captured in the them "Pedurple". For screenshots of other themes, see [THEMES.md](THEMES.md). Also note that these screenshots are probably dated as the project is evolving rapidly.
 
 ### Main Screen
 <img width="3592" height="2302" alt="image" src="https://github.com/user-attachments/assets/a65b27a7-0db7-4b3f-ac23-7ef08e3b614e" />
