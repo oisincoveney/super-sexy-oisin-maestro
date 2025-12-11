@@ -403,18 +403,22 @@ export function DirectorySelectionScreen({ theme }: DirectorySelectionScreenProp
             YOLO
           </code>
           {' '}mode, aka:
-          {getYoloFlag() && (
-            <>
-              <br />
-              <code
-                className="px-1.5 py-0.5 rounded text-xs"
-                style={{ backgroundColor: theme.colors.bgActivity, color: theme.colors.warning }}
-              >
-                {getYoloFlag()}
-              </code>
-            </>
-          )}
-          {' '}— I do my best to only make changes within this directory... that said, Caveat Emptor.
+        </p>
+        {getYoloFlag() && (
+          <div className="my-3 flex justify-center">
+            <code
+              className="px-2 py-1 rounded text-xs"
+              style={{ backgroundColor: theme.colors.bgActivity, color: theme.colors.warning }}
+            >
+              {getYoloFlag()}
+            </code>
+          </div>
+        )}
+        <p
+          className="text-xs max-w-lg mx-auto"
+          style={{ color: theme.colors.textDim, opacity: 0.8 }}
+        >
+          I do my best to only make changes within this directory... that said, Caveat Emptor.
         </p>
       </div>
 

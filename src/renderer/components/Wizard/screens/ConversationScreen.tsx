@@ -78,7 +78,7 @@ function ConfidenceMeter({
     <div className="w-full">
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-medium" style={{ color: theme.colors.textMain }}>
-          Project Understanding
+          Project Understanding Confidence
         </span>
         <span
           className="text-sm font-bold"

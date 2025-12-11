@@ -285,8 +285,7 @@ function LoadingIndicator({
           className="text-sm text-center max-w-md"
           style={{ color: theme.colors.textDim }}
         >
-          This may take a while to get right. We're creating detailed task documents
-          based on your project requirements.
+          This may take a while. We're creating detailed task documents based on your project requirements.
         </p>
 
         {/* Animated dots */}
@@ -1632,6 +1631,21 @@ export function PhaseReviewScreen({
           },
           onComplete: async (genResult) => {
             if (genResult.success && genResult.documents) {
+              // If documents were already on disk, skip saving
+              if (genResult.documentsFromDisk) {
+                console.log('[PhaseReviewScreen] Documents already on disk, skipping save');
+                setGeneratedDocuments(genResult.documents);
+                setGeneratingDocuments(false);
+
+                // Announce success
+                const taskCount = genResult.documents[0]?.taskCount || 0;
+                setAnnouncement(
+                  `Action plan created successfully with ${taskCount} tasks. You can review and edit the plan, then choose how to proceed.`
+                );
+                setAnnouncementKey((prev) => prev + 1);
+                return;
+              }
+
               // Save documents to disk
               setProgressMessage('Saving documents...');
               const saveResult = await phaseGenerator.saveDocuments(

@@ -35,6 +35,8 @@ export interface GenerationResult {
   error?: string;
   /** Raw agent output (for debugging) */
   rawOutput?: string;
+  /** Whether documents were read from disk (already saved, no need to save again) */
+  documentsFromDisk?: boolean;
 }
 
 /**
@@ -458,6 +460,19 @@ class PhaseGenerator {
         documents = splitIntoPhases(rawOutput);
       }
 
+      // If still no documents, check if files were written directly to disk
+      // (Claude Code may write files directly instead of outputting with markers)
+      let documentsFromDisk = false;
+      if (documents.length === 0) {
+        callbacks?.onProgress?.('Checking for documents on disk...');
+        const diskDocs = await this.readDocumentsFromDisk(config.directoryPath);
+        if (diskDocs.length > 0) {
+          console.log('[PhaseGenerator] Found documents on disk:', diskDocs.length);
+          documents = diskDocs;
+          documentsFromDisk = true;
+        }
+      }
+
       // Validate documents
       const validation = validateDocuments(documents);
       if (!validation.valid) {
@@ -474,10 +489,13 @@ class PhaseGenerator {
       }
 
       // Convert to GeneratedDocument format
+      // If read from disk, set savedPath since they're already saved
+      const autoRunPath = `${config.directoryPath}/${AUTO_RUN_FOLDER_NAME}`;
       const generatedDocs: GeneratedDocument[] = documents.map((doc) => ({
         filename: doc.filename,
         content: doc.content,
         taskCount: countTasks(doc.content),
+        savedPath: documentsFromDisk ? `${autoRunPath}/${doc.filename}` : undefined,
       }));
 
       callbacks?.onProgress?.(`Generated ${generatedDocs.length} Auto Run document(s)`);
@@ -486,6 +504,7 @@ class PhaseGenerator {
         success: true,
         documents: generatedDocs,
         rawOutput,
+        documentsFromDisk,
       };
 
       callbacks?.onComplete?.(finalResult);
@@ -707,6 +726,51 @@ class PhaseGenerator {
           });
         });
     });
+  }
+
+  /**
+   * Read documents from the Auto Run Docs folder on disk
+   *
+   * This is a fallback for when the agent writes files directly
+   * instead of outputting them with markers.
+   */
+  private async readDocumentsFromDisk(directoryPath: string): Promise<ParsedDocument[]> {
+    const autoRunPath = `${directoryPath}/${AUTO_RUN_FOLDER_NAME}`;
+    const documents: ParsedDocument[] = [];
+
+    try {
+      // List files in the Auto Run folder
+      const listResult = await window.maestro.autorun.listDocs(autoRunPath);
+      if (!listResult.success || !listResult.files) {
+        return [];
+      }
+
+      // Read each .md file
+      for (const filename of listResult.files) {
+        if (!filename.endsWith('.md')) continue;
+
+        const readResult = await window.maestro.autorun.readDoc(autoRunPath, filename);
+        if (readResult.success && readResult.content) {
+          // Extract phase number from filename
+          const phaseMatch = filename.match(/Phase-(\d+)/i);
+          const phase = phaseMatch ? parseInt(phaseMatch[1], 10) : 0;
+
+          documents.push({
+            filename,
+            content: readResult.content,
+            phase,
+          });
+        }
+      }
+
+      // Sort by phase number
+      documents.sort((a, b) => a.phase - b.phase);
+
+      return documents;
+    } catch (error) {
+      console.error('[PhaseGenerator] Error reading documents from disk:', error);
+      return [];
+    }
   }
 
   /**
