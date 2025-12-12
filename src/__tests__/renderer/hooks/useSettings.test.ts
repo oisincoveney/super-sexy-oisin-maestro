@@ -77,7 +77,7 @@ describe('useSettings', () => {
       expect(result.current.defaultSaveToHistory).toBe(true);
       expect(result.current.leftSidebarWidth).toBe(256);
       expect(result.current.rightPanelWidth).toBe(384);
-      expect(result.current.markdownRawMode).toBe(false);
+      expect(result.current.markdownEditMode).toBe(false);
     });
 
     it('should have correct default values for terminal settings', async () => {
@@ -197,7 +197,7 @@ describe('useSettings', () => {
           defaultSaveToHistory: true,
           leftSidebarWidth: 300,
           rightPanelWidth: 400,
-          markdownRawMode: true,
+          markdownEditMode: true,
         };
         return values[key];
       });
@@ -211,7 +211,7 @@ describe('useSettings', () => {
       expect(result.current.defaultSaveToHistory).toBe(true);
       expect(result.current.leftSidebarWidth).toBe(300);
       expect(result.current.rightPanelWidth).toBe(400);
-      expect(result.current.markdownRawMode).toBe(true);
+      expect(result.current.markdownEditMode).toBe(true);
     });
 
     it('should load saved notification settings', async () => {
@@ -519,16 +519,16 @@ describe('useSettings', () => {
       expect(window.maestro.settings.set).toHaveBeenCalledWith('rightPanelWidth', 500);
     });
 
-    it('should update markdownRawMode and persist to settings', async () => {
+    it('should update markdownEditMode and persist to settings', async () => {
       const { result } = renderHook(() => useSettings());
       await waitForSettingsLoaded(result);
 
       act(() => {
-        result.current.setMarkdownRawMode(true);
+        result.current.setMarkdownEditMode(true);
       });
 
-      expect(result.current.markdownRawMode).toBe(true);
-      expect(window.maestro.settings.set).toHaveBeenCalledWith('markdownRawMode', true);
+      expect(result.current.markdownEditMode).toBe(true);
+      expect(window.maestro.settings.set).toHaveBeenCalledWith('markdownEditMode', true);
     });
   });
 

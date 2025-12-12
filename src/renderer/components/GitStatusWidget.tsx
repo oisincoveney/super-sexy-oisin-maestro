@@ -115,9 +115,44 @@ export function GitStatusWidget({ cwd, isGitRepo, theme, onViewDiff }: GitStatus
 
     loadGitStatus();
 
-    // Refresh every 5 seconds
-    const interval = setInterval(loadGitStatus, 5000);
-    return () => clearInterval(interval);
+    // Refresh every 30 seconds (reduced from 5s to save CPU)
+    // Also pause polling when window is hidden
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    const startPolling = () => {
+      if (!interval) {
+        interval = setInterval(loadGitStatus, 30000);
+      }
+    };
+
+    const stopPolling = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        // Refresh immediately when becoming visible, then resume polling
+        loadGitStatus();
+        startPolling();
+      }
+    };
+
+    // Start polling if visible
+    if (!document.hidden) {
+      startPolling();
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [cwd, isGitRepo]);
 
   // Don't render if not a git repo or no changes

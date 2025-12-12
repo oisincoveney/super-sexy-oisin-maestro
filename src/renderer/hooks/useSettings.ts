@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { LLMProvider, ThemeId, Shortcut, CustomAICommand, GlobalStats, AutoRunStats, OnboardingStats } from '../types';
+import type { LLMProvider, ThemeId, Shortcut, CustomAICommand, GlobalStats, AutoRunStats, OnboardingStats, LeaderboardRegistration } from '../types';
 import { DEFAULT_SHORTCUTS } from '../constants/shortcuts';
 
 // Default global stats
@@ -122,10 +122,10 @@ export interface UseSettingsReturn {
   setDefaultSaveToHistory: (value: boolean) => void;
   leftSidebarWidth: number;
   rightPanelWidth: number;
-  markdownRawMode: boolean;
+  markdownEditMode: boolean;
   setLeftSidebarWidth: (value: number) => void;
   setRightPanelWidth: (value: number) => void;
-  setMarkdownRawMode: (value: boolean) => void;
+  setMarkdownEditMode: (value: boolean) => void;
 
   // Terminal settings
   terminalWidth: number;
@@ -208,6 +208,11 @@ export interface UseSettingsReturn {
     averageConversationExchanges: number;
     averagePhasesPerWizard: number;
   };
+
+  // Leaderboard Registration (persistent)
+  leaderboardRegistration: LeaderboardRegistration | null;
+  setLeaderboardRegistration: (value: LeaderboardRegistration | null) => void;
+  isLeaderboardRegistered: boolean;
 }
 
 export function useSettings(): UseSettingsReturn {
@@ -240,7 +245,7 @@ export function useSettings(): UseSettingsReturn {
   const [defaultSaveToHistory, setDefaultSaveToHistoryState] = useState(true); // History toggle defaults to on
   const [leftSidebarWidth, setLeftSidebarWidthState] = useState(256);
   const [rightPanelWidth, setRightPanelWidthState] = useState(384);
-  const [markdownRawMode, setMarkdownRawModeState] = useState(false);
+  const [markdownEditMode, setMarkdownEditModeState] = useState(false);
 
   // Terminal Config
   const [terminalWidth, setTerminalWidthState] = useState(100);
@@ -286,6 +291,9 @@ export function useSettings(): UseSettingsReturn {
 
   // Onboarding Stats (persistent, local-only analytics)
   const [onboardingStats, setOnboardingStatsState] = useState<OnboardingStats>(DEFAULT_ONBOARDING_STATS);
+
+  // Leaderboard Registration (persistent)
+  const [leaderboardRegistration, setLeaderboardRegistrationState] = useState<LeaderboardRegistration | null>(null);
 
   // Wrapper functions that persist to electron-store
   // PERF: All wrapped in useCallback to prevent re-renders
@@ -365,9 +373,9 @@ export function useSettings(): UseSettingsReturn {
     window.maestro.settings.set('rightPanelWidth', width);
   }, []);
 
-  const setMarkdownRawMode = useCallback((value: boolean) => {
-    setMarkdownRawModeState(value);
-    window.maestro.settings.set('markdownRawMode', value);
+  const setMarkdownEditMode = useCallback((value: boolean) => {
+    setMarkdownEditModeState(value);
+    window.maestro.settings.set('markdownEditMode', value);
   }, []);
 
   const setShortcuts = useCallback((value: Record<string, Shortcut>) => {
@@ -611,8 +619,11 @@ export function useSettings(): UseSettingsReturn {
 
   // UI collapse state setters
   const setUngroupedCollapsed = useCallback((value: boolean) => {
+    console.log('[useSettings] setUngroupedCollapsed called with:', value);
     setUngroupedCollapsedState(value);
-    window.maestro.settings.set('ungroupedCollapsed', value);
+    window.maestro.settings.set('ungroupedCollapsed', value)
+      .then(() => console.log('[useSettings] ungroupedCollapsed persisted successfully'))
+      .catch((err: unknown) => console.error('[useSettings] Failed to persist ungroupedCollapsed:', err));
   }, []);
 
   // Onboarding setters
@@ -792,6 +803,17 @@ export function useSettings(): UseSettingsReturn {
     onboardingStats.averagePhasesPerWizard,
   ]);
 
+  // Leaderboard Registration setter
+  const setLeaderboardRegistration = useCallback((value: LeaderboardRegistration | null) => {
+    setLeaderboardRegistrationState(value);
+    window.maestro.settings.set('leaderboardRegistration', value);
+  }, []);
+
+  // Computed property for checking if registered
+  const isLeaderboardRegistered = useMemo(() => {
+    return leaderboardRegistration !== null && leaderboardRegistration.emailConfirmed;
+  }, [leaderboardRegistration]);
+
   // Load settings from electron-store on mount
   useEffect(() => {
     const loadSettings = async () => {
@@ -810,7 +832,7 @@ export function useSettings(): UseSettingsReturn {
       const savedCustomFonts = await window.maestro.settings.get('customFonts');
       const savedLeftSidebarWidth = await window.maestro.settings.get('leftSidebarWidth');
       const savedRightPanelWidth = await window.maestro.settings.get('rightPanelWidth');
-      const savedMarkdownRawMode = await window.maestro.settings.get('markdownRawMode');
+      const savedMarkdownEditMode = await window.maestro.settings.get('markdownEditMode');
       const savedShortcuts = await window.maestro.settings.get('shortcuts');
       const savedActiveThemeId = await window.maestro.settings.get('activeThemeId');
       const savedTerminalWidth = await window.maestro.settings.get('terminalWidth');
@@ -831,6 +853,7 @@ export function useSettings(): UseSettingsReturn {
       const savedTourCompleted = await window.maestro.settings.get('tourCompleted');
       const savedFirstAutoRunCompleted = await window.maestro.settings.get('firstAutoRunCompleted');
       const savedOnboardingStats = await window.maestro.settings.get('onboardingStats');
+      const savedLeaderboardRegistration = await window.maestro.settings.get('leaderboardRegistration');
 
       if (savedEnterToSendAI !== undefined) setEnterToSendAIState(savedEnterToSendAI);
       if (savedEnterToSendTerminal !== undefined) setEnterToSendTerminalState(savedEnterToSendTerminal);
@@ -847,7 +870,7 @@ export function useSettings(): UseSettingsReturn {
       if (savedCustomFonts !== undefined) setCustomFontsState(savedCustomFonts);
       if (savedLeftSidebarWidth !== undefined) setLeftSidebarWidthState(Math.max(256, Math.min(600, savedLeftSidebarWidth)));
       if (savedRightPanelWidth !== undefined) setRightPanelWidthState(savedRightPanelWidth);
-      if (savedMarkdownRawMode !== undefined) setMarkdownRawModeState(savedMarkdownRawMode);
+      if (savedMarkdownEditMode !== undefined) setMarkdownEditModeState(savedMarkdownEditMode);
       if (savedActiveThemeId !== undefined) setActiveThemeIdState(savedActiveThemeId);
       if (savedTerminalWidth !== undefined) setTerminalWidthState(savedTerminalWidth);
       if (savedLogLevel !== undefined) setLogLevelState(savedLogLevel);
@@ -950,6 +973,11 @@ export function useSettings(): UseSettingsReturn {
         setOnboardingStatsState({ ...DEFAULT_ONBOARDING_STATS, ...savedOnboardingStats });
       }
 
+      // Load leaderboard registration
+      if (savedLeaderboardRegistration !== undefined) {
+        setLeaderboardRegistrationState(savedLeaderboardRegistration as LeaderboardRegistration | null);
+      }
+
       // Mark settings as loaded
       setSettingsLoaded(true);
     };
@@ -995,10 +1023,10 @@ export function useSettings(): UseSettingsReturn {
     setDefaultSaveToHistory,
     leftSidebarWidth,
     rightPanelWidth,
-    markdownRawMode,
+    markdownEditMode,
     setLeftSidebarWidth,
     setRightPanelWidth,
-    setMarkdownRawMode,
+    setMarkdownEditMode,
     terminalWidth,
     setTerminalWidth,
     logLevel,
@@ -1050,6 +1078,9 @@ export function useSettings(): UseSettingsReturn {
     recordTourComplete,
     recordTourSkip,
     getOnboardingAnalytics,
+    leaderboardRegistration,
+    setLeaderboardRegistration,
+    isLeaderboardRegistered,
   }), [
     // State values
     settingsLoaded,
@@ -1068,7 +1099,7 @@ export function useSettings(): UseSettingsReturn {
     defaultSaveToHistory,
     leftSidebarWidth,
     rightPanelWidth,
-    markdownRawMode,
+    markdownEditMode,
     terminalWidth,
     logLevel,
     maxLogBuffer,
@@ -1104,7 +1135,7 @@ export function useSettings(): UseSettingsReturn {
     setDefaultSaveToHistory,
     setLeftSidebarWidth,
     setRightPanelWidth,
-    setMarkdownRawMode,
+    setMarkdownEditMode,
     setTerminalWidth,
     setLogLevel,
     setMaxLogBuffer,
@@ -1137,5 +1168,8 @@ export function useSettings(): UseSettingsReturn {
     recordTourComplete,
     recordTourSkip,
     getOnboardingAnalytics,
+    leaderboardRegistration,
+    setLeaderboardRegistration,
+    isLeaderboardRegistered,
   ]);
 }

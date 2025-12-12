@@ -34,8 +34,11 @@ export function useActivityTracker(
   }, []);
 
   // Tick every second to accumulate time, but only update state every 30 seconds
+  // Pauses when window is hidden to save CPU
   useEffect(() => {
-    const interval = setInterval(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    const tick = () => {
       const now = Date.now();
       const timeSinceLastActivity = now - lastActivityRef.current;
 
@@ -65,10 +68,39 @@ export function useActivityTracker(
         // Mark as inactive if timeout exceeded
         isActiveRef.current = false;
       }
-    }, TICK_INTERVAL_MS);
+    };
+
+    const startInterval = () => {
+      if (!interval) {
+        interval = setInterval(tick, TICK_INTERVAL_MS);
+      }
+    };
+
+    const stopInterval = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopInterval();
+      } else {
+        startInterval();
+      }
+    };
+
+    // Start interval if visible
+    if (!document.hidden) {
+      startInterval();
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      clearInterval(interval);
+      stopInterval();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       // Flush any accumulated time when effect cleans up (e.g., session change)
       if (accumulatedTimeRef.current > 0 && activeSessionId) {
         const accumulatedTime = accumulatedTimeRef.current;
@@ -94,16 +126,16 @@ export function useActivityTracker(
     };
 
     // Listen for various user interactions
+    // Note: mousemove is intentionally excluded - it fires hundreds of times per second
+    // and would cause excessive CPU usage. mousedown/keydown are sufficient for activity detection.
     window.addEventListener('keydown', handleActivity);
     window.addEventListener('mousedown', handleActivity);
-    window.addEventListener('mousemove', handleActivity);
     window.addEventListener('wheel', handleActivity);
     window.addEventListener('touchstart', handleActivity);
 
     return () => {
       window.removeEventListener('keydown', handleActivity);
       window.removeEventListener('mousedown', handleActivity);
-      window.removeEventListener('mousemove', handleActivity);
       window.removeEventListener('wheel', handleActivity);
       window.removeEventListener('touchstart', handleActivity);
     };

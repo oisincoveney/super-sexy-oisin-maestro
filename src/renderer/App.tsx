@@ -25,6 +25,7 @@ import { PromptComposerModal } from './components/PromptComposerModal';
 import { ExecutionQueueBrowser } from './components/ExecutionQueueBrowser';
 import { StandingOvationOverlay } from './components/StandingOvationOverlay';
 import { FirstRunCelebration } from './components/FirstRunCelebration';
+import { LeaderboardRegistrationModal } from './components/LeaderboardRegistrationModal';
 import { PlaygroundPanel } from './components/PlaygroundPanel';
 import { AutoRunSetupModal } from './components/AutoRunSetupModal';
 import { DebugWizardModal } from './components/DebugWizardModal';
@@ -162,7 +163,7 @@ export default function MaestroConsole() {
     defaultSaveToHistory, setDefaultSaveToHistory,
     leftSidebarWidth, setLeftSidebarWidth,
     rightPanelWidth, setRightPanelWidth,
-    markdownRawMode, setMarkdownRawMode,
+    markdownEditMode, setMarkdownEditMode,
     terminalWidth, setTerminalWidth,
     logLevel, setLogLevel,
     logViewerSelectedLevels, setLogViewerSelectedLevels,
@@ -181,6 +182,7 @@ export default function MaestroConsole() {
     firstAutoRunCompleted, setFirstAutoRunCompleted,
     recordWizardStart, recordWizardComplete, recordWizardAbandon, recordWizardResume,
     recordTourStart, recordTourComplete, recordTourSkip,
+    leaderboardRegistration, setLeaderboardRegistration, isLeaderboardRegistered,
   } = settings;
 
   // --- STATE ---
@@ -262,6 +264,7 @@ export default function MaestroConsole() {
   const [lightboxImages, setLightboxImages] = useState<string[]>([]); // Context images for navigation
   const [aboutModalOpen, setAboutModalOpen] = useState(false);
   const [updateCheckModalOpen, setUpdateCheckModalOpen] = useState(false);
+  const [leaderboardRegistrationOpen, setLeaderboardRegistrationOpen] = useState(false);
   const [standingOvationData, setStandingOvationData] = useState<{
     badge: typeof CONDUCTOR_BADGES[number];
     isNewRecord: boolean;
@@ -2698,6 +2701,54 @@ export default function MaestroConsole() {
             }, 500);
           }
         }
+
+        // Submit to leaderboard if registered and email confirmed
+        if (isLeaderboardRegistered && leaderboardRegistration) {
+          // Calculate updated stats after this run (simulating what recordAutoRunComplete updated)
+          const updatedCumulativeTimeMs = autoRunStats.cumulativeTimeMs + info.elapsedTimeMs;
+          const updatedTotalRuns = autoRunStats.totalRuns + 1;
+          const updatedLongestRunMs = Math.max(autoRunStats.longestRunMs || 0, info.elapsedTimeMs);
+          const updatedBadge = CONDUCTOR_BADGES.find(b =>
+            b.thresholdMs <= updatedCumulativeTimeMs
+          );
+          const updatedBadgeLevel = updatedBadge?.level || 0;
+          const updatedBadgeName = updatedBadge?.name || 'No Badge Yet';
+
+          // Format longest run date
+          let longestRunDate: string | undefined;
+          if (isNewRecord) {
+            longestRunDate = new Date().toISOString().split('T')[0];
+          } else if (autoRunStats.longestRunTimestamp > 0) {
+            longestRunDate = new Date(autoRunStats.longestRunTimestamp).toISOString().split('T')[0];
+          }
+
+          // Submit to leaderboard in background
+          window.maestro.leaderboard.submit({
+            email: leaderboardRegistration.email,
+            displayName: leaderboardRegistration.displayName,
+            githubUsername: leaderboardRegistration.githubUsername,
+            twitterHandle: leaderboardRegistration.twitterHandle,
+            linkedinHandle: leaderboardRegistration.linkedinHandle,
+            badgeLevel: updatedBadgeLevel,
+            badgeName: updatedBadgeName,
+            cumulativeTimeMs: updatedCumulativeTimeMs,
+            totalRuns: updatedTotalRuns,
+            longestRunMs: updatedLongestRunMs,
+            longestRunDate,
+          }).then(result => {
+            if (result.success) {
+              // Update last submission timestamp
+              setLeaderboardRegistration({
+                ...leaderboardRegistration,
+                lastSubmissionAt: Date.now(),
+                emailConfirmed: !result.requiresConfirmation,
+              });
+            }
+            // Silent failure - don't bother the user if submission fails
+          }).catch(() => {
+            // Silent failure - leaderboard submission is not critical
+          });
+        }
       }
     },
     onPRResult: (info) => {
@@ -3646,7 +3697,7 @@ export default function MaestroConsole() {
         const isInAutoRunPanel = ctx.activeFocus === 'right' && ctx.activeRightTab === 'autorun';
         if (!isInAutoRunPanel && !ctx.previewFile) {
           e.preventDefault();
-          ctx.setMarkdownRawMode(!ctx.markdownRawMode);
+          ctx.setMarkdownEditMode(!ctx.markdownEditMode);
         }
       }
 
@@ -3990,11 +4041,13 @@ export default function MaestroConsole() {
         }
       }
 
-      // Ungrouped sessions (sorted alphabetically)
-      const ungroupedSessions = sessions
-        .filter(s => !s.groupId)
-        .sort((a, b) => compareNamesIgnoringEmojis(a.name, b.name));
-      visualOrder.push(...ungroupedSessions);
+      // Ungrouped sessions (sorted alphabetically) - only if not collapsed
+      if (!settings.ungroupedCollapsed) {
+        const ungroupedSessions = sessions
+          .filter(s => !s.groupId)
+          .sort((a, b) => compareNamesIgnoringEmojis(a.name, b.name));
+        visualOrder.push(...ungroupedSessions);
+      }
     } else {
       // Sidebar collapsed: cycle through all sessions in their sorted order
       visualOrder.push(...sortedSessions);
@@ -4518,7 +4571,7 @@ export default function MaestroConsole() {
     processMonitorOpen, logViewerOpen, createGroupModalOpen, confirmModalOpen, renameInstanceModalOpen,
     renameGroupModalOpen, activeSession, previewFile, fileTreeFilter, fileTreeFilterOpen, gitDiffPreview,
     gitLogOpen, lightboxImage, hasOpenLayers, hasOpenModal, visibleSessions, sortedSessions, groups,
-    bookmarksCollapsed, leftSidebarOpen, editingSessionId, editingGroupId, markdownRawMode, defaultSaveToHistory,
+    bookmarksCollapsed, leftSidebarOpen, editingSessionId, editingGroupId, markdownEditMode, defaultSaveToHistory,
     setLeftSidebarOpen, setRightPanelOpen, addNewSession, deleteSession, setQuickActionInitialMode,
     setQuickActionOpen, cycleSession, toggleInputMode, setShortcutsHelpOpen, setSettingsModalOpen,
     setSettingsTab, setActiveRightTab, handleSetActiveRightTab, setActiveFocus, setBookmarksCollapsed, setGroups,
@@ -4527,7 +4580,7 @@ export default function MaestroConsole() {
     setSessions, createTab, closeTab, reopenClosedTab, getActiveTab, setRenameTabId, setRenameTabInitialName,
     setRenameTabModalOpen, navigateToNextTab, navigateToPrevTab, navigateToTabByIndex, navigateToLastTab,
     setFileTreeFilterOpen, isShortcut, isTabShortcut, handleNavBack, handleNavForward, toggleUnreadFilter,
-    setTabSwitcherOpen, showUnreadOnly, stagedImages, handleSetLightboxImage, setMarkdownRawMode,
+    setTabSwitcherOpen, showUnreadOnly, stagedImages, handleSetLightboxImage, setMarkdownEditMode,
     toggleTabStar, setPromptComposerOpen, openWizardModal
   };
 
@@ -6734,8 +6787,8 @@ export default function MaestroConsole() {
             processQueuedItem(activeSessionId, nextItem);
             console.log('[Debug] Released queued item:', nextItem);
           }}
-          markdownRawMode={markdownRawMode}
-          onToggleMarkdownRawMode={() => setMarkdownRawMode(!markdownRawMode)}
+          markdownEditMode={markdownEditMode}
+          onToggleMarkdownEditMode={() => setMarkdownEditMode(!markdownEditMode)}
           setUpdateCheckModalOpen={setUpdateCheckModalOpen}
           openWizard={openWizardModal}
           wizardGoToStep={wizardGoToStep}
@@ -6796,6 +6849,24 @@ export default function MaestroConsole() {
           sessions={sessions}
           autoRunStats={autoRunStats}
           onClose={() => setAboutModalOpen(false)}
+          onOpenLeaderboardRegistration={() => {
+            setAboutModalOpen(false);
+            setLeaderboardRegistrationOpen(true);
+          }}
+          isLeaderboardRegistered={isLeaderboardRegistered}
+        />
+      )}
+
+      {/* --- LEADERBOARD REGISTRATION MODAL --- */}
+      {leaderboardRegistrationOpen && (
+        <LeaderboardRegistrationModal
+          theme={theme}
+          autoRunStats={autoRunStats}
+          existingRegistration={leaderboardRegistration}
+          onClose={() => setLeaderboardRegistrationOpen(false)}
+          onSave={(registration) => {
+            setLeaderboardRegistration(registration);
+          }}
         />
       )}
 
@@ -6815,6 +6886,8 @@ export default function MaestroConsole() {
           completedTasks={firstRunCelebrationData.completedTasks}
           totalTasks={firstRunCelebrationData.totalTasks}
           onClose={() => setFirstRunCelebrationData(null)}
+          onOpenLeaderboardRegistration={() => setLeaderboardRegistrationOpen(true)}
+          isLeaderboardRegistered={isLeaderboardRegistered}
         />
       )}
 
@@ -6832,6 +6905,8 @@ export default function MaestroConsole() {
             acknowledgeBadge(standingOvationData.badge.level);
             setStandingOvationData(null);
           }}
+          onOpenLeaderboardRegistration={() => setLeaderboardRegistrationOpen(true)}
+          isLeaderboardRegistered={isLeaderboardRegistered}
         />
       )}
 
@@ -7070,7 +7145,7 @@ export default function MaestroConsole() {
         slashCommands={allSlashCommands}
         selectedSlashCommandIndex={selectedSlashCommandIndex}
         previewFile={previewFile}
-        markdownRawMode={markdownRawMode}
+        markdownEditMode={markdownEditMode}
         shortcuts={shortcuts}
         rightPanelOpen={rightPanelOpen}
         maxOutputLines={maxOutputLines}
@@ -7129,7 +7204,7 @@ export default function MaestroConsole() {
         selectedAtMentionIndex={selectedAtMentionIndex}
         setSelectedAtMentionIndex={setSelectedAtMentionIndex}
         setPreviewFile={setPreviewFile}
-        setMarkdownRawMode={setMarkdownRawMode}
+        setMarkdownEditMode={setMarkdownEditMode}
         setAboutModalOpen={setAboutModalOpen}
         setRightPanelOpen={setRightPanelOpen}
         inputRef={inputRef}
@@ -7454,6 +7529,14 @@ export default function MaestroConsole() {
           }
         }}
         onOpenPromptComposer={() => setPromptComposerOpen(true)}
+        onReplayMessage={(text: string, images?: string[]) => {
+          // Set staged images if the message had any
+          if (images && images.length > 0) {
+            setStagedImages(images);
+          }
+          // Use setTimeout to ensure state updates are applied before processing
+          setTimeout(() => processInput(text), 0);
+        }}
       />
       )}
 

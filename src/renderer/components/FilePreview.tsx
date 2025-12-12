@@ -1,9 +1,9 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { FileCode, X, Copy, FileText, Eye, ChevronUp, ChevronDown, Clipboard, Loader2, Image, Globe } from 'lucide-react';
+import { FileCode, X, Copy, FileText, Eye, ChevronUp, ChevronDown, Clipboard, Loader2, Image, Globe, Save, Edit, FolderOpen } from 'lucide-react';
 import { visit } from 'unist-util-visit';
 import { useLayerStack } from '../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
@@ -21,8 +21,9 @@ interface FilePreviewProps {
   file: { name: string; content: string; path: string } | null;
   onClose: () => void;
   theme: any;
-  markdownRawMode: boolean;
-  setMarkdownRawMode: (value: boolean) => void;
+  markdownEditMode: boolean;
+  setMarkdownEditMode: (value: boolean) => void;
+  onSave?: (path: string, content: string) => Promise<void>;
   shortcuts: Record<string, any>;
 }
 
@@ -95,6 +96,17 @@ const formatTokenCount = (count: number): string => {
     return `${(count / 1_000).toFixed(1)}K`;
   }
   return count.toLocaleString();
+};
+
+// Count markdown tasks (checkboxes)
+const countMarkdownTasks = (content: string): { open: number; closed: number } => {
+  // Match markdown checkboxes: - [ ] or - [x] (also * [ ] and * [x])
+  const openMatches = content.match(/^[\s]*[-*]\s*\[\s*\]/gm);
+  const closedMatches = content.match(/^[\s]*[-*]\s*\[[xX]\]/gm);
+  return {
+    open: openMatches?.length || 0,
+    closed: closedMatches?.length || 0
+  };
 };
 
 // Lazy-loaded tokenizer encoder (cl100k_base is used by Claude/GPT-4)
@@ -296,7 +308,7 @@ function remarkHighlight() {
   };
 }
 
-export function FilePreview({ file, onClose, theme, markdownRawMode, setMarkdownRawMode, shortcuts }: FilePreviewProps) {
+export function FilePreview({ file, onClose, theme, markdownEditMode, setMarkdownEditMode, onSave, shortcuts }: FilePreviewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [showCopyNotification, setShowCopyNotification] = useState(false);
@@ -307,12 +319,19 @@ export function FilePreview({ file, onClose, theme, markdownRawMode, setMarkdown
   const [showStatsBar, setShowStatsBar] = useState(true);
   const [tokenCount, setTokenCount] = useState<number | null>(null);
   const [showRemoteImages, setShowRemoteImages] = useState(false);
+  // Edit mode state
+  const [editContent, setEditContent] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const codeContainerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const layerIdRef = useRef<string>();
   const matchElementsRef = useRef<HTMLElement[]>([]);
+
+  // Track if content has been modified
+  const hasChanges = markdownEditMode && editContent !== file?.content;
 
   const { registerLayer, unregisterLayer, updateLayerHandler } = useLayerStack();
 
@@ -321,6 +340,15 @@ export function FilePreview({ file, onClose, theme, markdownRawMode, setMarkdown
   const language = getLanguageFromFilename(file.name);
   const isMarkdown = language === 'markdown';
   const isImage = isImageFile(file.name);
+
+  // Calculate task counts for markdown files
+  const taskCounts = useMemo(() => {
+    if (!isMarkdown || !file?.content) return null;
+    const counts = countMarkdownTasks(file.content);
+    // Only return if there are any tasks
+    if (counts.open === 0 && counts.closed === 0) return null;
+    return counts;
+  }, [isMarkdown, file?.content]);
 
   // Extract directory path without filename
   const directoryPath = file.path.substring(0, file.path.lastIndexOf('/'));
@@ -358,6 +386,40 @@ export function FilePreview({ file, onClose, theme, markdownRawMode, setMarkdown
         setTokenCount(null);
       });
   }, [file?.content, isImage]);
+
+  // Sync edit content when file changes or when entering edit mode
+  useEffect(() => {
+    if (file?.content) {
+      setEditContent(file.content);
+    }
+  }, [file?.content, file?.path]);
+
+  // Focus textarea when entering edit mode
+  useEffect(() => {
+    if (markdownEditMode && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [markdownEditMode]);
+
+  // Save handler
+  const handleSave = useCallback(async () => {
+    if (!file || !onSave || !hasChanges || isSaving) return;
+
+    setIsSaving(true);
+    try {
+      await onSave(file.path, editContent);
+      setCopyNotificationMessage('File Saved');
+      setShowCopyNotification(true);
+      setTimeout(() => setShowCopyNotification(false), 2000);
+    } catch (err) {
+      console.error('Failed to save file:', err);
+      setCopyNotificationMessage('Save Failed');
+      setShowCopyNotification(true);
+      setTimeout(() => setShowCopyNotification(false), 2000);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [file, onSave, hasChanges, isSaving, editContent]);
 
   // Track scroll position to show/hide stats bar
   useEffect(() => {
@@ -640,9 +702,9 @@ export function FilePreview({ file, onClose, theme, markdownRawMode, setMarkdown
     }
   }, [searchQuery, file.content, isMarkdown, isImage]);
 
-  // Scroll to current match for markdown content
+  // Scroll to current match for markdown content (only when searching, not in edit mode)
   useEffect(() => {
-    if ((isMarkdown && markdownRawMode) || (isMarkdown && searchQuery.trim())) {
+    if (isMarkdown && searchQuery.trim() && !markdownEditMode) {
       const marks = contentRef.current?.querySelectorAll('mark.search-match-md');
       if (marks && marks.length > 0 && currentMatchIndex >= 0 && currentMatchIndex < marks.length) {
         marks.forEach((mark, i) => {
@@ -658,7 +720,7 @@ export function FilePreview({ file, onClose, theme, markdownRawMode, setMarkdown
         });
       }
     }
-  }, [currentMatchIndex, isMarkdown, markdownRawMode, searchQuery, theme.colors.accent]);
+  }, [currentMatchIndex, isMarkdown, markdownEditMode, searchQuery, theme.colors.accent]);
 
   // Helper to check if a shortcut matches
   const isShortcut = (e: React.KeyboardEvent, shortcutId: string) => {
@@ -689,6 +751,11 @@ export function FilePreview({ file, onClose, theme, markdownRawMode, setMarkdown
       e.stopPropagation();
       setSearchOpen(true);
       setTimeout(() => searchInputRef.current?.focus(), 0);
+    } else if (e.key === 's' && (e.metaKey || e.ctrlKey) && isMarkdown && markdownEditMode) {
+      // Cmd+S to save in edit mode
+      e.preventDefault();
+      e.stopPropagation();
+      handleSave();
     } else if (isShortcut(e, 'copyFilePath')) {
       e.preventDefault();
       e.stopPropagation();
@@ -696,7 +763,7 @@ export function FilePreview({ file, onClose, theme, markdownRawMode, setMarkdown
     } else if (isMarkdown && isShortcut(e, 'toggleMarkdownMode')) {
       e.preventDefault();
       e.stopPropagation();
-      setMarkdownRawMode(!markdownRawMode);
+      setMarkdownEditMode(!markdownEditMode);
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       const container = contentRef.current;
@@ -752,21 +819,43 @@ export function FilePreview({ file, onClose, theme, markdownRawMode, setMarkdown
           <div className="flex items-center gap-2 shrink-0">
             {isMarkdown && (
               <>
+                {/* Save button - only shown in edit mode with changes */}
+                {markdownEditMode && onSave && (
+                  <button
+                    onClick={handleSave}
+                    disabled={!hasChanges || isSaving}
+                    className="px-3 py-1.5 rounded text-xs font-medium transition-colors flex items-center gap-1.5"
+                    style={{
+                      backgroundColor: hasChanges ? theme.colors.accent : theme.colors.bgActivity,
+                      color: hasChanges ? theme.colors.accentForeground : theme.colors.textDim,
+                      opacity: hasChanges && !isSaving ? 1 : 0.5,
+                      cursor: hasChanges && !isSaving ? 'pointer' : 'default',
+                    }}
+                    title={hasChanges ? "Save changes (⌘S)" : "No changes to save"}
+                  >
+                    {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                    {isSaving ? 'Saving...' : 'Save'}
+                  </button>
+                )}
+                {/* Show remote images toggle - only in preview mode */}
+                {!markdownEditMode && (
+                  <button
+                    onClick={() => setShowRemoteImages(!showRemoteImages)}
+                    className="p-2 rounded hover:bg-white/10 transition-colors"
+                    style={{ color: showRemoteImages ? theme.colors.accent : theme.colors.textDim }}
+                    title={showRemoteImages ? "Hide remote images" : "Show remote images"}
+                  >
+                    <Globe className="w-4 h-4" />
+                  </button>
+                )}
+                {/* Toggle between edit and preview mode */}
                 <button
-                  onClick={() => setShowRemoteImages(!showRemoteImages)}
+                  onClick={() => setMarkdownEditMode(!markdownEditMode)}
                   className="p-2 rounded hover:bg-white/10 transition-colors"
-                  style={{ color: showRemoteImages ? theme.colors.accent : theme.colors.textDim }}
-                  title={showRemoteImages ? "Hide remote images" : "Show remote images"}
+                  style={{ color: markdownEditMode ? theme.colors.accent : theme.colors.textDim }}
+                  title={`${markdownEditMode ? "Show preview" : "Edit file"} (${formatShortcut('toggleMarkdownMode')})`}
                 >
-                  <Globe className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setMarkdownRawMode(!markdownRawMode)}
-                  className="p-2 rounded hover:bg-white/10 transition-colors"
-                  style={{ color: markdownRawMode ? theme.colors.accent : theme.colors.textDim }}
-                  title={`${markdownRawMode ? "Show rendered markdown" : "Show raw markdown"} (${formatShortcut('toggleMarkdownMode')})`}
-                >
-                  {markdownRawMode ? <Eye className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                  {markdownEditMode ? <Eye className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
                 </button>
               </>
             )}
@@ -784,7 +873,7 @@ export function FilePreview({ file, onClose, theme, markdownRawMode, setMarkdown
               style={{ color: theme.colors.textDim }}
               title="Copy full path to clipboard"
             >
-              <Copy className="w-4 h-4" />
+              <FolderOpen className="w-4 h-4" />
             </button>
             <button
               onClick={onClose}
@@ -796,7 +885,7 @@ export function FilePreview({ file, onClose, theme, markdownRawMode, setMarkdown
           </div>
         </div>
         {/* File Stats subbar - hidden on scroll */}
-        {(fileStats || tokenCount !== null) && showStatsBar && (
+        {(fileStats || tokenCount !== null || taskCounts) && showStatsBar && (
           <div
             className="flex items-center gap-4 px-6 py-1.5 border-b transition-all duration-200"
             style={{ borderColor: theme.colors.border, backgroundColor: theme.colors.bgActivity }}
@@ -824,6 +913,13 @@ export function FilePreview({ file, onClose, theme, markdownRawMode, setMarkdown
                   <span style={{ color: theme.colors.textMain }}>{formatDateTime(fileStats.createdAt)}</span>
                 </div>
               </>
+            )}
+            {taskCounts && (
+              <div className="text-[10px]" style={{ color: theme.colors.textDim }}>
+                <span className="opacity-60">Tasks:</span>{' '}
+                <span style={{ color: theme.colors.success }}>{taskCounts.closed}</span>
+                <span style={{ color: theme.colors.textMain }}> of {taskCounts.open + taskCounts.closed}</span>
+              </div>
             )}
           </div>
         )}
@@ -898,12 +994,40 @@ export function FilePreview({ file, onClose, theme, markdownRawMode, setMarkdown
               style={{ imageRendering: 'crisp-edges' }}
             />
           </div>
-        ) : (isMarkdown && markdownRawMode) || (isMarkdown && searchQuery.trim()) ? (
-          // When in raw markdown mode OR searching in markdown, show plain text with highlights
+        ) : isMarkdown && markdownEditMode ? (
+          // Edit mode - show editable textarea
+          <textarea
+            ref={textareaRef}
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            className="w-full h-full font-mono text-sm resize-none outline-none bg-transparent"
+            style={{
+              color: theme.colors.textMain,
+              caretColor: theme.colors.accent,
+              lineHeight: '1.6',
+            }}
+            spellCheck={false}
+            onKeyDown={(e) => {
+              // Handle Cmd+S for save
+              if (e.key === 's' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                e.stopPropagation();
+                handleSave();
+              }
+              // Handle Escape to exit edit mode (without save)
+              else if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                setMarkdownEditMode(false);
+              }
+            }}
+          />
+        ) : isMarkdown && searchQuery.trim() ? (
+          // When searching in markdown, show plain text with search highlights
           <div
             className="font-mono text-sm whitespace-pre-wrap"
             style={{ color: theme.colors.textMain }}
-            dangerouslySetInnerHTML={{ __html: searchQuery.trim() ? highlightMatches(file.content) : file.content }}
+            dangerouslySetInnerHTML={{ __html: highlightMatches(file.content) }}
           />
         ) : isMarkdown ? (
           <div className="prose prose-sm max-w-none" style={{ color: theme.colors.textMain }}>

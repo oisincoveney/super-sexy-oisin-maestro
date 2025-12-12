@@ -1,13 +1,13 @@
 {
   "name": "maestro",
-  "version": "0.7.4",
-  "description": "Multi-Instance AI Coding Console - Unified IDE for managing multiple AI coding assistants",
+  "version": "0.8.0",
+  "description": "Run AI coding agents autonomously for days.",
   "main": "dist/main/index.js",
   "author": {
-    "name": "Maestro Team",
-    "email": "maestro@example.com"
+    "name": "Pedram Amini",
+    "email": "pedram@runmaestro.ai"
   },
-  "license": "MIT",
+  "license": "AGPL 3.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/yourusername/maestro.git"

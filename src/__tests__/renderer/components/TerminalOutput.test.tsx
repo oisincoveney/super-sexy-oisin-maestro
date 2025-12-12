@@ -135,8 +135,8 @@ const createDefaultProps = (overrides: Partial<React.ComponentProps<typeof Termi
   inputRef: { current: null } as React.RefObject<HTMLTextAreaElement>,
   logsEndRef: { current: null } as React.RefObject<HTMLDivElement>,
   maxOutputLines: 50,
-  markdownRawMode: false,
-  setMarkdownRawMode: vi.fn(),
+  markdownEditMode: false,
+  setMarkdownEditMode: vi.fn(),
   ...overrides,
 });
 
@@ -1053,7 +1053,7 @@ describe('TerminalOutput', () => {
 
       const props = createDefaultProps({
         session,
-        markdownRawMode: false,
+        markdownEditMode: false,
       });
 
       render(<TerminalOutput {...props} />);
@@ -1061,8 +1061,8 @@ describe('TerminalOutput', () => {
       expect(screen.getByTitle(/Show plain text/)).toBeInTheDocument();
     });
 
-    it('calls setMarkdownRawMode when toggle is clicked', async () => {
-      const setMarkdownRawMode = vi.fn();
+    it('calls setMarkdownEditMode when toggle is clicked', async () => {
+      const setMarkdownEditMode = vi.fn();
       const logs: LogEntry[] = [
         createLogEntry({ text: '# Heading', source: 'stdout' }),
       ];
@@ -1074,8 +1074,8 @@ describe('TerminalOutput', () => {
 
       const props = createDefaultProps({
         session,
-        markdownRawMode: false,
-        setMarkdownRawMode,
+        markdownEditMode: false,
+        setMarkdownEditMode,
       });
 
       render(<TerminalOutput {...props} />);
@@ -1085,7 +1085,7 @@ describe('TerminalOutput', () => {
         fireEvent.click(toggleButton);
       });
 
-      expect(setMarkdownRawMode).toHaveBeenCalledWith(true);
+      expect(setMarkdownEditMode).toHaveBeenCalledWith(true);
     });
   });
 
@@ -1627,7 +1627,7 @@ describe('helper function behaviors (tested via component)', () => {
 
       const props = createDefaultProps({
         session,
-        markdownRawMode: true,
+        markdownEditMode: true,
       });
 
       render(<TerminalOutput {...props} />);
@@ -1649,7 +1649,7 @@ describe('helper function behaviors (tested via component)', () => {
 
       const props = createDefaultProps({
         session,
-        markdownRawMode: true,
+        markdownEditMode: true,
       });
 
       render(<TerminalOutput {...props} />);
@@ -1663,6 +1663,11 @@ describe('helper function behaviors (tested via component)', () => {
 describe('memoization behavior', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('LogItemComponent has stable rendering with same props', () => {
@@ -1683,5 +1688,46 @@ describe('memoization behavior', () => {
 
     // If memo works correctly, this shouldn't cause issues
     expect(screen.getByText('Test')).toBeInTheDocument();
+  });
+
+  it('should re-render log items when fontFamily changes (memo regression test)', async () => {
+    // This test ensures LogItemComponent re-renders when fontFamily prop changes
+    // A previous bug had the memo comparator missing fontFamily, preventing visual updates
+    const logs: LogEntry[] = [
+      createLogEntry({ id: 'log-1', text: 'Test log content', source: 'stdout' }),
+    ];
+
+    const session = createDefaultSession({
+      tabs: [{ id: 'tab-1', claudeSessionId: 'claude-123', logs, isUnread: false }],
+      activeTabId: 'tab-1',
+    });
+
+    const props = createDefaultProps({ session, fontFamily: 'Courier New' });
+    const { rerender, container } = render(<TerminalOutput {...props} />);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    // Find an element with fontFamily styling
+    const styledElements = container.querySelectorAll('[style*="font-family"]');
+    const hasOldFont = Array.from(styledElements).some(el =>
+      (el as HTMLElement).style.fontFamily.includes('Courier New')
+    );
+    expect(hasOldFont).toBe(true);
+
+    // Rerender with different fontFamily
+    rerender(<TerminalOutput {...createDefaultProps({ session, fontFamily: 'Monaco' })} />);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    // The log items should now use the new font
+    const updatedElements = container.querySelectorAll('[style*="font-family"]');
+    const hasNewFont = Array.from(updatedElements).some(el =>
+      (el as HTMLElement).style.fontFamily.includes('Monaco')
+    );
+    expect(hasNewFont).toBe(true);
   });
 });

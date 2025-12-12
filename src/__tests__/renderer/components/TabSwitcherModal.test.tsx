@@ -21,6 +21,7 @@ import type { Theme, AITab } from '../../../renderer/types';
 // Mock lucide-react
 vi.mock('lucide-react', () => ({
   Search: () => <svg data-testid="search-icon" />,
+  Star: () => <svg data-testid="star-icon" />,
 }));
 
 // Create a test theme
@@ -994,6 +995,145 @@ describe('TabSwitcherModal', () => {
         expect(screen.queryByText('Different Project Session')).not.toBeInTheDocument();
       });
     });
+
+    it('switches to Starred mode on pill click', async () => {
+      const starredTab = createTestTab({ name: 'Starred Tab', starred: true });
+      const unstarredTab = createTestTab({ name: 'Unstarred Tab', starred: false });
+
+      vi.mocked(window.maestro.claude.getAllNamedSessions).mockResolvedValue([
+        {
+          claudeSessionId: 'starred-closed-123',
+          projectPath: '/test',
+          sessionName: 'Starred Closed Session',
+          starred: true,
+        },
+        {
+          claudeSessionId: 'unstarred-closed-456',
+          projectPath: '/test',
+          sessionName: 'Unstarred Closed Session',
+          starred: false,
+        },
+      ]);
+
+      renderWithLayerStack(
+        <TabSwitcherModal
+          theme={theme}
+          tabs={[starredTab, unstarredTab]}
+          activeTabId={starredTab.id}
+          projectRoot="/test"
+          onTabSelect={vi.fn()}
+          onNamedSessionSelect={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(window.maestro.claude.getAllNamedSessions).toHaveBeenCalled();
+      });
+
+      // Click Starred pill (use exact pattern to avoid matching list items)
+      fireEvent.click(screen.getByRole('button', { name: /Starred \(\d+\)/ }));
+
+      // Should show only starred items
+      await waitFor(() => {
+        expect(screen.getByText('Starred Tab')).toBeInTheDocument();
+        expect(screen.queryByText('Unstarred Tab')).not.toBeInTheDocument();
+        // Closed starred session should also appear
+        expect(screen.getByText('Starred Closed Session')).toBeInTheDocument();
+        expect(screen.queryByText('Unstarred Closed Session')).not.toBeInTheDocument();
+      });
+
+      // Placeholder should indicate starred mode
+      expect(screen.getByPlaceholderText('Search starred sessions...')).toBeInTheDocument();
+    });
+
+    it('shows "No starred sessions" when there are no starred items', async () => {
+      vi.mocked(window.maestro.claude.getAllNamedSessions).mockResolvedValue([]);
+
+      renderWithLayerStack(
+        <TabSwitcherModal
+          theme={theme}
+          tabs={[createTestTab({ name: 'Unstarred Tab', starred: false })]}
+          activeTabId=""
+          projectRoot="/test"
+          onTabSelect={vi.fn()}
+          onNamedSessionSelect={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(window.maestro.claude.getAllNamedSessions).toHaveBeenCalled();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /Starred \(\d+\)/ }));
+
+      await waitFor(() => {
+        expect(screen.getByText('No starred sessions')).toBeInTheDocument();
+      });
+    });
+
+    it('shows correct count for Starred pill', async () => {
+      const starredTab1 = createTestTab({ name: 'Starred 1', starred: true });
+      const starredTab2 = createTestTab({ name: 'Starred 2', starred: true });
+      const unstarredTab = createTestTab({ name: 'Unstarred', starred: false });
+
+      vi.mocked(window.maestro.claude.getAllNamedSessions).mockResolvedValue([
+        {
+          claudeSessionId: 'starred-closed-abc',
+          projectPath: '/test',
+          sessionName: 'Starred Closed',
+          starred: true,
+        },
+      ]);
+
+      renderWithLayerStack(
+        <TabSwitcherModal
+          theme={theme}
+          tabs={[starredTab1, starredTab2, unstarredTab]}
+          activeTabId={starredTab1.id}
+          projectRoot="/test"
+          onTabSelect={vi.fn()}
+          onNamedSessionSelect={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(window.maestro.claude.getAllNamedSessions).toHaveBeenCalled();
+      });
+
+      // Should show count of 3: 2 open starred + 1 closed starred
+      expect(screen.getByText(/Starred \(3\)/)).toBeInTheDocument();
+    });
+
+    it('cycles through all three modes with Tab key', async () => {
+      renderWithLayerStack(
+        <TabSwitcherModal
+          theme={theme}
+          tabs={[createTestTab({ name: 'Test Tab' })]}
+          activeTabId=""
+          projectRoot="/test"
+          onTabSelect={vi.fn()}
+          onNamedSessionSelect={vi.fn()}
+          onClose={vi.fn()}
+        />
+      );
+
+      const input = screen.getByPlaceholderText('Search open tabs...');
+
+      // Tab 1: open -> all-named
+      fireEvent.keyDown(input, { key: 'Tab' });
+      expect(screen.getByPlaceholderText('Search named sessions...')).toBeInTheDocument();
+
+      // Tab 2: all-named -> starred
+      fireEvent.keyDown(input, { key: 'Tab' });
+      expect(screen.getByPlaceholderText('Search starred sessions...')).toBeInTheDocument();
+
+      // Tab 3: starred -> open
+      fireEvent.keyDown(input, { key: 'Tab' });
+      expect(screen.getByPlaceholderText('Search open tabs...')).toBeInTheDocument();
+    });
   });
 
   describe('search functionality', () => {
@@ -1804,12 +1944,13 @@ describe('TabSwitcherModal', () => {
 
       const input = screen.getByPlaceholderText('Search open tabs...');
 
-      // Rapid Tab key presses
-      for (let i = 0; i < 10; i++) {
+      // Rapid Tab key presses - cycles through 3 modes: open -> all-named -> starred -> open
+      // 9 presses = 9 mod 3 = 0, so we end up back at open tabs
+      for (let i = 0; i < 9; i++) {
         fireEvent.keyDown(input, { key: 'Tab' });
       }
 
-      // Should be back to open tabs (even number of switches)
+      // Should be back to open tabs (multiple of 3 switches)
       expect(screen.getByPlaceholderText('Search open tabs...')).toBeInTheDocument();
     });
 

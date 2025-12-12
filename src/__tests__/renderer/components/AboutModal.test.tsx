@@ -29,6 +29,12 @@ vi.mock('lucide-react', () => ({
   Loader2: ({ className, style }: { className?: string; style?: React.CSSProperties }) => (
     <span data-testid="loader-icon" className={className} style={style}>⏳</span>
   ),
+  Trophy: ({ className, style }: { className?: string; style?: React.CSSProperties }) => (
+    <span data-testid="trophy-icon" className={className} style={style}>🏆</span>
+  ),
+  Globe: ({ className, style }: { className?: string; style?: React.CSSProperties }) => (
+    <span data-testid="globe-icon" className={className} style={style}>🌐</span>
+  ),
 }));
 
 // Mock the avatar import
@@ -326,9 +332,10 @@ describe('AboutModal', () => {
         />
       );
 
-      // The component renders "GitHub" as the button text in author section
-      // Use getByText since there are multiple GitHub buttons
-      expect(screen.getByText('GitHub')).toBeInTheDocument();
+      // The component renders "GitHub" twice - author section and project link
+      // Use getAllByText since there are multiple GitHub buttons
+      const githubLinks = screen.getAllByText('GitHub');
+      expect(githubLinks.length).toBeGreaterThanOrEqual(1);
     });
 
     it('should have LinkedIn profile link', () => {
@@ -357,9 +364,9 @@ describe('AboutModal', () => {
         />
       );
 
-      // The component renders "GitHub" as the button text - use getByText and find parent button
-      const githubLink = screen.getByText('GitHub');
-      fireEvent.click(githubLink);
+      // The component renders "GitHub" twice - first one is the author profile link
+      const githubLinks = screen.getAllByText('GitHub');
+      fireEvent.click(githubLinks[0]);
 
       expect(window.maestro.shell.openExternal).toHaveBeenCalledWith('https://github.com/pedramamini');
     });
@@ -381,7 +388,7 @@ describe('AboutModal', () => {
       expect(window.maestro.shell.openExternal).toHaveBeenCalledWith('https://www.linkedin.com/in/pedramamini/');
     });
 
-    it('should open GitHub repo on View on GitHub click', async () => {
+    it('should open GitHub repo on project GitHub click', async () => {
       render(
         <AboutModal
           theme={theme}
@@ -391,8 +398,9 @@ describe('AboutModal', () => {
         />
       );
 
-      const viewOnGitHub = screen.getByText('View on GitHub');
-      fireEvent.click(viewOnGitHub);
+      // The component renders "GitHub" twice - second one is the project repo link
+      const githubLinks = screen.getAllByText('GitHub');
+      fireEvent.click(githubLinks[1]);
 
       expect(window.maestro.shell.openExternal).toHaveBeenCalledWith('https://github.com/pedramamini/Maestro');
     });

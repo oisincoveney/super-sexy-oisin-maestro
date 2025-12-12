@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useMemo, forwardRef, useState, useCallback, memo } from 'react';
-import { Activity, X, ChevronDown, ChevronUp, Filter, PlusCircle, MinusCircle, Trash2, Copy, Volume2, Square, Check, ArrowDown, Eye, FileText, Clipboard } from 'lucide-react';
+import { Activity, X, ChevronDown, ChevronUp, Filter, PlusCircle, MinusCircle, Trash2, Copy, Volume2, Square, Check, ArrowDown, Eye, FileText, Clipboard, RotateCcw } from 'lucide-react';
 import type { Session, Theme, LogEntry } from '../types';
 import Convert from 'ansi-to-html';
 import DOMPurify from 'dompurify';
@@ -243,9 +243,11 @@ interface LogItemProps {
   audioFeedbackCommand?: string;
   // ANSI converter
   ansiConverter: Convert;
-  // Markdown rendering mode for AI responses
-  markdownRawMode: boolean;
-  onToggleMarkdownRawMode: () => void;
+  // Markdown rendering mode for AI responses (when true, shows raw text)
+  markdownEditMode: boolean;
+  onToggleMarkdownEditMode: () => void;
+  // Replay message callback (AI mode only)
+  onReplayMessage?: (text: string, images?: string[]) => void;
 }
 
 const LogItemComponent = memo(({
@@ -278,8 +280,9 @@ const LogItemComponent = memo(({
   speakingLogId,
   audioFeedbackCommand,
   ansiConverter,
-  markdownRawMode,
-  onToggleMarkdownRawMode,
+  markdownEditMode,
+  onToggleMarkdownEditMode,
+  onReplayMessage,
 }: LogItemProps) => {
   // Ref for the log item container - used for scroll-into-view on expand
   const logItemRef = useRef<HTMLDivElement>(null);
@@ -620,7 +623,7 @@ const LogItemComponent = memo(({
                 // Content sanitized with DOMPurify above
                 // Horizontal scroll for terminal output to preserve column alignment
                 <div className="overflow-x-auto scrollbar-thin" dangerouslySetInnerHTML={{ __html: displayHtmlContent }} />
-              ) : isAIMode && !markdownRawMode ? (
+              ) : isAIMode && !markdownEditMode ? (
                 // Collapsed markdown preview with rendered markdown
                 // Note: prose styles are injected once at TerminalOutput container level for performance
                 <div className="prose prose-sm max-w-none" style={{ color: theme.colors.textMain, lineHeight: 1.4, paddingLeft: '0.5em' }}>
@@ -734,7 +737,7 @@ const LogItemComponent = memo(({
                   </div>
                   <div>{highlightMatches(filteredText, outputSearchQuery)}</div>
                 </div>
-              ) : isAIMode && !markdownRawMode ? (
+              ) : isAIMode && !markdownEditMode ? (
                 // Expanded markdown rendering
                 // Note: prose styles are injected once at TerminalOutput container level for performance
                 <div className="prose prose-sm max-w-none text-sm" style={{ color: theme.colors.textMain, lineHeight: 1.4, paddingLeft: '0.5em' }}>
@@ -830,7 +833,7 @@ const LogItemComponent = memo(({
                   {highlightMatches(filteredText, outputSearchQuery)}
                 </div>
               </div>
-            ) : isAIMode && !markdownRawMode ? (
+            ) : isAIMode && !markdownEditMode ? (
               // Rendered markdown for AI responses
               // Note: prose styles are injected once at TerminalOutput container level for performance
               <div className="prose prose-sm max-w-none text-sm" style={{ color: theme.colors.textMain, lineHeight: 1.4, paddingLeft: '0.5em' }}>
@@ -891,12 +894,12 @@ const LogItemComponent = memo(({
           {/* Markdown toggle button for AI responses */}
           {log.source !== 'user' && isAIMode && (
             <button
-              onClick={onToggleMarkdownRawMode}
+              onClick={onToggleMarkdownEditMode}
               className="p-1.5 rounded opacity-0 group-hover:opacity-50 hover:!opacity-100"
-              style={{ color: markdownRawMode ? theme.colors.accent : theme.colors.textDim }}
-              title={markdownRawMode ? "Show formatted (⌘E)" : "Show plain text (⌘E)"}
+              style={{ color: markdownEditMode ? theme.colors.accent : theme.colors.textDim }}
+              title={markdownEditMode ? "Show formatted (⌘E)" : "Show plain text (⌘E)"}
             >
-              {markdownRawMode ? <Eye className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+              {markdownEditMode ? <Eye className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
             </button>
           )}
           {/* Speak/Stop Button - only show for non-user messages when TTS is configured */}
@@ -920,6 +923,17 @@ const LogItemComponent = memo(({
                 <Volume2 className="w-3.5 h-3.5" />
               </button>
             )
+          )}
+          {/* Replay button for user messages in AI mode */}
+          {isUserMessage && isAIMode && onReplayMessage && (
+            <button
+              onClick={() => onReplayMessage(log.text, log.images)}
+              className="p-1.5 rounded opacity-0 group-hover:opacity-50 hover:!opacity-100"
+              style={{ color: theme.colors.textDim }}
+              title="Replay message"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+            </button>
           )}
           {/* Copy to Clipboard Button */}
           <button
@@ -989,6 +1003,7 @@ const LogItemComponent = memo(({
   );
 }, (prevProps, nextProps) => {
   // Custom comparison - only re-render if these specific props change
+  // IMPORTANT: Include ALL props that affect visual rendering
   return (
     prevProps.log.id === nextProps.log.id &&
     prevProps.log.text === nextProps.log.text &&
@@ -1004,7 +1019,8 @@ const LogItemComponent = memo(({
     prevProps.outputSearchQuery === nextProps.outputSearchQuery &&
     prevProps.theme === nextProps.theme &&
     prevProps.maxOutputLines === nextProps.maxOutputLines &&
-    prevProps.markdownRawMode === nextProps.markdownRawMode
+    prevProps.markdownEditMode === nextProps.markdownEditMode &&
+    prevProps.fontFamily === nextProps.fontFamily
   );
 });
 
@@ -1068,8 +1084,9 @@ interface TerminalOutputProps {
   audioFeedbackCommand?: string; // TTS command for speech synthesis
   onScrollPositionChange?: (scrollTop: number) => void; // Callback to save scroll position
   initialScrollTop?: number; // Initial scroll position to restore
-  markdownRawMode: boolean; // Whether to show raw markdown or rendered markdown for AI responses
-  setMarkdownRawMode: (value: boolean) => void; // Toggle markdown raw mode
+  markdownEditMode: boolean; // Whether to show raw markdown or rendered markdown for AI responses
+  setMarkdownEditMode: (value: boolean) => void; // Toggle markdown mode
+  onReplayMessage?: (text: string, images?: string[]) => void; // Replay a user message
 }
 
 export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((props, ref) => {
@@ -1078,7 +1095,7 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
     setOutputSearchOpen, setOutputSearchQuery, setActiveFocus, setLightboxImage,
     inputRef, logsEndRef, maxOutputLines, onDeleteLog, onRemoveQueuedItem, onInterrupt,
     audioFeedbackCommand, onScrollPositionChange, initialScrollTop,
-    markdownRawMode, setMarkdownRawMode
+    markdownEditMode, setMarkdownEditMode, onReplayMessage
   } = props;
 
   // Use the forwarded ref if provided, otherwise create a local one
@@ -1308,10 +1325,10 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
     });
   }, [setLocalFilterQuery]);
 
-  // Callback to toggle markdown raw mode
-  const toggleMarkdownRawMode = useCallback(() => {
-    setMarkdownRawMode(!markdownRawMode);
-  }, [markdownRawMode, setMarkdownRawMode]);
+  // Callback to toggle markdown mode
+  const toggleMarkdownEditMode = useCallback(() => {
+    setMarkdownEditMode(!markdownEditMode);
+  }, [markdownEditMode, setMarkdownEditMode]);
 
   // Auto-focus on search input when opened
   useEffect(() => {
@@ -1728,8 +1745,9 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
             speakingLogId={speakingLogId}
             audioFeedbackCommand={audioFeedbackCommand}
             ansiConverter={ansiConverter}
-            markdownRawMode={markdownRawMode}
-            onToggleMarkdownRawMode={toggleMarkdownRawMode}
+            markdownEditMode={markdownEditMode}
+            onToggleMarkdownEditMode={toggleMarkdownEditMode}
+            onReplayMessage={onReplayMessage}
           />
         ))}
 

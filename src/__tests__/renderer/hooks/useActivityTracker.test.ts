@@ -480,7 +480,7 @@ describe('useActivityTracker', () => {
 
       expect(addEventListenerSpy).toHaveBeenCalledWith('keydown', expect.any(Function));
       expect(addEventListenerSpy).toHaveBeenCalledWith('mousedown', expect.any(Function));
-      expect(addEventListenerSpy).toHaveBeenCalledWith('mousemove', expect.any(Function));
+      // Note: mousemove is intentionally NOT listened to (CPU performance optimization)
       expect(addEventListenerSpy).toHaveBeenCalledWith('wheel', expect.any(Function));
       expect(addEventListenerSpy).toHaveBeenCalledWith('touchstart', expect.any(Function));
     });
@@ -496,7 +496,7 @@ describe('useActivityTracker', () => {
 
       expect(removeEventListenerSpy).toHaveBeenCalledWith('keydown', expect.any(Function));
       expect(removeEventListenerSpy).toHaveBeenCalledWith('mousedown', expect.any(Function));
-      expect(removeEventListenerSpy).toHaveBeenCalledWith('mousemove', expect.any(Function));
+      // Note: mousemove is intentionally NOT listened to (CPU performance optimization)
       expect(removeEventListenerSpy).toHaveBeenCalledWith('wheel', expect.any(Function));
       expect(removeEventListenerSpy).toHaveBeenCalledWith('touchstart', expect.any(Function));
     });
@@ -531,19 +531,8 @@ describe('useActivityTracker', () => {
       expect(mockSetSessions).toHaveBeenCalled();
     });
 
-    it('responds to mousemove events', () => {
-      renderHook(() => useActivityTracker('session-1', mockSetSessions));
-
-      act(() => {
-        window.dispatchEvent(new MouseEvent('mousemove'));
-      });
-
-      act(() => {
-        vi.advanceTimersByTime(BATCH_UPDATE_INTERVAL_MS);
-      });
-
-      expect(mockSetSessions).toHaveBeenCalled();
-    });
+    // Note: mousemove is intentionally NOT listened to for CPU performance
+    // (it fires hundreds of times per second during cursor movement)
 
     it('responds to wheel events', () => {
       renderHook(() => useActivityTracker('session-1', mockSetSessions));
@@ -595,7 +584,7 @@ describe('useActivityTracker', () => {
       });
 
       act(() => {
-        window.dispatchEvent(new MouseEvent('mousemove'));
+        window.dispatchEvent(new WheelEvent('wheel'));
       });
 
       act(() => {

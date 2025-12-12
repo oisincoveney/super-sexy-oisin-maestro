@@ -1043,11 +1043,11 @@ describe('QuickActionsModal', () => {
 
   describe('Markdown toggle (AI mode)', () => {
     it('shows Show Formatted Markdown when raw mode is on', () => {
-      const onToggleMarkdownRawMode = vi.fn();
+      const onToggleMarkdownEditMode = vi.fn();
       const props = createDefaultProps({
         isAiMode: true,
-        markdownRawMode: true,
-        onToggleMarkdownRawMode,
+        markdownEditMode: true,
+        onToggleMarkdownEditMode,
       });
       render(<QuickActionsModal {...props} />);
 
@@ -1056,11 +1056,11 @@ describe('QuickActionsModal', () => {
     });
 
     it('shows Show Raw Markdown when formatted mode is on', () => {
-      const onToggleMarkdownRawMode = vi.fn();
+      const onToggleMarkdownEditMode = vi.fn();
       const props = createDefaultProps({
         isAiMode: true,
-        markdownRawMode: false,
-        onToggleMarkdownRawMode,
+        markdownEditMode: false,
+        onToggleMarkdownEditMode,
       });
       render(<QuickActionsModal {...props} />);
 
@@ -1069,16 +1069,16 @@ describe('QuickActionsModal', () => {
     });
 
     it('handles markdown toggle action', () => {
-      const onToggleMarkdownRawMode = vi.fn();
+      const onToggleMarkdownEditMode = vi.fn();
       const props = createDefaultProps({
         isAiMode: true,
-        onToggleMarkdownRawMode,
+        onToggleMarkdownEditMode,
       });
       render(<QuickActionsModal {...props} />);
 
       fireEvent.click(screen.getByText('Show Raw Markdown'));
 
-      expect(onToggleMarkdownRawMode).toHaveBeenCalled();
+      expect(onToggleMarkdownEditMode).toHaveBeenCalled();
       expect(props.setQuickActionOpen).toHaveBeenCalledWith(false);
     });
   });

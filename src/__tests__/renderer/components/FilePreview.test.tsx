@@ -148,8 +148,8 @@ describe('FilePreview', () => {
           file={null}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -168,8 +168,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -184,8 +184,8 @@ describe('FilePreview', () => {
           file={createMockFile({ content: 'const x = 42;' })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -201,8 +201,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -217,8 +217,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -239,8 +239,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -261,8 +261,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -278,8 +278,8 @@ describe('FilePreview', () => {
           file={createMockFile({ content: 'a'.repeat(1000) })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -295,8 +295,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -315,8 +315,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -336,8 +336,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -356,8 +356,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -376,8 +376,8 @@ describe('FilePreview', () => {
           file={createMockFile({ content: 'const x = 42;' })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -396,8 +396,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -424,8 +424,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={onClose}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -456,13 +456,13 @@ describe('FilePreview', () => {
           file={markdownFile}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
 
-      const toggleBtn = screen.getByTitle(/Show raw markdown|Show rendered markdown/);
+      const toggleBtn = screen.getByTitle(/Edit file|Show preview/);
       expect(toggleBtn).toBeInTheDocument();
     });
 
@@ -472,8 +472,8 @@ describe('FilePreview', () => {
           file={markdownFile}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -481,20 +481,23 @@ describe('FilePreview', () => {
       expect(screen.getByTestId('react-markdown')).toBeInTheDocument();
     });
 
-    it('renders raw markdown when markdownRawMode is true', () => {
+    it('renders textarea editor when markdownEditMode is true', () => {
       render(
         <FilePreview
           file={markdownFile}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={true}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={true}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
 
       expect(screen.queryByTestId('react-markdown')).not.toBeInTheDocument();
-      expect(screen.getByText(/# Hello World/)).toBeInTheDocument();
+      // In edit mode, we show a textarea instead of raw text
+      const textarea = screen.getByRole('textbox');
+      expect(textarea).toBeInTheDocument();
+      expect(textarea).toHaveValue('# Hello World\n\nThis is a test.');
     });
 
     it('toggles markdown mode when button is clicked', async () => {
@@ -503,13 +506,13 @@ describe('FilePreview', () => {
           file={markdownFile}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
 
-      const toggleBtn = screen.getByTitle(/Show raw markdown/);
+      const toggleBtn = screen.getByTitle(/Edit file/);
       fireEvent.click(toggleBtn);
 
       expect(mockSetMarkdownRawMode).toHaveBeenCalledWith(true);
@@ -521,13 +524,13 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
 
-      expect(screen.queryByTitle(/Show raw markdown/)).not.toBeInTheDocument();
+      expect(screen.queryByTitle(/Edit file/)).not.toBeInTheDocument();
       expect(screen.queryByTitle(/Show rendered markdown/)).not.toBeInTheDocument();
     });
   });
@@ -549,8 +552,8 @@ describe('FilePreview', () => {
           file={imageFile}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -566,8 +569,8 @@ describe('FilePreview', () => {
           file={imageFile}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -581,8 +584,8 @@ describe('FilePreview', () => {
           file={imageFile}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -603,8 +606,8 @@ describe('FilePreview', () => {
             })}
             onClose={vi.fn()}
             theme={createMockTheme()}
-            markdownRawMode={false}
-            setMarkdownRawMode={mockSetMarkdownRawMode}
+            markdownEditMode={false}
+            setMarkdownEditMode={mockSetMarkdownRawMode}
             shortcuts={createMockShortcuts()}
           />
         );
@@ -657,8 +660,8 @@ describe('FilePreview', () => {
             })}
             onClose={vi.fn()}
             theme={createMockTheme()}
-            markdownRawMode={false}
-            setMarkdownRawMode={mockSetMarkdownRawMode}
+            markdownEditMode={false}
+            setMarkdownEditMode={mockSetMarkdownRawMode}
             shortcuts={createMockShortcuts()}
           />
         );
@@ -678,8 +681,8 @@ describe('FilePreview', () => {
           })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -700,8 +703,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -720,8 +723,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -741,8 +744,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -770,8 +773,8 @@ describe('FilePreview', () => {
           file={createMockFile({ content: 'hello world' })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -803,8 +806,8 @@ describe('FilePreview', () => {
           })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={true}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={true}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -836,8 +839,8 @@ describe('FilePreview', () => {
           })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={true}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={true}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -872,8 +875,8 @@ describe('FilePreview', () => {
           file={createMockFile({ content: 'line\n'.repeat(100) })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -890,8 +893,8 @@ describe('FilePreview', () => {
           file={createMockFile({ content: 'line\n'.repeat(100) })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -908,8 +911,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -926,8 +929,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -948,8 +951,8 @@ describe('FilePreview', () => {
           })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -974,8 +977,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={onClose}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -993,8 +996,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1026,8 +1029,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1049,8 +1052,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1072,8 +1075,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1095,8 +1098,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1119,8 +1122,8 @@ describe('FilePreview', () => {
           file={createMockFile({ content: 'test content' })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1137,8 +1140,8 @@ describe('FilePreview', () => {
           file={createMockFile({ content: 'a'.repeat(100) })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1158,8 +1161,8 @@ describe('FilePreview', () => {
           })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1188,8 +1191,8 @@ describe('FilePreview', () => {
           })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1208,8 +1211,8 @@ describe('FilePreview', () => {
           })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1229,8 +1232,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1256,8 +1259,8 @@ describe('FilePreview', () => {
           })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1272,8 +1275,8 @@ describe('FilePreview', () => {
           file={createMockFile({ content: '' })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1293,8 +1296,8 @@ describe('FilePreview', () => {
           })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1312,8 +1315,8 @@ describe('FilePreview', () => {
           })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1329,8 +1332,8 @@ describe('FilePreview', () => {
           })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1344,8 +1347,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={{}}
         />
       );
@@ -1370,8 +1373,8 @@ describe('FilePreview', () => {
           })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1399,8 +1402,8 @@ describe('FilePreview', () => {
           })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1426,8 +1429,8 @@ describe('FilePreview', () => {
           })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1456,8 +1459,8 @@ describe('FilePreview', () => {
           })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={true}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={true}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1495,8 +1498,8 @@ describe('FilePreview', () => {
           })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={true}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={true}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1540,8 +1543,8 @@ describe('FilePreview', () => {
           })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={true}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={true}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1579,8 +1582,8 @@ describe('FilePreview', () => {
           })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={true}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={true}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1620,8 +1623,8 @@ describe('FilePreview', () => {
           file={createMockFile({ content: 'line\n'.repeat(100) })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1638,8 +1641,8 @@ describe('FilePreview', () => {
           file={createMockFile({ content: 'line\n'.repeat(100) })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1656,8 +1659,8 @@ describe('FilePreview', () => {
           file={createMockFile({ content: 'line\n'.repeat(100) })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1674,8 +1677,8 @@ describe('FilePreview', () => {
           file={createMockFile({ content: 'line\n'.repeat(100) })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1692,8 +1695,8 @@ describe('FilePreview', () => {
           file={createMockFile({ content: 'line\n'.repeat(100) })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1716,8 +1719,8 @@ describe('FilePreview', () => {
           file={createMockFile()}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={mockSetMarkdownRawMode}
+          markdownEditMode={false}
+          setMarkdownEditMode={mockSetMarkdownRawMode}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1773,8 +1776,8 @@ describe('FilePreview utility functions', () => {
             })}
             onClose={vi.fn()}
             theme={createMockTheme()}
-            markdownRawMode={false}
-            setMarkdownRawMode={vi.fn()}
+            markdownEditMode={false}
+            setMarkdownEditMode={vi.fn()}
             shortcuts={createMockShortcuts()}
           />
         );
@@ -1804,8 +1807,8 @@ describe('FilePreview utility functions', () => {
             })}
             onClose={vi.fn()}
             theme={createMockTheme()}
-            markdownRawMode={false}
-            setMarkdownRawMode={vi.fn()}
+            markdownEditMode={false}
+            setMarkdownEditMode={vi.fn()}
             shortcuts={createMockShortcuts()}
           />
         );
@@ -1825,8 +1828,8 @@ describe('FilePreview utility functions', () => {
             })}
             onClose={vi.fn()}
             theme={createMockTheme()}
-            markdownRawMode={false}
-            setMarkdownRawMode={vi.fn()}
+            markdownEditMode={false}
+            setMarkdownEditMode={vi.fn()}
             shortcuts={createMockShortcuts()}
           />
         );
@@ -1855,8 +1858,8 @@ describe('MarkdownImage component', () => {
           })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={vi.fn()}
+          markdownEditMode={false}
+          setMarkdownEditMode={vi.fn()}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1877,8 +1880,8 @@ describe('MarkdownImage component', () => {
           })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={vi.fn()}
+          markdownEditMode={false}
+          setMarkdownEditMode={vi.fn()}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1898,8 +1901,8 @@ describe('MarkdownImage component', () => {
           })}
           onClose={vi.fn()}
           theme={createMockTheme()}
-          markdownRawMode={false}
-          setMarkdownRawMode={vi.fn()}
+          markdownEditMode={false}
+          setMarkdownEditMode={vi.fn()}
           shortcuts={createMockShortcuts()}
         />
       );
@@ -1928,8 +1931,8 @@ describe('Markdown link interactions', () => {
         })}
         onClose={vi.fn()}
         theme={createMockTheme()}
-        markdownRawMode={false}
-        setMarkdownRawMode={vi.fn()}
+        markdownEditMode={false}
+        setMarkdownEditMode={vi.fn()}
         shortcuts={createMockShortcuts()}
       />
     );
@@ -1956,8 +1959,8 @@ describe('Stats bar scroll behavior', () => {
         })}
         onClose={vi.fn()}
         theme={createMockTheme()}
-        markdownRawMode={false}
-        setMarkdownRawMode={vi.fn()}
+        markdownEditMode={false}
+        setMarkdownEditMode={vi.fn()}
         shortcuts={createMockShortcuts()}
       />
     );
@@ -2000,8 +2003,8 @@ describe('Markdown highlight syntax', () => {
         })}
         onClose={vi.fn()}
         theme={createMockTheme()}
-        markdownRawMode={false}
-        setMarkdownRawMode={vi.fn()}
+        markdownEditMode={false}
+        setMarkdownEditMode={vi.fn()}
         shortcuts={createMockShortcuts()}
       />
     );
@@ -2030,8 +2033,8 @@ describe('Markdown code blocks', () => {
         })}
         onClose={vi.fn()}
         theme={createMockTheme()}
-        markdownRawMode={false}
-        setMarkdownRawMode={vi.fn()}
+        markdownEditMode={false}
+        setMarkdownEditMode={vi.fn()}
         shortcuts={createMockShortcuts()}
       />
     );
@@ -2052,8 +2055,8 @@ describe('Markdown code blocks', () => {
         })}
         onClose={vi.fn()}
         theme={createMockTheme()}
-        markdownRawMode={false}
-        setMarkdownRawMode={vi.fn()}
+        markdownEditMode={false}
+        setMarkdownEditMode={vi.fn()}
         shortcuts={createMockShortcuts()}
       />
     );
@@ -2078,8 +2081,8 @@ describe('Token count formatting', () => {
         file={createMockFile({ content: 'x'.repeat(1000) })}
         onClose={vi.fn()}
         theme={createMockTheme()}
-        markdownRawMode={false}
-        setMarkdownRawMode={vi.fn()}
+        markdownEditMode={false}
+        setMarkdownEditMode={vi.fn()}
         shortcuts={createMockShortcuts()}
       />
     );
@@ -2106,8 +2109,8 @@ describe('Search in markdown with highlighting', () => {
         })}
         onClose={vi.fn()}
         theme={createMockTheme()}
-        markdownRawMode={true}
-        setMarkdownRawMode={vi.fn()}
+        markdownEditMode={true}
+        setMarkdownEditMode={vi.fn()}
         shortcuts={createMockShortcuts()}
       />
     );
@@ -2140,8 +2143,8 @@ describe('Search in markdown with highlighting', () => {
         })}
         onClose={vi.fn()}
         theme={createMockTheme()}
-        markdownRawMode={false}
-        setMarkdownRawMode={vi.fn()}
+        markdownEditMode={false}
+        setMarkdownEditMode={vi.fn()}
         shortcuts={createMockShortcuts()}
       />
     );
@@ -2183,8 +2186,8 @@ describe('Gigabyte file size formatting', () => {
         file={createMockFile()}
         onClose={vi.fn()}
         theme={createMockTheme()}
-        markdownRawMode={false}
-        setMarkdownRawMode={vi.fn()}
+        markdownEditMode={false}
+        setMarkdownEditMode={vi.fn()}
         shortcuts={createMockShortcuts()}
       />
     );

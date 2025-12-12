@@ -53,7 +53,7 @@ interface MainPanelProps {
   atMentionSuggestions?: Array<{ value: string; type: 'file' | 'folder'; displayText: string; fullPath: string }>;
   selectedAtMentionIndex?: number;
   previewFile: { name: string; content: string; path: string } | null;
-  markdownRawMode: boolean;
+  markdownEditMode: boolean;
   shortcuts: Record<string, Shortcut>;
   rightPanelOpen: boolean;
   maxOutputLines: number;
@@ -93,7 +93,7 @@ interface MainPanelProps {
   setAtMentionStartIndex?: (index: number) => void;
   setSelectedAtMentionIndex?: (index: number) => void;
   setPreviewFile: (file: { name: string; content: string; path: string } | null) => void;
-  setMarkdownRawMode: (mode: boolean) => void;
+  setMarkdownEditMode: (mode: boolean) => void;
   setAboutModalOpen: (open: boolean) => void;
   setRightPanelOpen: (open: boolean) => void;
   setGitLogOpen: (open: boolean) => void;
@@ -148,6 +148,8 @@ interface MainPanelProps {
   onInputBlur?: () => void;
   // Prompt composer modal
   onOpenPromptComposer?: () => void;
+  // Replay a user message (AI mode)
+  onReplayMessage?: (text: string, images?: string[]) => void;
 }
 
 export function MainPanel(props: MainPanelProps) {
@@ -159,12 +161,12 @@ export function MainPanel(props: MainPanelProps) {
     setTabCompletionOpen, setSelectedTabCompletionIndex, setTabCompletionFilter,
     atMentionOpen, atMentionFilter, atMentionStartIndex, atMentionSuggestions, selectedAtMentionIndex,
     setAtMentionOpen, setAtMentionFilter, setAtMentionStartIndex, setSelectedAtMentionIndex,
-    previewFile, markdownRawMode, shortcuts, rightPanelOpen, maxOutputLines, gitDiffPreview,
+    previewFile, markdownEditMode, shortcuts, rightPanelOpen, maxOutputLines, gitDiffPreview,
     fileTreeFilterOpen, logLevel, setGitDiffPreview, setLogViewerOpen, setAgentSessionsOpen, setActiveClaudeSessionId,
     onResumeClaudeSession, onNewClaudeSession, setActiveFocus, setOutputSearchOpen, setOutputSearchQuery,
     setInputValue, setEnterToSendAI, setEnterToSendTerminal, setStagedImages, setLightboxImage, setCommandHistoryOpen,
     setCommandHistoryFilter, setCommandHistorySelectedIndex, setSlashCommandOpen,
-    setSelectedSlashCommandIndex, setPreviewFile, setMarkdownRawMode,
+    setSelectedSlashCommandIndex, setPreviewFile, setMarkdownEditMode,
     setAboutModalOpen, setRightPanelOpen, setGitLogOpen, inputRef, logsEndRef, terminalOutputRef,
     fileTreeContainerRef, fileTreeFilterInputRef, toggleInputMode, processInput, handleInterrupt,
     handleInputKeyDown, handlePaste, handleDrop, getContextColor, setActiveSessionId,
@@ -273,16 +275,49 @@ export function MainPanel(props: MainPanelProps) {
   }, [activeSession?.isGitRepo, activeSession?.inputMode, activeSession?.shellCwd, activeSession?.cwd]);
 
   // Fetch git info when session changes or becomes a git repo
+  // Pauses polling when window is hidden to save CPU
   useEffect(() => {
     if (!activeSession?.isGitRepo) {
       setGitInfo(null);
       return;
     }
 
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    const startPolling = () => {
+      if (!interval) {
+        interval = setInterval(fetchGitInfo, 30000);
+      }
+    };
+
+    const stopPolling = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        fetchGitInfo();
+        startPolling();
+      }
+    };
+
     fetchGitInfo();
-    // Refresh git info every 30 seconds (reduced from 10s for performance)
-    const interval = setInterval(fetchGitInfo, 30000);
-    return () => clearInterval(interval);
+
+    if (!document.hidden) {
+      startPolling();
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [activeSession?.id, activeSession?.isGitRepo, fetchGitInfo]);
 
   // Cleanup hover timeouts on unmount
@@ -806,8 +841,13 @@ export function MainPanel(props: MainPanelProps) {
                   }, 0);
                 }}
                 theme={theme}
-                markdownRawMode={markdownRawMode}
-                setMarkdownRawMode={setMarkdownRawMode}
+                markdownEditMode={markdownEditMode}
+                setMarkdownEditMode={setMarkdownEditMode}
+                onSave={async (path, content) => {
+                  await window.maestro.fs.writeFile(path, content);
+                  // Update the preview file content after save
+                  setPreviewFile({ ...previewFile, content });
+                }}
                 shortcuts={shortcuts}
               />
             </div>
@@ -841,8 +881,9 @@ export function MainPanel(props: MainPanelProps) {
                     ? activeTab?.scrollTop
                     : activeSession.terminalScrollTop
                 }
-                markdownRawMode={markdownRawMode}
-                setMarkdownRawMode={setMarkdownRawMode}
+                markdownEditMode={markdownEditMode}
+                setMarkdownEditMode={setMarkdownEditMode}
+                onReplayMessage={props.onReplayMessage}
               />
               </div>
 

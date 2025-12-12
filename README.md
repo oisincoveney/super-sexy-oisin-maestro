@@ -136,7 +136,7 @@ Each session shows a color-coded status indicator:
 - 🟡 **Yellow** - Agent is thinking
 - 🔴 **Red** - No connection with agent
 - 🟠 **Pulsing Orange** - Attempting to establish connection
-- 🟢 **Pulsing Green** - Unread messages (appears next to status dot for non-active sessions)
+- 🔴 **Red Badge** - Unread messages (small red dot overlapping top-right of status indicator, iPhone-style)
 
 ## Screenshots
 All these screenshots were captured in the them "Pedurple". For screenshots of other themes, see [THEMES.md](THEMES.md). Also note that these screenshots are probably dated as the project is evolving rapidly.

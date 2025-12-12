@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Search } from 'lucide-react';
+import { Search, Star } from 'lucide-react';
 import type { AITab, Theme, Shortcut } from '../types';
 import { fuzzyMatchWithScore } from '../utils/search';
 import { useLayerStack } from '../contexts/LayerStackContext';
@@ -158,7 +158,7 @@ function ContextGauge({ percentage, theme, size = 36 }: { percentage: number; th
   );
 }
 
-type ViewMode = 'open' | 'all-named';
+type ViewMode = 'open' | 'all-named' | 'starred';
 
 /**
  * Tab Switcher Modal - Quick navigation between AI tabs with fuzzy search.
@@ -281,15 +281,40 @@ export function TabSwitcherModal({
         return nameA.localeCompare(nameB);
       });
       return sorted.map(tab => ({ type: 'open' as const, tab }));
+    } else if (viewMode === 'starred') {
+      // Starred mode - show all starred sessions (open or closed) for the current project
+      const items: ListItem[] = [];
+
+      // Add starred open tabs
+      for (const tab of tabs) {
+        if (tab.starred && tab.claudeSessionId) {
+          items.push({ type: 'open' as const, tab });
+        }
+      }
+
+      // Add starred closed sessions from the same project (not currently open)
+      for (const session of namedSessions) {
+        if (session.starred && session.projectPath === projectRoot && !openTabSessionIds.has(session.claudeSessionId)) {
+          items.push({ type: 'named' as const, session });
+        }
+      }
+
+      // Sort by display name
+      items.sort((a, b) => {
+        const nameA = a.type === 'open' ? getTabDisplayName(a.tab).toLowerCase() : a.session.sessionName.toLowerCase();
+        const nameB = b.type === 'open' ? getTabDisplayName(b.tab).toLowerCase() : b.session.sessionName.toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+
+      return items;
     } else {
-      // All Named mode - show sessions with claudeSessionId for the CURRENT PROJECT (including open ones)
+      // All Named mode - show only sessions that have been given a custom name
       // For open tabs, use the 'open' type so we get usage stats; for closed ones use 'named'
       const items: ListItem[] = [];
 
-      // Add open tabs that have a Claude session (whether named or not)
-      // This ensures all active sessions are searchable, not just those with custom names
+      // Add open tabs that have a custom name (not just UUID-based display names)
       for (const tab of tabs) {
-        if (tab.claudeSessionId) {
+        if (tab.claudeSessionId && tab.name) {
           items.push({ type: 'open' as const, tab });
         }
       }
@@ -353,7 +378,11 @@ export function TabSwitcherModal({
   }, [search, viewMode]);
 
   const toggleViewMode = () => {
-    setViewMode(prev => prev === 'open' ? 'all-named' : 'open');
+    setViewMode(prev => {
+      if (prev === 'open') return 'all-named';
+      if (prev === 'all-named') return 'starred';
+      return 'open';
+    });
   };
 
   const handleItemSelect = (item: ListItem) => {
@@ -411,7 +440,7 @@ export function TabSwitcherModal({
           <input
             ref={inputRef}
             className="flex-1 bg-transparent outline-none text-lg placeholder-opacity-50"
-            placeholder={viewMode === 'open' ? "Search open tabs..." : "Search named sessions..."}
+            placeholder={viewMode === 'open' ? "Search open tabs..." : viewMode === 'starred' ? "Search starred sessions..." : "Search named sessions..."}
             style={{ color: theme.colors.textMain }}
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -452,7 +481,18 @@ export function TabSwitcherModal({
               color: viewMode === 'all-named' ? theme.colors.accentForeground : theme.colors.textDim
             }}
           >
-            All Named ({tabs.filter(t => t.name && t.claudeSessionId).length + namedSessions.filter(s => s.projectPath === projectRoot && !openTabSessionIds.has(s.claudeSessionId)).length})
+            All Named ({tabs.filter(t => t.claudeSessionId && t.name).length + namedSessions.filter(s => s.projectPath === projectRoot && !openTabSessionIds.has(s.claudeSessionId)).length})
+          </button>
+          <button
+            onClick={() => setViewMode('starred')}
+            className="px-3 py-1 rounded-full text-xs font-medium transition-colors flex items-center gap-1"
+            style={{
+              backgroundColor: viewMode === 'starred' ? theme.colors.accent : theme.colors.bgMain,
+              color: viewMode === 'starred' ? theme.colors.accentForeground : theme.colors.textDim
+            }}
+          >
+            <Star className="w-3 h-3" style={{ fill: viewMode === 'starred' ? 'currentColor' : 'none' }} />
+            Starred ({tabs.filter(t => t.starred && t.claudeSessionId).length + namedSessions.filter(s => s.starred && s.projectPath === projectRoot && !openTabSessionIds.has(s.claudeSessionId)).length})
           </button>
           <span className="text-[10px] opacity-50 ml-auto" style={{ color: theme.colors.textDim }}>
             Tab to switch
@@ -634,7 +674,7 @@ export function TabSwitcherModal({
 
           {filteredItems.length === 0 && (
             <div className="px-4 py-4 text-center opacity-50 text-sm" style={{ color: theme.colors.textDim }}>
-              {viewMode === 'open' ? 'No open tabs' : 'No named sessions found'}
+              {viewMode === 'open' ? 'No open tabs' : viewMode === 'starred' ? 'No starred sessions' : 'No named sessions found'}
             </div>
           )}
         </div>
@@ -644,7 +684,7 @@ export function TabSwitcherModal({
           className="px-4 py-2 border-t text-xs flex items-center justify-between"
           style={{ borderColor: theme.colors.border, color: theme.colors.textDim }}
         >
-          <span>{filteredItems.length} {viewMode === 'open' ? 'tabs' : 'sessions'}</span>
+          <span>{filteredItems.length} {viewMode === 'open' ? 'tabs' : viewMode === 'starred' ? 'starred' : 'sessions'}</span>
           <span>↑↓ navigate • Enter select • ⌘1-9 quick select</span>
         </div>
       </div>
