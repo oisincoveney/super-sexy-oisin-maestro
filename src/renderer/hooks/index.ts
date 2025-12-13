@@ -22,6 +22,7 @@ export { useKeyboardNavigation } from './useKeyboardNavigation';
 export { useMainKeyboardHandler } from './useMainKeyboardHandler';
 export { useRemoteIntegration } from './useRemoteIntegration';
 export { useClaudeSessionManagement } from './useClaudeSessionManagement';
+export { useAgentExecution } from './useAgentExecution';
 
 export type { UseSettingsReturn } from './useSettings';
 export type { UseSessionManagerReturn } from './useSessionManager';
@@ -65,3 +66,8 @@ export type {
   UseClaudeSessionManagementReturn,
   HistoryEntryInput,
 } from './useClaudeSessionManagement';
+export type {
+  UseAgentExecutionDeps,
+  UseAgentExecutionReturn,
+  AgentSpawnResult,
+} from './useAgentExecution';
