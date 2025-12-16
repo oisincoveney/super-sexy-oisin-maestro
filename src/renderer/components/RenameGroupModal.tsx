@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import type { Theme, Group } from '../types';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
-import { Modal, ModalFooter, EmojiPickerField } from './ui';
+import { Modal, ModalFooter, EmojiPickerField, FormInput } from './ui';
 
 interface RenameGroupModalProps {
   theme: Theme;
@@ -59,24 +59,16 @@ export function RenameGroupModal(props: RenameGroupModalProps) {
         />
 
         {/* Group Name Input - Right Side */}
-        <div className="flex-1 flex flex-col gap-2">
-          <label className="block text-xs font-bold opacity-70 uppercase" style={{ color: theme.colors.textMain }}>
-            Group Name
-          </label>
-          <input
+        <div className="flex-1">
+          <FormInput
             ref={inputRef}
-            type="text"
+            theme={theme}
+            label="Group Name"
             value={groupName}
-            onChange={(e) => setGroupName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                handleRename();
-              }
-            }}
+            onChange={setGroupName}
+            onSubmit={handleRename}
             placeholder="Enter group name..."
-            className="w-full p-3 rounded border bg-transparent outline-none h-[52px]"
-            style={{ borderColor: theme.colors.border, color: theme.colors.textMain }}
+            heightClass="h-[52px]"
             autoFocus
           />
         </div>
