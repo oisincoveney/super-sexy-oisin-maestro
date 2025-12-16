@@ -4,6 +4,7 @@ import type { AgentConfig, Session, ToolType } from '../types';
 import { useLayerStack } from '../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
 import { validateNewSession } from '../utils/sessionValidation';
+import { FormInput } from './ui/FormInput';
 
 interface AgentDebugInfo {
   agentId: string;
@@ -226,29 +227,17 @@ export function NewInstanceModal({ isOpen, onClose, onCreate, theme, defaultAgen
         {/* Body */}
         <div className="p-6 space-y-5">
           {/* Agent Name */}
-          <div>
-            <label htmlFor="agent-name-input" className="block text-xs font-bold opacity-70 uppercase mb-2" style={{ color: theme.colors.textMain }}>
-              Agent Name
-            </label>
-            <input
-              id="agent-name-input"
-              ref={nameInputRef}
-              type="text"
-              value={instanceName}
-              onChange={(e) => setInstanceName(e.target.value)}
-              placeholder=""
-              className="w-full p-2 rounded border bg-transparent outline-none"
-              style={{
-                borderColor: validation.errorField === 'name' ? theme.colors.error : theme.colors.border,
-                color: theme.colors.textMain
-              }}
-            />
-            {validation.errorField === 'name' && (
-              <p className="mt-1 text-xs" style={{ color: theme.colors.error }}>
-                {validation.error}
-              </p>
-            )}
-          </div>
+          <FormInput
+            ref={nameInputRef}
+            id="agent-name-input"
+            theme={theme}
+            label="Agent Name"
+            value={instanceName}
+            onChange={setInstanceName}
+            placeholder=""
+            error={validation.errorField === 'name' ? validation.error : undefined}
+            heightClass="p-2"
+          />
 
           {/* Agent Selection */}
           <div>
@@ -410,22 +399,16 @@ export function NewInstanceModal({ isOpen, onClose, onCreate, theme, defaultAgen
           </div>
 
           {/* Working Directory */}
-          <div>
-            <label className="block text-xs font-bold opacity-70 uppercase mb-2" style={{ color: theme.colors.textMain }}>
-              Working Directory
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={workingDir}
-                onChange={(e) => setWorkingDir(e.target.value)}
-                placeholder="Select directory..."
-                className="flex-1 p-2 rounded border bg-transparent outline-none font-mono text-sm"
-                style={{
-                  borderColor: validation.errorField === 'directory' ? theme.colors.error : theme.colors.border,
-                  color: theme.colors.textMain
-                }}
-              />
+          <FormInput
+            theme={theme}
+            label="Working Directory"
+            value={workingDir}
+            onChange={setWorkingDir}
+            placeholder="Select directory..."
+            error={validation.errorField === 'directory' ? validation.error : undefined}
+            monospace
+            heightClass="p-2"
+            addon={
               <button
                 onClick={handleSelectFolder}
                 className="p-2 rounded border hover:bg-opacity-10"
@@ -434,13 +417,8 @@ export function NewInstanceModal({ isOpen, onClose, onCreate, theme, defaultAgen
               >
                 <Folder className="w-5 h-5" />
               </button>
-            </div>
-            {validation.errorField === 'directory' && (
-              <p className="mt-1 text-xs" style={{ color: theme.colors.error }}>
-                {validation.error}
-              </p>
-            )}
-          </div>
+            }
+          />
         </div>
 
         {/* Footer */}
