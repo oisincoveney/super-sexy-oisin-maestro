@@ -12,3 +12,4 @@ export * from './templateVariables';
 export * from './gitUtils';
 export * from './emojiUtils';
 export * from './treeUtils';
+export * from './stringUtils';

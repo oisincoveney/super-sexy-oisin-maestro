@@ -25,6 +25,7 @@ import type { Session, UsageStats, LastResponsePreview } from '../hooks/useSessi
 import { triggerHaptic, HAPTIC_PATTERNS } from './constants';
 import { webLogger } from '../utils/logger';
 import { formatRelativeTime, formatCost } from '../../shared/formatters';
+import { stripAnsiCodes } from '../../shared/stringUtils';
 
 /**
  * Props for SessionStatusBanner component
@@ -38,16 +39,6 @@ export interface SessionStatusBannerProps {
   style?: React.CSSProperties;
   /** Callback when user taps to expand the full response (for task 1.30) */
   onExpandResponse?: (lastResponse: LastResponsePreview) => void;
-}
-
-/**
- * Strip ANSI escape codes from text
- * Web interface doesn't render terminal colors, so we remove them for clean display
- */
-function stripAnsiCodes(text: string): string {
-  // Matches ANSI escape sequences: ESC[ followed by params and command letter
-  // eslint-disable-next-line no-control-regex
-  return text.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
 }
 
 /**

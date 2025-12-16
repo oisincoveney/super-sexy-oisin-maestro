@@ -25,6 +25,7 @@ import { useThemeColors, useTheme } from '../components/ThemeProvider';
 import type { LastResponsePreview } from '../hooks/useSessions';
 import { triggerHaptic, HAPTIC_PATTERNS } from './constants';
 import { webLogger } from '../utils/logger';
+import { stripAnsiCodes } from '../../shared/stringUtils';
 
 /**
  * Represents a response item that can be navigated to
@@ -73,16 +74,6 @@ function formatTimestamp(timestamp: number): string {
     hour: '2-digit',
     minute: '2-digit',
   });
-}
-
-/**
- * Strip ANSI escape codes from text
- * Web interface doesn't render terminal colors, so we remove them for clean display
- */
-function stripAnsiCodes(text: string): string {
-  // Matches ANSI escape sequences: ESC[ followed by params and command letter
-  // eslint-disable-next-line no-control-regex
-  return text.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
 }
 
 /**
