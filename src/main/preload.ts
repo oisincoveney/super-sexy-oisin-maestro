@@ -52,6 +52,14 @@ interface ShellInfo {
   path?: string;
 }
 
+// Helper to log deprecation warnings
+const logDeprecationWarning = (method: string, replacement?: string) => {
+  const message = replacement
+    ? `[Deprecation Warning] window.maestro.claude.${method}() is deprecated. Use window.maestro.agentSessions.${replacement}() instead.`
+    : `[Deprecation Warning] window.maestro.claude.${method}() is deprecated. Use the agentSessions API instead.`;
+  console.warn(message);
+};
+
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('maestro', {
@@ -476,18 +484,27 @@ contextBridge.exposeInMainWorld('maestro', {
   },
 
   // Claude Code sessions API
+  // DEPRECATED: Use agentSessions API instead for new code
   claude: {
-    listSessions: (projectPath: string) =>
-      ipcRenderer.invoke('claude:listSessions', projectPath),
+    listSessions: (projectPath: string) => {
+      logDeprecationWarning('listSessions', 'list');
+      return ipcRenderer.invoke('claude:listSessions', projectPath);
+    },
     // Paginated version for better performance with many sessions
-    listSessionsPaginated: (projectPath: string, options?: { cursor?: string; limit?: number }) =>
-      ipcRenderer.invoke('claude:listSessionsPaginated', projectPath, options),
+    listSessionsPaginated: (projectPath: string, options?: { cursor?: string; limit?: number }) => {
+      logDeprecationWarning('listSessionsPaginated', 'listPaginated');
+      return ipcRenderer.invoke('claude:listSessionsPaginated', projectPath, options);
+    },
     // Get aggregate stats for all sessions in a project (streams progressive updates)
-    getProjectStats: (projectPath: string) =>
-      ipcRenderer.invoke('claude:getProjectStats', projectPath),
+    getProjectStats: (projectPath: string) => {
+      logDeprecationWarning('getProjectStats');
+      return ipcRenderer.invoke('claude:getProjectStats', projectPath);
+    },
     // Get all session timestamps for activity graph (lightweight)
-    getSessionTimestamps: (projectPath: string) =>
-      ipcRenderer.invoke('claude:getSessionTimestamps', projectPath) as Promise<{ timestamps: string[] }>,
+    getSessionTimestamps: (projectPath: string) => {
+      logDeprecationWarning('getSessionTimestamps');
+      return ipcRenderer.invoke('claude:getSessionTimestamps', projectPath) as Promise<{ timestamps: string[] }>;
+    },
     onProjectStatsUpdate: (callback: (stats: {
       projectPath: string;
       totalSessions: number;
@@ -498,12 +515,15 @@ contextBridge.exposeInMainWorld('maestro', {
       processedCount: number;
       isComplete: boolean;
     }) => void) => {
+      logDeprecationWarning('onProjectStatsUpdate');
       const handler = (_: any, stats: any) => callback(stats);
       ipcRenderer.on('claude:projectStatsUpdate', handler);
       return () => ipcRenderer.removeListener('claude:projectStatsUpdate', handler);
     },
-    getGlobalStats: () =>
-      ipcRenderer.invoke('claude:getGlobalStats'),
+    getGlobalStats: () => {
+      logDeprecationWarning('getGlobalStats');
+      return ipcRenderer.invoke('claude:getGlobalStats');
+    },
     onGlobalStatsUpdate: (callback: (stats: {
       totalSessions: number;
       totalMessages: number;
@@ -515,35 +535,54 @@ contextBridge.exposeInMainWorld('maestro', {
       totalSizeBytes: number;
       isComplete: boolean;
     }) => void) => {
+      logDeprecationWarning('onGlobalStatsUpdate');
       const handler = (_: any, stats: any) => callback(stats);
       ipcRenderer.on('claude:globalStatsUpdate', handler);
       return () => ipcRenderer.removeListener('claude:globalStatsUpdate', handler);
     },
-    readSessionMessages: (projectPath: string, sessionId: string, options?: { offset?: number; limit?: number }) =>
-      ipcRenderer.invoke('claude:readSessionMessages', projectPath, sessionId, options),
-    searchSessions: (projectPath: string, query: string, searchMode: 'title' | 'user' | 'assistant' | 'all') =>
-      ipcRenderer.invoke('claude:searchSessions', projectPath, query, searchMode),
-    getCommands: (projectPath: string) =>
-      ipcRenderer.invoke('claude:getCommands', projectPath),
+    readSessionMessages: (projectPath: string, sessionId: string, options?: { offset?: number; limit?: number }) => {
+      logDeprecationWarning('readSessionMessages', 'read');
+      return ipcRenderer.invoke('claude:readSessionMessages', projectPath, sessionId, options);
+    },
+    searchSessions: (projectPath: string, query: string, searchMode: 'title' | 'user' | 'assistant' | 'all') => {
+      logDeprecationWarning('searchSessions', 'search');
+      return ipcRenderer.invoke('claude:searchSessions', projectPath, query, searchMode);
+    },
+    getCommands: (projectPath: string) => {
+      logDeprecationWarning('getCommands');
+      return ipcRenderer.invoke('claude:getCommands', projectPath);
+    },
     // Session origin tracking (distinguishes Maestro sessions from CLI sessions)
-    registerSessionOrigin: (projectPath: string, agentSessionId: string, origin: 'user' | 'auto', sessionName?: string) =>
-      ipcRenderer.invoke('claude:registerSessionOrigin', projectPath, agentSessionId, origin, sessionName),
-    updateSessionName: (projectPath: string, agentSessionId: string, sessionName: string) =>
-      ipcRenderer.invoke('claude:updateSessionName', projectPath, agentSessionId, sessionName),
-    updateSessionStarred: (projectPath: string, agentSessionId: string, starred: boolean) =>
-      ipcRenderer.invoke('claude:updateSessionStarred', projectPath, agentSessionId, starred),
-    getSessionOrigins: (projectPath: string) =>
-      ipcRenderer.invoke('claude:getSessionOrigins', projectPath),
-    getAllNamedSessions: () =>
-      ipcRenderer.invoke('claude:getAllNamedSessions') as Promise<Array<{
+    registerSessionOrigin: (projectPath: string, agentSessionId: string, origin: 'user' | 'auto', sessionName?: string) => {
+      logDeprecationWarning('registerSessionOrigin');
+      return ipcRenderer.invoke('claude:registerSessionOrigin', projectPath, agentSessionId, origin, sessionName);
+    },
+    updateSessionName: (projectPath: string, agentSessionId: string, sessionName: string) => {
+      logDeprecationWarning('updateSessionName');
+      return ipcRenderer.invoke('claude:updateSessionName', projectPath, agentSessionId, sessionName);
+    },
+    updateSessionStarred: (projectPath: string, agentSessionId: string, starred: boolean) => {
+      logDeprecationWarning('updateSessionStarred');
+      return ipcRenderer.invoke('claude:updateSessionStarred', projectPath, agentSessionId, starred);
+    },
+    getSessionOrigins: (projectPath: string) => {
+      logDeprecationWarning('getSessionOrigins');
+      return ipcRenderer.invoke('claude:getSessionOrigins', projectPath);
+    },
+    getAllNamedSessions: () => {
+      logDeprecationWarning('getAllNamedSessions');
+      return ipcRenderer.invoke('claude:getAllNamedSessions') as Promise<Array<{
         agentSessionId: string;
         projectPath: string;
         sessionName: string;
         starred?: boolean;
         lastActivityAt?: number;
-      }>>,
-    deleteMessagePair: (projectPath: string, sessionId: string, userMessageUuid: string, fallbackContent?: string) =>
-      ipcRenderer.invoke('claude:deleteMessagePair', projectPath, sessionId, userMessageUuid, fallbackContent),
+      }>>;
+    },
+    deleteMessagePair: (projectPath: string, sessionId: string, userMessageUuid: string, fallbackContent?: string) => {
+      logDeprecationWarning('deleteMessagePair', 'deleteMessagePair');
+      return ipcRenderer.invoke('claude:deleteMessagePair', projectPath, sessionId, userMessageUuid, fallbackContent);
+    },
   },
 
   // Agent Sessions API (generic multi-agent session storage)
