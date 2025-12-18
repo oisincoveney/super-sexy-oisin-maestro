@@ -260,11 +260,6 @@ export default function MaestroConsole() {
   // Git Diff State
   const [gitDiffPreview, setGitDiffPreview] = useState<string | null>(null);
 
-  // Stable callbacks for memoized modals (prevents re-renders from callback reference changes)
-  const handleCloseGitDiff = useCallback(() => setGitDiffPreview(null), []);
-  const handleCloseGitLog = useCallback(() => setGitLogOpen(false), []);
-  const handleCloseSettings = useCallback(() => setSettingsModalOpen(false), []);
-
   // Tour Overlay State
   const [tourOpen, setTourOpen] = useState(false);
   const [tourFromWizard, setTourFromWizard] = useState(false);
@@ -308,6 +303,12 @@ export default function MaestroConsole() {
   const [processMonitorOpen, setProcessMonitorOpen] = useState(false);
   const [playgroundOpen, setPlaygroundOpen] = useState(false);
   const [debugWizardModalOpen, setDebugWizardModalOpen] = useState(false);
+
+  // Stable callbacks for memoized modals (prevents re-renders from callback reference changes)
+  // NOTE: These must be declared AFTER the state they reference
+  const handleCloseGitDiff = useCallback(() => setGitDiffPreview(null), []);
+  const handleCloseGitLog = useCallback(() => setGitLogOpen(false), []);
+  const handleCloseSettings = useCallback(() => setSettingsModalOpen(false), []);
 
   // Confirmation Modal State
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);

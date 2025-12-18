@@ -260,24 +260,50 @@ export function useBatchProcessor({
     setCustomPrompts(prev => ({ ...prev, [sessionId]: prompt }));
   }, []);
 
-  // Broadcast batch run state changes to web interface
-  useEffect(() => {
-    // Broadcast state for each session that has batch state
-    Object.entries(batchRunStates).forEach(([sessionId, state]) => {
-      if (state.isRunning || state.completedTasks > 0) {
-        window.maestro.web.broadcastAutoRunState(sessionId, {
-          isRunning: state.isRunning,
-          totalTasks: state.totalTasks,
-          completedTasks: state.completedTasks,
-          currentTaskIndex: state.currentTaskIndex,
-          isStopping: state.isStopping,
-        });
-      } else {
-        // When not running and no completed tasks, broadcast null to clear the state
-        window.maestro.web.broadcastAutoRunState(sessionId, null);
-      }
+  /**
+   * Broadcast Auto Run state to web interface immediately (synchronously).
+   * This replaces the previous useEffect-based approach to ensure mobile clients
+   * receive state updates without waiting for React's render cycle.
+   */
+  const broadcastAutoRunState = useCallback((sessionId: string, state: BatchRunState | null) => {
+    if (state && (state.isRunning || state.completedTasks > 0)) {
+      window.maestro.web.broadcastAutoRunState(sessionId, {
+        isRunning: state.isRunning,
+        totalTasks: state.totalTasks,
+        completedTasks: state.completedTasks,
+        currentTaskIndex: state.currentTaskIndex,
+        isStopping: state.isStopping,
+      });
+    } else {
+      // When not running and no completed tasks, broadcast null to clear the state
+      window.maestro.web.broadcastAutoRunState(sessionId, null);
+    }
+  }, []);
+
+  /**
+   * Update batch state AND broadcast to web interface immediately.
+   * This wrapper ensures mobile clients receive updates synchronously
+   * rather than waiting for React's useEffect cycle.
+   *
+   * We capture the new state in a variable and broadcast after setState
+   * to avoid calling side effects inside the state updater (which React
+   * might call multiple times in Strict Mode).
+   */
+  const updateBatchStateAndBroadcast = useCallback((
+    sessionId: string,
+    updater: (prev: Record<string, BatchRunState>) => Record<string, BatchRunState>
+  ) => {
+    let newStateForSession: BatchRunState | null = null;
+    setBatchRunStates(prev => {
+      const newStates = updater(prev);
+      // Capture the new state for this session to broadcast after
+      newStateForSession = newStates[sessionId] || null;
+      return newStates;
     });
-  }, [batchRunStates]);
+    // Broadcast immediately after setState call (synchronously, before React's next render)
+    // This ensures mobile clients receive updates without waiting for useEffect
+    broadcastAutoRunState(sessionId, newStateForSession);
+  }, [broadcastAutoRunState]);
 
   // Helper to get current accumulated elapsed time for a session (visibility-aware)
   const getAccumulatedElapsedMs = useCallback((sessionId: string): number => {
@@ -512,7 +538,7 @@ ${docList}
     // Initialize batch run state
     // Lock all documents that are part of this batch run
     const lockedDocuments = documents.map(d => d.filename);
-    setBatchRunStates(prev => ({
+    updateBatchStateAndBroadcast(sessionId, prev => ({
       ...prev,
       [sessionId]: {
         isRunning: true,
@@ -694,7 +720,7 @@ ${docList}
               await window.maestro.autorun.writeDoc(folderPath, docEntry.filename + '.md', resetContent);
               // Update task count in state
               const resetTaskCount = countUnfinishedTasks(resetContent);
-              setBatchRunStates(prev => ({
+              updateBatchStateAndBroadcast(sessionId, prev => ({
                 ...prev,
                 [sessionId]: {
                   ...prev[sessionId],
@@ -725,7 +751,7 @@ ${docList}
         );
 
         // Update state to show current document
-        setBatchRunStates(prev => ({
+        updateBatchStateAndBroadcast(sessionId, prev => ({
           ...prev,
           [sessionId]: {
             ...prev[sessionId],
@@ -829,7 +855,7 @@ ${docList}
             }
 
             // Update progress state
-            setBatchRunStates(prev => ({
+            updateBatchStateAndBroadcast(sessionId, prev => ({
               ...prev,
               [sessionId]: {
                 ...prev[sessionId],
@@ -1015,7 +1041,7 @@ ${docList}
           // If loop is enabled, add the reset tasks back to the total
           if (loopEnabled) {
             const resetTaskCount = countUnfinishedTasks(resetContent);
-            setBatchRunStates(prev => ({
+            updateBatchStateAndBroadcast(sessionId, prev => ({
               ...prev,
               [sessionId]: {
                 ...prev[sessionId],
@@ -1158,7 +1184,7 @@ ${docList}
       loopIteration++;
       console.log(`[BatchProcessor] Starting loop iteration ${loopIteration + 1}: ${newTotalTasks} tasks across all documents`);
 
-      setBatchRunStates(prev => ({
+      updateBatchStateAndBroadcast(sessionId, prev => ({
         ...prev,
         [sessionId]: {
           ...prev[sessionId],
@@ -1317,7 +1343,6 @@ ${docList}
       `- ${levelProgressText}`,
     ].filter(line => line !== '').join('\n');
 
-    // This entry has no sessionId - it's a standalone Auto Run synopsis
     // Success is true if not stopped and at least some documents completed without stalling
     const isSuccess = !wasStopped && !allDocsStalled;
     onAddHistoryEntry({
@@ -1326,7 +1351,7 @@ ${docList}
       summary: finalSummary,
       fullResponse: finalDetails,
       projectPath: session.cwd,
-      // No sessionId - this is a standalone synopsis entry
+      sessionId, // Include sessionId so the summary appears in session's history
       success: isSuccess,
       elapsedTimeMs: totalElapsedMs,
       usageStats: totalInputTokens > 0 || totalOutputTokens > 0 ? {
@@ -1341,7 +1366,7 @@ ${docList}
     });
 
     // Reset state for this session (clear worktree tracking)
-    setBatchRunStates(prev => ({
+    updateBatchStateAndBroadcast(sessionId, prev => ({
       ...prev,
       [sessionId]: {
         isRunning: false,
@@ -1383,21 +1408,21 @@ ${docList}
     // Clean up time tracking refs
     delete accumulatedTimeRefs.current[sessionId];
     delete lastActiveTimestampRefs.current[sessionId];
-  }, [onUpdateSession, onSpawnAgent, onSpawnSynopsis, onAddHistoryEntry, onComplete, onPRResult, audioFeedbackEnabled, audioFeedbackCommand]);
+  }, [onUpdateSession, onSpawnAgent, onSpawnSynopsis, onAddHistoryEntry, onComplete, onPRResult, audioFeedbackEnabled, audioFeedbackCommand, updateBatchStateAndBroadcast]);
 
   /**
    * Request to stop the batch run for a specific session after current task completes
    */
   const stopBatchRun = useCallback((sessionId: string) => {
     stopRequestedRefs.current[sessionId] = true;
-    setBatchRunStates(prev => ({
+    updateBatchStateAndBroadcast(sessionId, prev => ({
       ...prev,
       [sessionId]: {
         ...prev[sessionId],
         isStopping: true
       }
     }));
-  }, []);
+  }, [updateBatchStateAndBroadcast]);
 
   /**
    * Pause the batch run due to an agent error (Phase 5.10)
@@ -1416,7 +1441,7 @@ ${docList}
       }
     );
 
-    setBatchRunStates(prev => {
+    updateBatchStateAndBroadcast(sessionId, prev => {
       const currentState = prev[sessionId];
       if (!currentState || !currentState.isRunning) {
         return prev;
@@ -1432,7 +1457,7 @@ ${docList}
         }
       };
     });
-  }, []);
+  }, [updateBatchStateAndBroadcast]);
 
   /**
    * Skip the current document that caused an error and continue with the next one (Phase 5.10)
@@ -1445,7 +1470,7 @@ ${docList}
       {}
     );
 
-    setBatchRunStates(prev => {
+    updateBatchStateAndBroadcast(sessionId, prev => {
       const currentState = prev[sessionId];
       if (!currentState || !currentState.errorPaused) {
         return prev;
@@ -1468,7 +1493,7 @@ ${docList}
     // Signal to skip current document in the processing loop
     // The stopRequestedRefs is reused with a special marker
     // Note: This relies on the processing loop checking for error state changes
-  }, []);
+  }, [updateBatchStateAndBroadcast]);
 
   /**
    * Resume the batch run after an error has been resolved (Phase 5.10)
@@ -1482,7 +1507,7 @@ ${docList}
       {}
     );
 
-    setBatchRunStates(prev => {
+    updateBatchStateAndBroadcast(sessionId, prev => {
       const currentState = prev[sessionId];
       if (!currentState) {
         return prev;
@@ -1498,7 +1523,7 @@ ${docList}
         }
       };
     });
-  }, []);
+  }, [updateBatchStateAndBroadcast]);
 
   /**
    * Abort the batch run completely due to an unrecoverable error (Phase 5.10)
@@ -1513,7 +1538,7 @@ ${docList}
 
     // Request stop and clear error state
     stopRequestedRefs.current[sessionId] = true;
-    setBatchRunStates(prev => ({
+    updateBatchStateAndBroadcast(sessionId, prev => ({
       ...prev,
       [sessionId]: {
         ...prev[sessionId],
@@ -1524,7 +1549,7 @@ ${docList}
         errorTaskDescription: undefined
       }
     }));
-  }, []);
+  }, [updateBatchStateAndBroadcast]);
 
   return {
     batchRunStates,

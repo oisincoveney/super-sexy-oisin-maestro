@@ -89,7 +89,7 @@ const AGENT_DEFINITIONS: Omit<AgentConfig, 'available' | 'path' | 'capabilities'
         key: 'contextWindow',
         type: 'number',
         label: 'Context Window Size',
-        description: 'Maximum context window size in tokens. Required for context usage display. Common values: 128000 (o4-mini), 200000 (o3).',
+        description: 'Maximum context window size in tokens. Required for context usage display. Common values: 200000 (GPT-5.2), 128000 (GPT-4o).',
         default: 200000, // Default for GPT-5.x models
       },
     ],
@@ -143,7 +143,7 @@ const AGENT_DEFINITIONS: Omit<AgentConfig, 'available' | 'path' | 'capabilities'
         key: 'contextWindow',
         type: 'number',
         label: 'Context Window Size',
-        description: 'Maximum context window size in tokens. Required for context usage display. Varies by model (e.g., 200000 for Claude, 128000 for GPT-4).',
+        description: 'Maximum context window size in tokens. Required for context usage display. Varies by model (e.g., 200000 for Claude/GPT-5.2, 128000 for GPT-4o).',
         default: 128000, // Default for common models (GPT-4, etc.)
       },
     ],
