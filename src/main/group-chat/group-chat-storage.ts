@@ -1,0 +1,302 @@
+/**
+ * @file group-chat-storage.ts
+ * @description Storage utilities for Group Chat feature.
+ *
+ * Group chats are stored in the Maestro config directory under 'group-chats/'.
+ * Each group chat has its own directory containing:
+ * - metadata.json: GroupChat metadata
+ * - chat.log: Pipe-delimited message log
+ * - images/: Directory for image attachments
+ */
+
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import * as os from 'os';
+import { v4 as uuidv4 } from 'uuid';
+
+/**
+ * Group chat participant
+ */
+export interface GroupChatParticipant {
+  name: string;
+  agentId: string;
+  sessionId: string;
+  addedAt: number;
+  lastActivity?: number;
+  lastSummary?: string;
+  contextUsage?: number;
+}
+
+/**
+ * Group chat metadata
+ */
+export interface GroupChat {
+  id: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+  moderatorAgentId: string;
+  moderatorSessionId: string;
+  participants: GroupChatParticipant[];
+  logPath: string;
+  imagesDir: string;
+}
+
+/**
+ * Partial update for group chat metadata
+ */
+export type GroupChatUpdate = Partial<Pick<GroupChat, 'name' | 'moderatorSessionId' | 'participants' | 'updatedAt'>>;
+
+/**
+ * Get the Maestro config directory path
+ */
+function getConfigDir(): string {
+  const platform = os.platform();
+  const home = os.homedir();
+
+  if (platform === 'darwin') {
+    return path.join(home, 'Library', 'Application Support', 'Maestro');
+  } else if (platform === 'win32') {
+    return path.join(process.env.APPDATA || path.join(home, 'AppData', 'Roaming'), 'Maestro');
+  } else {
+    // Linux and others
+    return path.join(process.env.XDG_CONFIG_HOME || path.join(home, '.config'), 'Maestro');
+  }
+}
+
+/**
+ * Get the group chats directory path
+ */
+export function getGroupChatsDir(): string {
+  return path.join(getConfigDir(), 'group-chats');
+}
+
+/**
+ * Get the directory path for a specific group chat
+ */
+function getGroupChatDir(id: string): string {
+  return path.join(getGroupChatsDir(), id);
+}
+
+/**
+ * Get the metadata file path for a group chat
+ */
+function getMetadataPath(id: string): string {
+  return path.join(getGroupChatDir(id), 'metadata.json');
+}
+
+/**
+ * Get the log file path for a group chat
+ */
+function getLogPath(id: string): string {
+  return path.join(getGroupChatDir(id), 'chat.log');
+}
+
+/**
+ * Get the images directory path for a group chat
+ */
+function getImagesDir(id: string): string {
+  return path.join(getGroupChatDir(id), 'images');
+}
+
+/**
+ * Creates a new group chat with the specified name and moderator agent.
+ *
+ * @param name - Display name for the group chat
+ * @param moderatorAgentId - ID of the agent to use as moderator (e.g., 'claude-code')
+ * @returns The created GroupChat object
+ */
+export async function createGroupChat(
+  name: string,
+  moderatorAgentId: string
+): Promise<GroupChat> {
+  const id = uuidv4();
+  const now = Date.now();
+  const chatDir = getGroupChatDir(id);
+  const logPath = getLogPath(id);
+  const imagesDir = getImagesDir(id);
+
+  // Create directory structure
+  await fs.mkdir(chatDir, { recursive: true });
+  await fs.mkdir(imagesDir, { recursive: true });
+
+  // Create empty log file
+  await fs.writeFile(logPath, '', 'utf-8');
+
+  // Create metadata
+  const groupChat: GroupChat = {
+    id,
+    name,
+    createdAt: now,
+    updatedAt: now,
+    moderatorAgentId,
+    moderatorSessionId: '',  // Will be set when moderator is spawned
+    participants: [],
+    logPath,
+    imagesDir,
+  };
+
+  // Write metadata
+  const metadataPath = getMetadataPath(id);
+  await fs.writeFile(metadataPath, JSON.stringify(groupChat, null, 2), 'utf-8');
+
+  return groupChat;
+}
+
+/**
+ * Loads an existing group chat by ID.
+ *
+ * @param id - The group chat ID
+ * @returns The GroupChat object, or null if not found
+ */
+export async function loadGroupChat(id: string): Promise<GroupChat | null> {
+  try {
+    const metadataPath = getMetadataPath(id);
+    const content = await fs.readFile(metadataPath, 'utf-8');
+    return JSON.parse(content) as GroupChat;
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Lists all group chats.
+ *
+ * @returns Array of all GroupChat objects
+ */
+export async function listGroupChats(): Promise<GroupChat[]> {
+  const groupChatsDir = getGroupChatsDir();
+
+  try {
+    const entries = await fs.readdir(groupChatsDir, { withFileTypes: true });
+    const chats: GroupChat[] = [];
+
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        const chat = await loadGroupChat(entry.name);
+        if (chat) {
+          chats.push(chat);
+        }
+      }
+    }
+
+    return chats;
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return [];
+    }
+    throw error;
+  }
+}
+
+/**
+ * Deletes a group chat and all its data.
+ *
+ * @param id - The group chat ID to delete
+ */
+export async function deleteGroupChat(id: string): Promise<void> {
+  const chatDir = getGroupChatDir(id);
+  await fs.rm(chatDir, { recursive: true, force: true });
+}
+
+/**
+ * Updates a group chat's metadata.
+ *
+ * @param id - The group chat ID
+ * @param updates - Partial update object
+ * @returns The updated GroupChat object
+ * @throws Error if the group chat doesn't exist
+ */
+export async function updateGroupChat(
+  id: string,
+  updates: GroupChatUpdate
+): Promise<GroupChat> {
+  const chat = await loadGroupChat(id);
+  if (!chat) {
+    throw new Error(`Group chat not found: ${id}`);
+  }
+
+  const updated: GroupChat = {
+    ...chat,
+    ...updates,
+    updatedAt: Date.now(),
+  };
+
+  const metadataPath = getMetadataPath(id);
+  await fs.writeFile(metadataPath, JSON.stringify(updated, null, 2), 'utf-8');
+
+  return updated;
+}
+
+/**
+ * Add a participant to a group chat.
+ *
+ * @param id - The group chat ID
+ * @param participant - The participant to add
+ * @returns The updated GroupChat object
+ */
+export async function addParticipantToChat(
+  id: string,
+  participant: GroupChatParticipant
+): Promise<GroupChat> {
+  const chat = await loadGroupChat(id);
+  if (!chat) {
+    throw new Error(`Group chat not found: ${id}`);
+  }
+
+  // Check for duplicate names
+  if (chat.participants.some(p => p.name === participant.name)) {
+    throw new Error(`Participant with name '${participant.name}' already exists`);
+  }
+
+  const updated = await updateGroupChat(id, {
+    participants: [...chat.participants, participant],
+  });
+
+  return updated;
+}
+
+/**
+ * Remove a participant from a group chat by name.
+ *
+ * @param id - The group chat ID
+ * @param participantName - The name of the participant to remove
+ * @returns The updated GroupChat object
+ */
+export async function removeParticipantFromChat(
+  id: string,
+  participantName: string
+): Promise<GroupChat> {
+  const chat = await loadGroupChat(id);
+  if (!chat) {
+    throw new Error(`Group chat not found: ${id}`);
+  }
+
+  const updated = await updateGroupChat(id, {
+    participants: chat.participants.filter(p => p.name !== participantName),
+  });
+
+  return updated;
+}
+
+/**
+ * Get a participant by name from a group chat.
+ *
+ * @param id - The group chat ID
+ * @param participantName - The name of the participant
+ * @returns The participant, or undefined if not found
+ */
+export async function getParticipant(
+  id: string,
+  participantName: string
+): Promise<GroupChatParticipant | undefined> {
+  const chat = await loadGroupChat(id);
+  if (!chat) {
+    return undefined;
+  }
+
+  return chat.participants.find(p => p.name === participantName);
+}
