@@ -690,9 +690,9 @@ describe('UpdateCheckModal', () => {
       });
 
       // Find close button (X icon button)
-      const buttons = screen.getAllByRole('button');
-      const closeButton = buttons.find((btn) => btn.querySelector('.lucide-x'));
-      expect(closeButton).toBeDefined();
+      const closeIcon = screen.getAllByTestId('x-icon')[0];
+      const closeButton = closeIcon.closest('button');
+      expect(closeButton).toBeTruthy();
       fireEvent.click(closeButton!);
 
       expect(onClose).toHaveBeenCalled();

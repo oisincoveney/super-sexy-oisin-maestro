@@ -327,12 +327,10 @@ describe('RenameSessionModal', () => {
       );
 
       // Find the X button (close button in header)
-      const closeButton = container.querySelector('svg.lucide')?.closest('button');
-      expect(closeButton).toBeInTheDocument();
-
-      if (closeButton) {
-        fireEvent.click(closeButton);
-      }
+      const closeIcon = screen.getAllByTestId('x-icon')[0];
+      const closeButton = closeIcon.closest('button');
+      expect(closeButton).toBeTruthy();
+      fireEvent.click(closeButton!);
 
       expect(mockOnClose).toHaveBeenCalledTimes(1);
       expect(mockSetSessions).not.toHaveBeenCalled();

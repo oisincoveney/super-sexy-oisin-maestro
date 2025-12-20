@@ -353,21 +353,16 @@ describe('group-chat-router', () => {
   // Test 5.4: routeModeratorResponse forwards to mentioned agents
   // ===========================================================================
   describe('routeModeratorResponse', () => {
-    it('forwards to mentioned agents', async () => {
+    it('spawns mentioned agents', async () => {
       const chat = await createTestChatWithModerator('Forward Test');
       await addParticipant(chat.id, 'Client', 'claude-code', mockProcessManager);
 
       await routeModeratorResponse(chat.id, '@Client: Please implement the login form', mockProcessManager);
 
-      // Should forward to Client
-      const loaded = await loadGroupChat(chat.id);
-      const clientSession = loaded?.participants[0].sessionId;
-
-      // Find the write call to the client session
-      const writeCalls = mockProcessManager.write.mock.calls;
-      const clientWrite = writeCalls.find(call => call[0] === clientSession);
-      expect(clientWrite).toBeDefined();
-      expect(clientWrite?.[1]).toContain('login form');
+      const spawnCall = mockProcessManager.spawn.mock.calls.find(call =>
+        call[0]?.prompt?.includes('login form')
+      );
+      expect(spawnCall).toBeDefined();
     });
 
     it('logs moderator message', async () => {
@@ -380,21 +375,19 @@ describe('group-chat-router', () => {
       expect(messages.some(m => m.from === 'moderator' && m.content.includes('Task for you'))).toBe(true);
     });
 
-    it('forwards to multiple mentioned agents', async () => {
+    it('spawns multiple mentioned agents', async () => {
       const chat = await createTestChatWithModerator('Multi Forward Test');
       const client = await addParticipant(chat.id, 'Client', 'claude-code', mockProcessManager);
       const server = await addParticipant(chat.id, 'Server', 'claude-code', mockProcessManager);
 
       await routeModeratorResponse(chat.id, '@Client and @Server: Coordinate on API', mockProcessManager);
 
-      const writeCalls = mockProcessManager.write.mock.calls;
+      const spawnCalls = mockProcessManager.spawn.mock.calls;
+      const clientSpawn = spawnCalls.find(call => call[0]?.prompt?.includes('Client'));
+      const serverSpawn = spawnCalls.find(call => call[0]?.prompt?.includes('Server'));
 
-      // Should have written to both participants
-      const clientWrite = writeCalls.find(call => call[0] === client.sessionId);
-      const serverWrite = writeCalls.find(call => call[0] === server.sessionId);
-
-      expect(clientWrite).toBeDefined();
-      expect(serverWrite).toBeDefined();
+      expect(clientSpawn).toBeDefined();
+      expect(serverSpawn).toBeDefined();
     });
 
     it('ignores unknown mentions', async () => {
@@ -402,12 +395,12 @@ describe('group-chat-router', () => {
       await addParticipant(chat.id, 'Client', 'claude-code', mockProcessManager);
 
       // Clear the write mock after setup
-      mockProcessManager.write.mockClear();
+      mockProcessManager.spawn.mockClear();
 
       await routeModeratorResponse(chat.id, '@Unknown: This should not route', mockProcessManager);
 
-      // Should not write to any session (since Unknown doesn't exist)
-      expect(mockProcessManager.write).not.toHaveBeenCalled();
+      // Should not spawn any participant (since Unknown doesn't exist)
+      expect(mockProcessManager.spawn).not.toHaveBeenCalled();
     });
 
     it('throws for non-existent chat', async () => {
@@ -433,12 +426,9 @@ describe('group-chat-router', () => {
   // Test 5.5: routeAgentResponse logs and notifies moderator
   // ===========================================================================
   describe('routeAgentResponse', () => {
-    it('logs agent response and notifies moderator', async () => {
+    it('logs agent response', async () => {
       const chat = await createTestChatWithModerator('Agent Response Test');
       await addParticipant(chat.id, 'Client', 'claude-code', mockProcessManager);
-
-      // Clear write mock after setup
-      mockProcessManager.write.mockClear();
 
       await routeAgentResponse(chat.id, 'Client', 'Done implementing the form', mockProcessManager);
 
@@ -446,12 +436,6 @@ describe('group-chat-router', () => {
       const messages = await readLog(chat.logPath);
       expect(messages.some(m => m.from === 'Client')).toBe(true);
       expect(messages.some(m => m.content === 'Done implementing the form')).toBe(true);
-
-      // Should notify moderator
-      expect(mockProcessManager.write).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.stringContaining('Client')
-      );
     });
 
     it('logs message with participant name as sender', async () => {
@@ -466,7 +450,7 @@ describe('group-chat-router', () => {
       expect(agentMessage?.content).toBe('API endpoint created');
     });
 
-    it('formats notification for moderator', async () => {
+    it('does not notify moderator via process manager write', async () => {
       const chat = await createTestChatWithModerator('Format Test');
       await addParticipant(chat.id, 'Frontend', 'claude-code', mockProcessManager);
 
@@ -474,11 +458,7 @@ describe('group-chat-router', () => {
 
       await routeAgentResponse(chat.id, 'Frontend', 'Component ready', mockProcessManager);
 
-      // Should include participant name in brackets
-      expect(mockProcessManager.write).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.stringContaining('[Frontend]')
-      );
+      expect(mockProcessManager.write).not.toHaveBeenCalled();
     });
 
     it('throws for non-existent chat', async () => {

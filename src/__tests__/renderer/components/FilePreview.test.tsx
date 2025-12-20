@@ -430,9 +430,9 @@ describe('FilePreview', () => {
         />
       );
 
-      const buttons = screen.getAllByRole('button');
-      const closeBtn = buttons.find(btn => btn.querySelector('.lucide-x'));
-      expect(closeBtn).toBeDefined();
+      const closeIcon = screen.getAllByTestId('x-icon')[0];
+      const closeBtn = closeIcon.closest('button');
+      expect(closeBtn).toBeTruthy();
       fireEvent.click(closeBtn!);
 
       expect(onClose).toHaveBeenCalled();
@@ -2200,4 +2200,3 @@ describe('Gigabyte file size formatting', () => {
     });
   });
 });
-

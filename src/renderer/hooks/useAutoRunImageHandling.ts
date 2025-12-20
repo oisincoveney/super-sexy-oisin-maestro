@@ -311,11 +311,14 @@ export function useAutoRunImageHandling({
     const filename = relativePath.split('/').pop() || relativePath;
     // Remove the markdown reference from content - update local and sync to parent immediately
     // The markdown content uses URL-encoded paths, so we need to match the encoded version
+    const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const encodedPath = relativePath.split('/').map(part => encodeURIComponent(part)).join('/');
-    const escapedEncodedPath = encodedPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const escapedFilename = filename.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`!\\[${escapedFilename}\\]\\(${escapedEncodedPath}\\)\\n?`, 'g');
-    const newContent = localContent.replace(regex, '');
+    const escapedEncodedPath = escapeRegExp(encodedPath);
+    const escapedRawPath = escapeRegExp(relativePath);
+    const escapedFilename = escapeRegExp(filename);
+    const encodedRegex = new RegExp(`!\\[${escapedFilename}\\]\\(${escapedEncodedPath}\\)\\n?`, 'g');
+    const rawRegex = new RegExp(`!\\[${escapedFilename}\\]\\(${escapedRawPath}\\)\\n?`, 'g');
+    const newContent = localContent.replace(encodedRegex, '').replace(rawRegex, '');
     setLocalContent(newContent);
     handleContentChange(newContent);
     lastUndoSnapshotRef.current = newContent;

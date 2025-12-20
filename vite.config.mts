@@ -8,8 +8,10 @@ const packageJson = JSON.parse(readFileSync(path.join(__dirname, 'package.json')
 // Use VITE_APP_VERSION env var if set (during CI builds), otherwise use package.json
 const appVersion = process.env.VITE_APP_VERSION || packageJson.version;
 
+const disableHmr = process.env.DISABLE_HMR === '1';
+
 export default defineConfig(({ mode }) => ({
-  plugins: [react()],
+  plugins: [react({ fastRefresh: !disableHmr })],
   root: path.join(__dirname, 'src/renderer'),
   base: './',
   define: {
@@ -25,5 +27,6 @@ export default defineConfig(({ mode }) => ({
   },
   server: {
     port: 5173,
+    hmr: !disableHmr,
   },
 }));

@@ -198,12 +198,10 @@ describe('PlaybookDeleteConfirmModal', () => {
       );
 
       // Find the X button (close button in header)
-      const closeButton = container.querySelector('.lucide-x')?.closest('button');
-      expect(closeButton).toBeInTheDocument();
-
-      if (closeButton) {
-        fireEvent.click(closeButton);
-      }
+      const closeIcon = screen.getAllByTestId('x-icon')[0];
+      const closeButton = closeIcon.closest('button');
+      expect(closeButton).toBeTruthy();
+      fireEvent.click(closeButton!);
 
       expect(mockOnCancel).toHaveBeenCalledTimes(1);
       expect(mockOnConfirm).not.toHaveBeenCalled();
@@ -301,9 +299,7 @@ describe('PlaybookDeleteConfirmModal', () => {
         </TestWrapper>
       );
 
-      // Lucide icons use class "lucide" - the Trash2 icon will have this class
-      const trashIcon = container.querySelector('svg.lucide');
-      expect(trashIcon).toBeInTheDocument();
+      const trashIcon = screen.getByTestId('trash2-icon');
       expect(trashIcon).toHaveStyle({
         color: mockTheme.colors.error,
       });

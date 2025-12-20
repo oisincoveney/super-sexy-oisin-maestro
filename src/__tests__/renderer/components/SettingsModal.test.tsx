@@ -657,7 +657,7 @@ describe('SettingsModal', () => {
         await vi.advanceTimersByTimeAsync(100);
       });
 
-      expect(screen.getByText('Click to detect available shells...')).toBeInTheDocument();
+      expect(screen.getByText('Detect other available shells...')).toBeInTheDocument();
     });
 
     it('should load shells on interaction', async () => {
@@ -667,7 +667,7 @@ describe('SettingsModal', () => {
         await vi.advanceTimersByTimeAsync(100);
       });
 
-      const detectButton = screen.getByText('Click to detect available shells...');
+      const detectButton = screen.getByText('Detect other available shells...');
       fireEvent.click(detectButton);
 
       await act(async () => {
@@ -686,7 +686,7 @@ describe('SettingsModal', () => {
       });
 
       // Trigger shell loading
-      const detectButton = screen.getByText('Click to detect available shells...');
+      const detectButton = screen.getByText('Detect other available shells...');
       fireEvent.click(detectButton);
 
       await act(async () => {
@@ -1241,7 +1241,7 @@ describe('SettingsModal', () => {
         await vi.advanceTimersByTimeAsync(100);
       });
 
-      const detectButton = screen.getByText('Click to detect available shells...');
+      const detectButton = screen.getByText('Detect other available shells...');
       fireEvent.click(detectButton);
 
       await act(async () => {
@@ -1717,7 +1717,7 @@ describe('SettingsModal', () => {
       });
 
       // Trigger shell loading via mouseEnter
-      const detectButton = screen.getByText('Click to detect available shells...');
+      const detectButton = screen.getByText('Detect other available shells...');
 
       // Load shells first
       fireEvent.click(detectButton);

@@ -88,6 +88,7 @@ beforeEach(() => {
   (window.maestro.logger as Record<string, unknown>).getLogs = vi.fn().mockResolvedValue([]);
   (window.maestro.logger as Record<string, unknown>).clearLogs = vi.fn().mockResolvedValue(undefined);
   (window.maestro.logger as Record<string, unknown>).onNewLog = vi.fn().mockReturnValue(() => {});
+  (window.maestro.logger as Record<string, unknown>).getMaxLogBuffer = vi.fn().mockResolvedValue(1000);
 });
 
 afterEach(() => {

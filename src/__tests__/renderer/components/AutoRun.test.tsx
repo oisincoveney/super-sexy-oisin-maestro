@@ -1492,6 +1492,12 @@ describe('Lightbox Functionality', () => {
     const deleteButton = screen.getByTitle('Delete image (Delete key)');
     fireEvent.click(deleteButton);
 
+    // Confirm deletion
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
+
     // Verify delete was called
     await waitFor(() => {
       expect(mockMaestro.autorun.deleteImage).toHaveBeenCalledWith('/test/folder', 'images/test.png');
@@ -1535,6 +1541,12 @@ describe('Lightbox Functionality', () => {
 
     // Press Delete key
     fireEvent.keyDown(document.activeElement || document.body, { key: 'Delete' });
+
+    // Confirm deletion
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
     // Verify delete was called
     await waitFor(() => {
@@ -1698,6 +1710,12 @@ describe('Lightbox Functionality', () => {
     // Delete the middle image
     const deleteButton = screen.getByTitle('Delete image (Delete key)');
     fireEvent.click(deleteButton);
+
+    // Confirm deletion
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Confirm' })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
     // Verify delete was called
     await waitFor(() => {

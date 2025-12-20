@@ -111,6 +111,10 @@ interface GroupChatListProps {
   groupChatState?: GroupChatState;
   /** Per-participant working states for the active group chat */
   participantStates?: Map<string, 'idle' | 'working'>;
+  /** State for ALL group chats (groupChatId -> state), for showing busy indicator when not active */
+  groupChatStates?: Map<string, GroupChatState>;
+  /** Participant states for ALL group chats (groupChatId -> Map<participantName, state>) */
+  allGroupChatParticipantStates?: Map<string, Map<string, 'idle' | 'working'>>;
 }
 
 export function GroupChatList({
@@ -125,6 +129,8 @@ export function GroupChatList({
   onExpandedChange,
   groupChatState = 'idle',
   participantStates,
+  groupChatStates,
+  allGroupChatParticipantStates,
 }: GroupChatListProps): JSX.Element {
   // Support both controlled and uncontrolled modes
   // If isExpanded prop is provided, use it as controlled state
@@ -229,11 +235,17 @@ export function GroupChatList({
               {sortedGroupChats.map((chat) => {
                 const isActive = activeGroupChatId === chat.id;
                 // Determine status for this group chat
-                // Only the active group chat shows busy state; inactive ones show idle
-                const isBusy = isActive && groupChatState !== 'idle';
-                // Check if any participant is working (for the active chat)
-                const hasWorkingParticipant = isActive && participantStates &&
-                  Array.from(participantStates.values()).some(s => s === 'working');
+                // For active chat, use the direct state props; for inactive chats, use the per-chat maps
+                const chatState = isActive
+                  ? groupChatState
+                  : (groupChatStates?.get(chat.id) || 'idle');
+                const isBusy = chatState !== 'idle';
+                // Check if any participant is working
+                const chatParticipantStates = isActive
+                  ? participantStates
+                  : allGroupChatParticipantStates?.get(chat.id);
+                const hasWorkingParticipant = chatParticipantStates &&
+                  Array.from(chatParticipantStates.values()).some(s => s === 'working');
                 // Show busy indicator if moderator is thinking OR any participant is working
                 const showBusy = isBusy || hasWorkingParticipant;
                 // Map to session state for getStatusColor compatibility

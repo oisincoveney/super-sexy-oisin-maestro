@@ -29,6 +29,7 @@ export interface IProcessManager {
     readOnlyMode?: boolean;
     prompt?: string;
     customEnvVars?: Record<string, string>;
+    contextWindow?: number;
   }): { pid: number; success: boolean };
 
   write(sessionId: string, data: string): boolean;

@@ -1201,7 +1201,7 @@ describe('TerminalOutput', () => {
         fireEvent.click(img);
       });
 
-      expect(setLightboxImage).toHaveBeenCalledWith(images[0], images);
+      expect(setLightboxImage).toHaveBeenCalledWith(images[0], images, 'history');
     });
   });
 

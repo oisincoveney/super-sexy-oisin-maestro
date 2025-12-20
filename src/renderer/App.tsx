@@ -228,6 +228,10 @@ export default function MaestroConsole() {
   const [moderatorUsage, setModeratorUsage] = useState<{ contextUsage: number; totalCost: number; tokenCount: number } | null>(null);
   // Track per-participant working state (participantName -> 'idle' | 'working')
   const [participantStates, setParticipantStates] = useState<Map<string, 'idle' | 'working'>>(new Map());
+  // Track state per-group-chat (for showing busy indicator when not active)
+  const [groupChatStates, setGroupChatStates] = useState<Map<string, GroupChatState>>(new Map());
+  // Track participant states per-group-chat (groupChatId -> Map<participantName, state>)
+  const [allGroupChatParticipantStates, setAllGroupChatParticipantStates] = useState<Map<string, Map<string, 'idle' | 'working'>>>(new Map());
   // Group chat agent error state
   const [groupChatError, setGroupChatError] = useState<{ groupChatId: string; error: AgentError; participantName?: string } | null>(null);
 
@@ -1540,6 +1544,11 @@ export default function MaestroConsole() {
 
         // Reset group chat state to idle so user can try again
         setGroupChatState('idle');
+        setGroupChatStates(prev => {
+          const next = new Map(prev);
+          next.set(groupChatId, 'idle');
+          return next;
+        });
         return;
       }
 
@@ -1635,6 +1644,13 @@ export default function MaestroConsole() {
     });
 
     const unsubState = window.maestro.groupChat.onStateChange((id, state) => {
+      // Track state for ALL group chats (for sidebar indicator when not active)
+      setGroupChatStates(prev => {
+        const next = new Map(prev);
+        next.set(id, state);
+        return next;
+      });
+      // Also update the active group chat's state for immediate UI
       if (id === activeGroupChatId) {
         setGroupChatState(state);
       }
@@ -1654,6 +1670,16 @@ export default function MaestroConsole() {
     });
 
     const unsubParticipantState = window.maestro.groupChat.onParticipantState?.((id, participantName, state) => {
+      // Track participant state for ALL group chats (for sidebar indicator)
+      setAllGroupChatParticipantStates(prev => {
+        const next = new Map(prev);
+        const chatStates = next.get(id) || new Map();
+        const updatedChatStates = new Map(chatStates);
+        updatedChatStates.set(participantName, state);
+        next.set(id, updatedChatStates);
+        return next;
+      });
+      // Also update the active group chat's participant states for immediate UI
       if (id === activeGroupChatId) {
         setParticipantStates(prev => {
           const next = new Map(prev);
@@ -1679,8 +1705,13 @@ export default function MaestroConsole() {
       const [nextItem, ...remainingQueue] = groupChatExecutionQueue;
       setGroupChatExecutionQueue(remainingQueue);
 
-      // Send the queued message
+      // Send the queued message - update both active state and per-chat state
       setGroupChatState('moderator-thinking');
+      setGroupChatStates(prev => {
+        const next = new Map(prev);
+        next.set(activeGroupChatId, 'moderator-thinking');
+        return next;
+      });
       window.maestro.groupChat.sendToModerator(
         activeGroupChatId,
         nextItem.text || '',
@@ -2948,6 +2979,11 @@ export default function MaestroConsole() {
     }
 
     setGroupChatState('moderator-thinking');
+    setGroupChatStates(prev => {
+      const next = new Map(prev);
+      next.set(activeGroupChatId, 'moderator-thinking');
+      return next;
+    });
     await window.maestro.groupChat.sendToModerator(activeGroupChatId, content, images, readOnly);
   }, [activeGroupChatId, groupChatState, groupChats]);
 
@@ -6023,6 +6059,8 @@ export default function MaestroConsole() {
             onGroupChatsExpandedChange={setGroupChatsExpanded}
             groupChatState={groupChatState}
             participantStates={participantStates}
+            groupChatStates={groupChatStates}
+            allGroupChatParticipantStates={allGroupChatParticipantStates}
             sidebarContainerRef={sidebarContainerRef}
           />
         </ErrorBoundary>

@@ -475,7 +475,7 @@ describe('InputArea', () => {
       expect(inputContainer).not.toHaveStyle({ borderColor: mockTheme.colors.warning });
     });
 
-    it('disables read-only toggle when AutoRun is active', () => {
+    it('keeps read-only toggle enabled when AutoRun is active', () => {
       const onToggleTabReadOnlyMode = vi.fn();
       const props = createDefaultProps({
         session: createMockSession({ inputMode: 'ai' }),
@@ -484,14 +484,14 @@ describe('InputArea', () => {
       });
       render(<InputArea {...props} />);
 
-      const toggle = screen.getByTitle(/Read-only mode locked during AutoRun/);
-      expect(toggle).toBeDisabled();
+      const toggle = screen.getByTitle('Toggle read-only mode (agent won\'t modify files)');
+      expect(toggle).not.toBeDisabled();
 
       fireEvent.click(toggle);
-      expect(onToggleTabReadOnlyMode).not.toHaveBeenCalled();
+      expect(onToggleTabReadOnlyMode).toHaveBeenCalled();
     });
 
-    it('shows locked tooltip when AutoRun is active', () => {
+    it('shows the standard tooltip when AutoRun is active', () => {
       const props = createDefaultProps({
         session: createMockSession({ inputMode: 'ai' }),
         isAutoModeActive: true,
@@ -499,10 +499,10 @@ describe('InputArea', () => {
       });
       render(<InputArea {...props} />);
 
-      expect(screen.getByTitle('Read-only mode locked during AutoRun')).toBeInTheDocument();
+      expect(screen.getByTitle('Toggle read-only mode (agent won\'t modify files)')).toBeInTheDocument();
     });
 
-    it('shows active read-only styling when AutoRun is active even if tabReadOnlyMode is false', () => {
+    it('does not apply read-only styling when AutoRun is active and tabReadOnlyMode is false', () => {
       const props = createDefaultProps({
         session: createMockSession({ inputMode: 'ai' }),
         isAutoModeActive: true,
@@ -511,8 +511,8 @@ describe('InputArea', () => {
       });
       render(<InputArea {...props} />);
 
-      const toggle = screen.getByTitle(/Read-only mode locked/);
-      expect(toggle).toHaveStyle({ color: mockTheme.colors.warning });
+      const toggle = screen.getByTitle('Toggle read-only mode (agent won\'t modify files)');
+      expect(toggle).toHaveStyle({ color: mockTheme.colors.textDim });
     });
   });
 
@@ -555,7 +555,7 @@ describe('InputArea', () => {
 
       fireEvent.click(screen.getByRole('img'));
 
-      expect(setLightboxImage).toHaveBeenCalledWith('data:image/png;base64,ABC123', stagedImages);
+      expect(setLightboxImage).toHaveBeenCalledWith('data:image/png;base64,ABC123', stagedImages, 'staged');
     });
 
     it('removes image when clicking X button', () => {
@@ -569,10 +569,10 @@ describe('InputArea', () => {
       render(<InputArea {...props} />);
 
       // Click the first remove button
-      const removeButtons = screen.getAllByRole('button').filter(btn =>
-        btn.querySelector('.lucide-x')
-      );
-      fireEvent.click(removeButtons[0]);
+      const removeIcon = screen.getAllByTestId('x-icon')[0];
+      const removeButton = removeIcon.closest('button');
+      expect(removeButton).toBeTruthy();
+      fireEvent.click(removeButton!);
 
       expect(setStagedImages).toHaveBeenCalled();
       // Call the updater function to verify it removes index 0
@@ -1479,11 +1479,11 @@ describe('InputArea', () => {
       const props = createDefaultProps({
         session: createMockSession({ inputMode: 'terminal' }),
       });
-      const { container } = render(<InputArea {...props} />);
+      render(<InputArea {...props} />);
 
       // Terminal icon should be in the mode toggle button
       const modeButton = screen.getByTitle('Toggle Mode (Cmd+J)');
-      expect(modeButton.querySelector('.lucide-terminal')).toBeInTheDocument();
+      expect(modeButton.querySelector('[data-testid="terminal-icon"]')).toBeInTheDocument();
     });
 
     it('shows Cpu icon in AI mode', () => {
@@ -1493,7 +1493,7 @@ describe('InputArea', () => {
       render(<InputArea {...props} />);
 
       const modeButton = screen.getByTitle('Toggle Mode (Cmd+J)');
-      expect(modeButton.querySelector('.lucide-cpu')).toBeInTheDocument();
+      expect(modeButton.querySelector('[data-testid="cpu-icon"]')).toBeInTheDocument();
     });
   });
 

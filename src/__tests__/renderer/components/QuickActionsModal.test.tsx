@@ -537,7 +537,9 @@ describe('QuickActionsModal', () => {
 
   describe('Agent sessions action', () => {
     it('handles View Agent Sessions action', () => {
-      const props = createDefaultProps();
+      const props = createDefaultProps({
+        hasActiveSessionCapability: (capability: string) => capability === 'supportsSessionStorage',
+      });
       render(<QuickActionsModal {...props} />);
 
       fireEvent.click(screen.getByText('View Agent Sessions for Test Session'));

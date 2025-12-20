@@ -362,6 +362,10 @@ interface SessionListProps {
   groupChatState?: GroupChatState;
   /** Per-participant working states for the active group chat */
   participantStates?: Map<string, 'idle' | 'working'>;
+  /** State for ALL group chats (groupChatId -> state), for showing busy indicator when not active */
+  groupChatStates?: Map<string, GroupChatState>;
+  /** Participant states for ALL group chats (groupChatId -> Map<participantName, state>) */
+  allGroupChatParticipantStates?: Map<string, Map<string, 'idle' | 'working'>>;
 }
 
 export function SessionList(props: SessionListProps) {
@@ -400,6 +404,8 @@ export function SessionList(props: SessionListProps) {
     onGroupChatsExpandedChange,
     groupChatState = 'idle',
     participantStates,
+    groupChatStates,
+    allGroupChatParticipantStates,
   } = props;
 
   const [sessionFilter, setSessionFilter] = useState('');
@@ -2012,6 +2018,8 @@ export function SessionList(props: SessionListProps) {
               onExpandedChange={onGroupChatsExpandedChange}
               groupChatState={groupChatState}
               participantStates={participantStates}
+              groupChatStates={groupChatStates}
+              allGroupChatParticipantStates={allGroupChatParticipantStates}
             />
           )}
         </div>
