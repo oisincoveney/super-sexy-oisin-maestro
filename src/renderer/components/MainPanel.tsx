@@ -86,7 +86,7 @@ interface MainPanelProps {
   setInputValue: (value: string) => void;
   setEnterToSendAI: (value: boolean) => void;
   setEnterToSendTerminal: (value: boolean) => void;
-  setStagedImages: (images: string[]) => void;
+  setStagedImages: React.Dispatch<React.SetStateAction<string[]>>;
   setLightboxImage: (image: string | null, contextImages?: string[], source?: 'staged' | 'history') => void;
   setCommandHistoryOpen: (open: boolean) => void;
   setCommandHistoryFilter: (filter: string) => void;
@@ -121,10 +121,10 @@ interface MainPanelProps {
   handleInterrupt: () => void;
   handleInputKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   handlePaste: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void;
-  handleDrop: (e: React.DragEvent<HTMLDivElement>) => void;
+  handleDrop: (e: React.DragEvent<HTMLElement>) => void;
   getContextColor: (usage: number, theme: Theme) => string;
   setActiveSessionId: (id: string) => void;
-  onDeleteLog?: (logId: string) => void;
+  onDeleteLog?: (logId: string) => number | null;
   onRemoveQueuedItem?: (itemId: string) => void;
   onOpenQueueBrowser?: () => void;
 

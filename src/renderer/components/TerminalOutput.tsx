@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useMemo, forwardRef, useState, useCallback, memo } from 'react';
 import { ChevronDown, ChevronUp, Trash2, Copy, Volume2, Square, Check, ArrowDown, Eye, FileText, RotateCcw, AlertCircle } from 'lucide-react';
-import type { Session, Theme, LogEntry } from '../types';
+import type { Session, Theme, LogEntry, FocusArea } from '../types';
 import type { FileNode } from '../types/fileTree';
 import Convert from 'ansi-to-html';
 import DOMPurify from 'dompurify';
@@ -762,12 +762,12 @@ interface TerminalOutputProps {
   session: Session;
   theme: Theme;
   fontFamily: string;
-  activeFocus: string;
+  activeFocus: FocusArea;
   outputSearchOpen: boolean;
   outputSearchQuery: string;
   setOutputSearchOpen: (open: boolean) => void;
   setOutputSearchQuery: (query: string) => void;
-  setActiveFocus: (focus: string) => void;
+  setActiveFocus: (focus: FocusArea) => void;
   setLightboxImage: (image: string | null, contextImages?: string[], source?: 'staged' | 'history') => void;
   inputRef: React.RefObject<HTMLTextAreaElement>;
   logsEndRef: React.RefObject<HTMLDivElement>;

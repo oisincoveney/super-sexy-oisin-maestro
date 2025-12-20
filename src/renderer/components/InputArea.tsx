@@ -39,7 +39,7 @@ interface InputAreaProps {
   inputRef: React.RefObject<HTMLTextAreaElement>;
   handleInputKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   handlePaste: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void;
-  handleDrop: (e: React.DragEvent<HTMLTextAreaElement>) => void;
+  handleDrop: (e: React.DragEvent<HTMLElement>) => void;
   toggleInputMode: () => void;
   processInput: () => void;
   handleInterrupt: () => void;
@@ -155,10 +155,10 @@ export const InputArea = React.memo(function InputArea(props: InputAreaProps) {
 
   // Get the appropriate command history based on current mode
   // Fall back to legacy commandHistory for sessions created before the split
-  const legacyHistory = (session as any).commandHistory || [];
-  const shellHistory = session.shellCommandHistory || [];
-  const aiHistory = session.aiCommandHistory || [];
-  const currentCommandHistory = isTerminalMode
+  const legacyHistory: string[] = (session as any).commandHistory || [];
+  const shellHistory: string[] = session.shellCommandHistory || [];
+  const aiHistory: string[] = session.aiCommandHistory || [];
+  const currentCommandHistory: string[] = isTerminalMode
     ? (shellHistory.length > 0 ? shellHistory : legacyHistory)
     : (aiHistory.length > 0 ? aiHistory : legacyHistory);
 

@@ -21,7 +21,7 @@ interface ActiveProcess {
   cwd: string;
   isTerminal: boolean;
   isBatchMode: boolean;
-  startTime: number;
+  startTime?: number;
   command?: string;
   args?: string[];
 }

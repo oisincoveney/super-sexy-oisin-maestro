@@ -369,8 +369,8 @@ export const SettingsModal = memo(function SettingsModal(props: SettingsModalPro
       const detected = await window.maestro.fonts.detect();
       setSystemFonts(detected);
 
-      const savedCustomFonts = await window.maestro.settings.get('customFonts');
-      if (savedCustomFonts) {
+      const savedCustomFonts = await window.maestro.settings.get('customFonts') as string[] | undefined;
+      if (savedCustomFonts && Array.isArray(savedCustomFonts)) {
         setCustomFonts(savedCustomFonts);
       }
       setFontsLoaded(true);
