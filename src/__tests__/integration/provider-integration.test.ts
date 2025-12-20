@@ -362,10 +362,14 @@ const PROVIDERS: ProviderConfig[] = [
     /**
      * Build args with image file path for OpenCode.
      * Mirrors agent-detector.ts: imageArgs: (imagePath) => ['-f', imagePath]
+     *
+     * Uses qwen3-vl model via ollama for image tests since it supports vision.
+     * The default model may not support image input.
      */
     buildImageArgs: (prompt: string, imagePath: string) => [
       'run',
       '--format', 'json',
+      '--model', 'ollama/qwen3-vl',
       '-f', imagePath,
       '--',
       prompt,

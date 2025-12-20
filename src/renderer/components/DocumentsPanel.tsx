@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import { GripVertical, Plus, Repeat, RotateCcw, X, AlertTriangle, RefreshCw, ChevronDown, ChevronRight, Folder, CheckSquare } from 'lucide-react';
 import type { Theme, BatchDocumentEntry } from '../types';
+import { generateId } from '../utils/ids';
 
 // Tree node type for folder structure
 export interface DocTreeNode {
@@ -548,7 +549,7 @@ export function DocumentsPanel({
 
       const original = prev[index];
       const duplicate: BatchDocumentEntry = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         filename: original.filename,
         resetOnCompletion: original.resetOnCompletion,
         isDuplicate: true
@@ -573,7 +574,7 @@ export function DocumentsPanel({
     selectedDocs.forEach(filename => {
       if (!existingFilenames.has(filename)) {
         newDocs.push({
-          id: crypto.randomUUID(),
+          id: generateId(),
           filename,
           resetOnCompletion: false,
           isDuplicate: false

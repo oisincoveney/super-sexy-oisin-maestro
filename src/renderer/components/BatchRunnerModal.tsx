@@ -11,6 +11,7 @@ import { DocumentsPanel } from './DocumentsPanel';
 import { GitWorktreeSection, GhCliStatus } from './GitWorktreeSection';
 import { usePlaybookManagement, useWorktreeValidation } from '../hooks';
 import { autorunDefaultPrompt } from '../../prompts';
+import { generateId } from '../utils/ids';
 
 // Default batch processing prompt
 export const DEFAULT_BATCH_PROMPT = autorunDefaultPrompt;
@@ -88,7 +89,7 @@ export function BatchRunnerModal(props: BatchRunnerModalProps) {
     // Initialize with current document
     if (currentDocument) {
       return [{
-        id: crypto.randomUUID(),
+        id: generateId(),
         filename: currentDocument,
         resetOnCompletion: false,
         isDuplicate: false

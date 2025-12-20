@@ -12,6 +12,7 @@ import type { Theme, AutoRunStats, LeaderboardRegistration } from '../types';
 import { useLayerStack } from '../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
 import { getBadgeForTime, CONDUCTOR_BADGES } from '../constants/conductorBadges';
+import { generateId } from '../utils/ids';
 
 // Social media icons as SVG components
 const GithubIcon = ({ className, style }: { className?: string; style?: React.CSSProperties }) => (
@@ -45,7 +46,7 @@ type SubmitState = 'idle' | 'submitting' | 'success' | 'awaiting_confirmation' |
 
 // Generate a random client token for polling
 function generateClientToken(): string {
-  return crypto.randomUUID();
+  return generateId();
 }
 
 // Error message for lost auth token

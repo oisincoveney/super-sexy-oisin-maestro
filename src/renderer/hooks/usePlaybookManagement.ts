@@ -18,6 +18,8 @@
  * - Current configuration state (documents, loop, prompt, worktree) for modification detection
  */
 
+import { generateId } from '../utils/ids';
+
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useClickOutside } from './useClickOutside';
 import type {
@@ -203,7 +205,7 @@ export function usePlaybookManagement(
       const allDocsSet = new Set(allDocuments);
 
       const entries: BatchDocumentEntry[] = playbook.documents.map((doc, index) => ({
-        id: crypto.randomUUID(),
+        id: generateId(),
         filename: doc.filename,
         resetOnCompletion: doc.resetOnCompletion,
         // Mark as duplicate if same filename appears earlier
