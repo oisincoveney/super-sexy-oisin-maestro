@@ -4,8 +4,23 @@
 export type { Theme, ThemeId, ThemeMode, ThemeColors } from '../../shared/theme-types';
 export { isValidThemeId } from '../../shared/theme-types';
 
-// Re-export error types from shared location
-export type { AgentError, AgentErrorType, AgentErrorRecovery } from '../../shared/types';
+// Re-export types from shared location
+export type {
+  AgentError,
+  AgentErrorType,
+  AgentErrorRecovery,
+  ToolType,
+  Group,
+  UsageStats,
+  BatchDocumentEntry,
+  PlaybookDocumentEntry,
+  Playbook,
+} from '../../shared/types';
+// Import for extension in this file
+import type {
+  WorktreeConfig as BaseWorktreeConfig,
+  BatchRunConfig as BaseBatchRunConfig,
+} from '../../shared/types';
 
 // Re-export group chat types from shared location
 export type {
@@ -18,7 +33,6 @@ export type {
 // Import AgentError for use within this file
 import type { AgentError } from '../../shared/types';
 
-export type ToolType = 'claude' | 'claude-code' | 'aider' | 'opencode' | 'codex' | 'terminal';
 export type SessionState = 'idle' | 'busy' | 'waiting_input' | 'connecting' | 'error';
 export type FileChangeType = 'modified' | 'added' | 'deleted';
 export type RightPanelTab = 'files' | 'history' | 'autorun';
@@ -101,23 +115,9 @@ export interface HistoryEntry extends BaseHistoryEntry {
   achievementAction?: 'openAbout'; // If set, this entry has an action button to open the About/achievements panel
 }
 
-// Document entry in the batch run queue (supports duplicates)
-export interface BatchDocumentEntry {
-  id: string;              // Unique ID for this entry (for drag-drop and duplicates)
-  filename: string;        // The actual document filename (without .md)
-  resetOnCompletion: boolean;  // Uncheck all boxes when done
-  isDuplicate: boolean;    // True if this is a duplicate (can be removed)
-  isMissing?: boolean;     // True if this document no longer exists in the folder (for playbook loading)
-}
-
-// Git worktree configuration for Auto Run
-export interface WorktreeConfig {
-  enabled: boolean;              // Whether to use a worktree
-  path: string;                  // Absolute path for the worktree
-  branchName: string;            // Branch name to use/create
-  createPROnCompletion: boolean; // Create PR when Auto Run finishes
-  prTargetBranch: string;        // Target branch for the PR (e.g., 'main')
-  ghPath?: string;               // Custom path to gh CLI binary (optional)
+// Renderer-specific WorktreeConfig extends the shared base with UI-specific fields
+export interface WorktreeConfig extends BaseWorktreeConfig {
+  ghPath?: string;               // Custom path to gh CLI binary (optional, UI-specific)
 }
 
 // Worktree path validation state (used by useWorktreeValidation hook)
@@ -197,50 +197,6 @@ export interface BatchRunState {
   errorPaused?: boolean;             // True if batch is paused waiting for error resolution
   errorDocumentIndex?: number;       // Which document had the error (for skip functionality)
   errorTaskDescription?: string;     // Description of the task that failed (for UI display)
-}
-
-// Document entry within a playbook (similar to BatchDocumentEntry but for storage)
-export interface PlaybookDocumentEntry {
-  filename: string;                  // Document filename (without .md)
-  resetOnCompletion: boolean;
-  // Note: isDuplicate is not stored - duplicates are just repeated entries
-}
-
-// A saved Playbook configuration
-export interface Playbook {
-  id: string;                        // Unique ID (UUID)
-  name: string;                      // User-defined name
-  createdAt: number;                 // Timestamp
-  updatedAt: number;                 // Timestamp
-
-  // Configuration
-  documents: PlaybookDocumentEntry[];  // Ordered list of documents
-  loopEnabled: boolean;
-  maxLoops?: number | null;          // Max loop iterations (null/undefined = infinite)
-  prompt: string;                    // Custom agent prompt
-
-  // Optional worktree settings (path not stored - user selects each time)
-  worktreeSettings?: {
-    branchNameTemplate: string;    // e.g., "autorun-{playbook}-{timestamp}"
-    createPROnCompletion: boolean;
-    prTargetBranch?: string;       // Target branch for PR (e.g., 'main')
-  };
-}
-
-// Usage statistics from AI agent CLI (Claude Code, Codex, etc.)
-export interface UsageStats {
-  inputTokens: number;
-  outputTokens: number;
-  cacheReadInputTokens: number;
-  cacheCreationInputTokens: number;
-  totalCostUsd: number;
-  contextWindow: number; // e.g., 400000 for Claude/GPT-5.2, 128000 for GPT-4o
-  /**
-   * Reasoning/thinking tokens (separate from outputTokens)
-   * Some models like OpenAI o3/o4-mini report reasoning tokens separately.
-   * These are already included in outputTokens but tracked separately for UI display.
-   */
-  reasoningTokens?: number;
 }
 
 // Persistent global statistics (survives app restarts)
@@ -466,13 +422,6 @@ export interface Session {
   customModel?: string;          // Custom model ID (overrides agent-level)
   customProviderPath?: string;   // Custom provider path (overrides agent-level)
   customContextWindow?: number;  // Custom context window size (overrides agent-level)
-}
-
-export interface Group {
-  id: string;
-  name: string;
-  emoji: string;
-  collapsed: boolean;
 }
 
 export interface AgentConfigOption {
