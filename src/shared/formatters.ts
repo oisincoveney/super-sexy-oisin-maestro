@@ -9,6 +9,7 @@
  * - formatTokensCompact: Token counts without ~prefix
  * - formatRelativeTime: Relative timestamps ("5m ago", "2h ago")
  * - formatActiveTime: Duration display (1D, 2H 30M, <1M)
+ * - formatElapsedTime: Precise elapsed time (1h 10m, 30s, 500ms)
  * - formatCost: USD currency display ($1.23, <$0.01)
  */
 
@@ -125,6 +126,26 @@ export function formatActiveTime(ms: number): string {
   } else {
     return '<1M';
   }
+}
+
+/**
+ * Format elapsed time in milliseconds as precise human-readable format.
+ * Shows milliseconds for sub-second, seconds for <1m, minutes+seconds for <1h,
+ * and hours+minutes for longer durations.
+ *
+ * @param ms - Duration in milliseconds
+ * @returns Formatted string (e.g., "500ms", "30s", "5m 12s", "1h 10m")
+ */
+export function formatElapsedTime(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  const seconds = Math.floor(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  if (minutes < 60) return `${minutes}m ${remainingSeconds}s`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `${hours}h ${remainingMinutes}m`;
 }
 
 /**

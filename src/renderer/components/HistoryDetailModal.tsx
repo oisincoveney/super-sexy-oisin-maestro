@@ -3,6 +3,7 @@ import { X, Bot, User, Copy, Check, CheckCircle, XCircle, Trash2, Clock, Cpu, Za
 import type { Theme, HistoryEntry } from '../types';
 import { useLayerStack } from '../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
+import { formatElapsedTime } from '../utils/formatters';
 
 // Double checkmark SVG component for validated entries
 const DoubleCheck = ({ className, style }: { className?: string; style?: React.CSSProperties }) => (
@@ -11,19 +12,6 @@ const DoubleCheck = ({ className, style }: { className?: string; style?: React.C
     <polyline points="23 6 14 17 11 14" />
   </svg>
 );
-
-// Format elapsed time in human-readable format
-const formatElapsedTime = (ms: number): string => {
-  if (ms < 1000) return `${ms}ms`;
-  const seconds = Math.floor(ms / 1000);
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  if (minutes < 60) return `${minutes}m ${remainingSeconds}s`;
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return `${hours}h ${remainingMinutes}m`;
-};
 
 interface HistoryDetailModalProps {
   theme: Theme;

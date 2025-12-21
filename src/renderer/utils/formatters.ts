@@ -10,5 +10,6 @@ export {
   formatTokensCompact,
   formatRelativeTime,
   formatActiveTime,
+  formatElapsedTime,
   formatCost,
 } from '../../shared/formatters';

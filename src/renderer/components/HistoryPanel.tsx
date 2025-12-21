@@ -5,6 +5,7 @@ import { HistoryDetailModal } from './HistoryDetailModal';
 import { HistoryHelpModal } from './HistoryHelpModal';
 import { useThrottledCallback } from '../hooks/useThrottle';
 import { useListNavigation } from '../hooks/useListNavigation';
+import { formatElapsedTime } from '../utils/formatters';
 
 // Double checkmark SVG component for validated entries
 const DoubleCheck = ({ className, style }: { className?: string; style?: React.CSSProperties }) => (
@@ -13,19 +14,6 @@ const DoubleCheck = ({ className, style }: { className?: string; style?: React.C
     <polyline points="23 6 14 17 11 14" />
   </svg>
 );
-
-// Format elapsed time in human-readable format
-const formatElapsedTime = (ms: number): string => {
-  if (ms < 1000) return `${ms}ms`;
-  const seconds = Math.floor(ms / 1000);
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  if (minutes < 60) return `${minutes}m ${remainingSeconds}s`;
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return `${hours}h ${remainingMinutes}m`;
-};
 
 // Lookback period options for the activity graph
 type LookbackPeriod = {
