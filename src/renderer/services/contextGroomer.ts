@@ -1,0 +1,363 @@
+/**
+ * Context Grooming Service
+ *
+ * Manages the grooming process for merging multiple conversation contexts.
+ * The grooming process:
+ * 1. Creates a temporary AI session
+ * 2. Sends the combined contexts with a grooming prompt
+ * 3. Receives the consolidated/groomed response
+ * 4. Cleans up the temporary session
+ *
+ * This service abstracts the complexity of managing temporary sessions
+ * and provides progress callbacks for UI updates during long operations.
+ */
+
+import type { ToolType } from '../../shared/types';
+import type {
+  ContextSource,
+  MergeRequest,
+  GroomingProgress,
+} from '../types/contextMerge';
+import type { LogEntry } from '../types';
+import {
+  formatLogsForGrooming,
+  parseGroomedOutput,
+  estimateTokenCount,
+  calculateTotalTokens,
+} from '../utils/contextExtractor';
+import { contextGroomingPrompt } from '../../prompts';
+
+/**
+ * Result of the grooming process.
+ */
+export interface GroomingResult {
+  /** The consolidated log entries after grooming */
+  groomedLogs: LogEntry[];
+  /** Estimated tokens saved through deduplication and consolidation */
+  tokensSaved: number;
+  /** Whether the grooming was successful */
+  success: boolean;
+  /** Error message if grooming failed */
+  error?: string;
+}
+
+/**
+ * Configuration options for the grooming service.
+ */
+export interface GroomingConfig {
+  /** Maximum time to wait for grooming response (ms) */
+  timeoutMs?: number;
+  /** Default agent type for grooming session */
+  defaultAgentType?: ToolType;
+}
+
+/**
+ * Default configuration for grooming operations.
+ */
+const DEFAULT_CONFIG: Required<GroomingConfig> = {
+  timeoutMs: 120000, // 2 minutes
+  defaultAgentType: 'claude-code',
+};
+
+/**
+ * Service for grooming and consolidating multiple conversation contexts.
+ *
+ * @example
+ * const groomer = new ContextGroomingService();
+ * const result = await groomer.groomContexts(
+ *   { sources, targetAgent: 'claude-code', targetProjectRoot: '/project' },
+ *   (progress) => updateUI(progress)
+ * );
+ */
+export class ContextGroomingService {
+  private config: Required<GroomingConfig>;
+  private activeGroomingSessionId: string | null = null;
+
+  constructor(config: GroomingConfig = {}) {
+    this.config = { ...DEFAULT_CONFIG, ...config };
+  }
+
+  /**
+   * Groom multiple contexts into a consolidated set of log entries.
+   *
+   * This method orchestrates the entire grooming process:
+   * 1. Collects and formats all source contexts
+   * 2. Creates a temporary grooming session
+   * 3. Sends the formatted contexts with grooming instructions
+   * 4. Parses the groomed output back to log entries
+   * 5. Cleans up the temporary session
+   *
+   * @param request - The merge request containing source contexts and target info
+   * @param onProgress - Callback for progress updates during the grooming process
+   * @returns Promise resolving to the grooming result with consolidated logs
+   *
+   * @example
+   * const result = await service.groomContexts(
+   *   {
+   *     sources: [context1, context2],
+   *     targetAgent: 'claude-code',
+   *     targetProjectRoot: '/my/project',
+   *   },
+   *   (progress) => console.log(`${progress.progress}%: ${progress.message}`)
+   * );
+   */
+  async groomContexts(
+    request: MergeRequest,
+    onProgress: (progress: GroomingProgress) => void
+  ): Promise<GroomingResult> {
+    const { sources, targetProjectRoot, groomingPrompt } = request;
+
+    // Initial progress update
+    onProgress({
+      stage: 'collecting',
+      progress: 0,
+      message: 'Collecting contexts...',
+    });
+
+    try {
+      // Stage 1: Collect and format contexts
+      const formattedContexts = this.formatContextsForGrooming(sources);
+      const originalTokenCount = calculateTotalTokens(sources);
+
+      onProgress({
+        stage: 'collecting',
+        progress: 25,
+        message: `Collected ${sources.length} context(s) with ~${originalTokenCount} tokens`,
+      });
+
+      // Stage 2: Create grooming session
+      onProgress({
+        stage: 'grooming',
+        progress: 30,
+        message: 'Starting grooming session...',
+      });
+
+      const groomingSessionId = await this.createGroomingSession(targetProjectRoot);
+
+      onProgress({
+        stage: 'grooming',
+        progress: 40,
+        message: 'Sending contexts for consolidation...',
+      });
+
+      // Stage 3: Send grooming prompt and get response
+      const prompt = this.buildGroomingPrompt(formattedContexts, groomingPrompt);
+      const groomedText = await this.sendGroomingPrompt(groomingSessionId, prompt);
+
+      onProgress({
+        stage: 'grooming',
+        progress: 80,
+        message: 'Processing groomed output...',
+      });
+
+      // Stage 4: Parse the groomed output
+      const groomedLogs = parseGroomedOutput(groomedText);
+      const groomedTokenCount = this.estimateGroomedTokens(groomedLogs);
+      const tokensSaved = Math.max(0, originalTokenCount - groomedTokenCount);
+
+      // Stage 5: Cleanup
+      onProgress({
+        stage: 'creating',
+        progress: 90,
+        message: 'Cleaning up grooming session...',
+      });
+
+      await this.cleanupGroomingSession(groomingSessionId);
+
+      onProgress({
+        stage: 'complete',
+        progress: 100,
+        message: `Grooming complete. Saved ~${tokensSaved} tokens`,
+      });
+
+      return {
+        groomedLogs,
+        tokensSaved,
+        success: true,
+      };
+    } catch (error) {
+      // Ensure cleanup on error
+      if (this.activeGroomingSessionId) {
+        try {
+          await this.cleanupGroomingSession(this.activeGroomingSessionId);
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error during grooming';
+
+      onProgress({
+        stage: 'complete',
+        progress: 100,
+        message: `Grooming failed: ${errorMessage}`,
+      });
+
+      return {
+        groomedLogs: [],
+        tokensSaved: 0,
+        success: false,
+        error: errorMessage,
+      };
+    }
+  }
+
+  /**
+   * Format all source contexts into a single text for the grooming prompt.
+   *
+   * @param sources - Array of context sources to format
+   * @returns Formatted string containing all contexts
+   */
+  private formatContextsForGrooming(sources: ContextSource[]): string {
+    const sections: string[] = [];
+
+    for (let i = 0; i < sources.length; i++) {
+      const source = sources[i];
+      const tokenEstimate = estimateTokenCount(source);
+
+      sections.push(`
+---
+### Context ${i + 1}: ${source.name}
+Agent: ${source.agentType}
+Project: ${source.projectRoot}
+Estimated tokens: ~${tokenEstimate}
+---
+
+${formatLogsForGrooming(source.logs)}
+`);
+    }
+
+    return sections.join('\n\n');
+  }
+
+  /**
+   * Build the complete grooming prompt with system instructions and contexts.
+   *
+   * @param formattedContexts - The formatted context string
+   * @param customPrompt - Optional custom grooming instructions
+   * @returns Complete prompt to send to the grooming agent
+   */
+  private buildGroomingPrompt(formattedContexts: string, customPrompt?: string): string {
+    const systemPrompt = customPrompt || contextGroomingPrompt;
+
+    return `${systemPrompt}
+
+${formattedContexts}
+
+---
+
+Please consolidate the above contexts into a single, coherent summary following the output format specified. Remove duplicates, summarize repetitive discussions, and preserve all important decisions and code changes.`;
+  }
+
+  /**
+   * Estimate token count for groomed log entries.
+   *
+   * @param logs - The groomed log entries
+   * @returns Estimated token count
+   */
+  private estimateGroomedTokens(logs: LogEntry[]): number {
+    let totalChars = 0;
+    for (const log of logs) {
+      totalChars += log.text.length;
+    }
+    // Use same 4 chars per token heuristic as contextExtractor
+    return Math.ceil(totalChars / 4);
+  }
+
+  /**
+   * Create a temporary session for the grooming process.
+   * This session will be used to send the combined contexts and receive
+   * the consolidated output.
+   *
+   * @param projectRoot - The project root path for the grooming session
+   * @returns Promise resolving to the temporary session ID
+   */
+  private async createGroomingSession(projectRoot: string): Promise<string> {
+    // Generate a unique session ID for grooming
+    const groomingSessionId = `grooming-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    // Store the active session ID for cleanup purposes
+    this.activeGroomingSessionId = groomingSessionId;
+
+    // Call the IPC handler to create the grooming session
+    // This will spawn a headless agent process for context processing
+    try {
+      const result = await window.maestro.context.createGroomingSession(
+        projectRoot,
+        this.config.defaultAgentType
+      );
+
+      if (result) {
+        this.activeGroomingSessionId = result;
+        return result;
+      }
+
+      return groomingSessionId;
+    } catch {
+      // If IPC is not available, return the generated ID
+      // This allows the service to be tested without full IPC integration
+      return groomingSessionId;
+    }
+  }
+
+  /**
+   * Send the grooming prompt to the temporary session and receive the response.
+   *
+   * @param sessionId - The grooming session ID
+   * @param prompt - The complete grooming prompt
+   * @returns Promise resolving to the groomed output text
+   */
+  private async sendGroomingPrompt(sessionId: string, prompt: string): Promise<string> {
+    try {
+      // Call the IPC handler to send the prompt and get the response
+      const response = await window.maestro.context.sendGroomingPrompt(sessionId, prompt);
+      return response || '';
+    } catch {
+      // If IPC is not available, return an empty result
+      // This allows the service to be tested without full IPC integration
+      // In production, this would trigger the error handling path
+      throw new Error('Context grooming IPC not available. IPC handlers must be configured.');
+    }
+  }
+
+  /**
+   * Clean up the temporary grooming session.
+   * Kills the process and removes any temporary resources.
+   *
+   * @param sessionId - The grooming session ID to clean up
+   */
+  private async cleanupGroomingSession(sessionId: string): Promise<void> {
+    try {
+      await window.maestro.context.cleanupGroomingSession(sessionId);
+    } catch {
+      // Ignore cleanup errors - session may already be terminated
+    } finally {
+      if (this.activeGroomingSessionId === sessionId) {
+        this.activeGroomingSessionId = null;
+      }
+    }
+  }
+
+  /**
+   * Cancel any active grooming operation.
+   * This should be called when the user cancels the merge operation.
+   */
+  async cancelGrooming(): Promise<void> {
+    if (this.activeGroomingSessionId) {
+      await this.cleanupGroomingSession(this.activeGroomingSessionId);
+    }
+  }
+
+  /**
+   * Check if a grooming operation is currently in progress.
+   */
+  isGroomingActive(): boolean {
+    return this.activeGroomingSessionId !== null;
+  }
+}
+
+/**
+ * Default singleton instance of the grooming service.
+ * Use this for most cases unless you need custom configuration.
+ */
+export const contextGroomingService = new ContextGroomingService();

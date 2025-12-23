@@ -21,3 +21,7 @@ export type {
 // IPC wrapper utility
 export { createIpcMethod } from './ipcWrapper';
 export type { IpcMethodOptions } from './ipcWrapper';
+
+// Context grooming service
+export { ContextGroomingService, contextGroomingService } from './contextGroomer';
+export type { GroomingResult, GroomingConfig } from './contextGroomer';

@@ -29,6 +29,9 @@ import groupChatModeratorSynthesisPrompt from './group-chat-moderator-synthesis.
 import groupChatParticipantPrompt from './group-chat-participant.md?raw';
 import groupChatParticipantRequestPrompt from './group-chat-participant-request.md?raw';
 
+// Context management prompts
+import contextGroomingPrompt from './context-grooming.md?raw';
+
 export {
   // Wizard
   wizardSystemPrompt,
@@ -53,4 +56,7 @@ export {
   groupChatModeratorSynthesisPrompt,
   groupChatParticipantPrompt,
   groupChatParticipantRequestPrompt,
+
+  // Context management
+  contextGroomingPrompt,
 };
