@@ -219,8 +219,8 @@ describe('Debug Package Packager', () => {
       const zip = new AdmZip(result.path);
       const entryNames = zip.getEntries().map((e) => e.entryName);
 
-      // All 14 JSON files + README
-      expect(entryNames).toHaveLength(15);
+      // All 15 JSON files + README
+      expect(entryNames).toHaveLength(16);
       expect(entryNames).toContain('README.md');
 
       for (const filename of Object.keys(fullContents)) {
