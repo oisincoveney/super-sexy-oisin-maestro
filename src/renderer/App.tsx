@@ -6516,8 +6516,9 @@ export default function MaestroConsole() {
     handleSidebarNavigation, handleTabNavigation, handleEnterToActivate, handleEscapeInMain,
     // Agent capabilities
     hasActiveSessionCapability,
-    // Merge session modal
-    setMergeSessionModalOpen
+    // Merge session modal and send to agent modal
+    setMergeSessionModalOpen,
+    setSendToAgentModalOpen
   };
 
   // Update flat file list when active session's tree, expanded folders, filter, or hidden files setting changes
