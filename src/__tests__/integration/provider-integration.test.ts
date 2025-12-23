@@ -1083,11 +1083,6 @@ Rules:
           result = await runProvider(provider, args, TEST_CWD, stdinContent);
         } else if (provider.buildImageArgs) {
           // Codex/OpenCode: Use file-based image args
-          // Skip if no vision model is configured for OpenCode
-          if (provider.name === 'OpenCode' && !process.env.OPENCODE_VISION_MODEL) {
-            console.log(`⚠️  OPENCODE_VISION_MODEL not set, skipping image test`);
-            return;
-          }
 
           const args = provider.buildImageArgs(prompt, TEST_IMAGE_PATH);
 
