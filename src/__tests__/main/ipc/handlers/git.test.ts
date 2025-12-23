@@ -3016,4 +3016,228 @@ export function Component() {
       });
     });
   });
+
+  describe('git:listWorktrees', () => {
+    it('should return list of worktrees with parsed details', async () => {
+      const porcelainOutput = `worktree /home/user/project
+HEAD abc123def456789
+branch refs/heads/main
+
+worktree /home/user/project-feature
+HEAD def456abc789012
+branch refs/heads/feature/new-feature
+
+`;
+
+      vi.mocked(execFile.execFileNoThrow).mockResolvedValue({
+        stdout: porcelainOutput,
+        stderr: '',
+        exitCode: 0,
+      });
+
+      const handler = handlers.get('git:listWorktrees');
+      const result = await handler!({} as any, '/home/user/project');
+
+      expect(execFile.execFileNoThrow).toHaveBeenCalledWith(
+        'git',
+        ['worktree', 'list', '--porcelain'],
+        '/home/user/project'
+      );
+      expect(result).toEqual({
+        success: true,
+        worktrees: [
+          {
+            path: '/home/user/project',
+            head: 'abc123def456789',
+            branch: 'main',
+            isBare: false,
+          },
+          {
+            path: '/home/user/project-feature',
+            head: 'def456abc789012',
+            branch: 'feature/new-feature',
+            isBare: false,
+          },
+        ],
+      });
+    });
+
+    it('should return empty list when not a git repository', async () => {
+      vi.mocked(execFile.execFileNoThrow).mockResolvedValue({
+        stdout: '',
+        stderr: 'fatal: not a git repository',
+        exitCode: 128,
+      });
+
+      const handler = handlers.get('git:listWorktrees');
+      const result = await handler!({} as any, '/not/a/repo');
+
+      expect(result).toEqual({
+        success: true,
+        worktrees: [],
+      });
+    });
+
+    it('should return empty list when no worktrees exist', async () => {
+      // Edge case: git worktree list returns nothing (shouldn't happen normally,
+      // as main repo is always listed, but testing defensive code)
+      vi.mocked(execFile.execFileNoThrow).mockResolvedValue({
+        stdout: '',
+        stderr: '',
+        exitCode: 0,
+      });
+
+      const handler = handlers.get('git:listWorktrees');
+      const result = await handler!({} as any, '/test/repo');
+
+      expect(result).toEqual({
+        success: true,
+        worktrees: [],
+      });
+    });
+
+    it('should handle detached HEAD state in worktree', async () => {
+      const porcelainOutput = `worktree /home/user/project
+HEAD abc123def456789
+branch refs/heads/main
+
+worktree /home/user/project-detached
+HEAD def456abc789012
+detached
+
+`;
+
+      vi.mocked(execFile.execFileNoThrow).mockResolvedValue({
+        stdout: porcelainOutput,
+        stderr: '',
+        exitCode: 0,
+      });
+
+      const handler = handlers.get('git:listWorktrees');
+      const result = await handler!({} as any, '/home/user/project');
+
+      expect(result).toEqual({
+        success: true,
+        worktrees: [
+          {
+            path: '/home/user/project',
+            head: 'abc123def456789',
+            branch: 'main',
+            isBare: false,
+          },
+          {
+            path: '/home/user/project-detached',
+            head: 'def456abc789012',
+            branch: null,
+            isBare: false,
+          },
+        ],
+      });
+    });
+
+    it('should handle bare repository entry', async () => {
+      const porcelainOutput = `worktree /home/user/project.git
+bare
+
+`;
+
+      vi.mocked(execFile.execFileNoThrow).mockResolvedValue({
+        stdout: porcelainOutput,
+        stderr: '',
+        exitCode: 0,
+      });
+
+      const handler = handlers.get('git:listWorktrees');
+      const result = await handler!({} as any, '/home/user/project.git');
+
+      expect(result).toEqual({
+        success: true,
+        worktrees: [
+          {
+            path: '/home/user/project.git',
+            head: '',
+            branch: null,
+            isBare: true,
+          },
+        ],
+      });
+    });
+
+    it('should handle output without trailing newline', async () => {
+      // Test the edge case where there's no trailing newline after the last entry
+      const porcelainOutput = `worktree /home/user/project
+HEAD abc123def456789
+branch refs/heads/main`;
+
+      vi.mocked(execFile.execFileNoThrow).mockResolvedValue({
+        stdout: porcelainOutput,
+        stderr: '',
+        exitCode: 0,
+      });
+
+      const handler = handlers.get('git:listWorktrees');
+      const result = await handler!({} as any, '/home/user/project');
+
+      expect(result).toEqual({
+        success: true,
+        worktrees: [
+          {
+            path: '/home/user/project',
+            head: 'abc123def456789',
+            branch: 'main',
+            isBare: false,
+          },
+        ],
+      });
+    });
+
+    it('should handle multiple worktrees with various branch formats', async () => {
+      const porcelainOutput = `worktree /home/user/project
+HEAD abc123
+branch refs/heads/main
+
+worktree /home/user/worktree-1
+HEAD def456
+branch refs/heads/feature/deep/nested/branch
+
+worktree /home/user/worktree-2
+HEAD ghi789
+branch refs/heads/bugfix-123
+
+`;
+
+      vi.mocked(execFile.execFileNoThrow).mockResolvedValue({
+        stdout: porcelainOutput,
+        stderr: '',
+        exitCode: 0,
+      });
+
+      const handler = handlers.get('git:listWorktrees');
+      const result = await handler!({} as any, '/home/user/project');
+
+      expect(result).toEqual({
+        success: true,
+        worktrees: [
+          {
+            path: '/home/user/project',
+            head: 'abc123',
+            branch: 'main',
+            isBare: false,
+          },
+          {
+            path: '/home/user/worktree-1',
+            head: 'def456',
+            branch: 'feature/deep/nested/branch',
+            isBare: false,
+          },
+          {
+            path: '/home/user/worktree-2',
+            head: 'ghi789',
+            branch: 'bugfix-123',
+            isBare: false,
+          },
+        ],
+      });
+    });
+  });
 });
