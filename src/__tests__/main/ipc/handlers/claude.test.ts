@@ -1419,4 +1419,281 @@ not valid json at all
       expect(assistantMatch?.matchType).toBe('assistant');
     });
   });
+
+  describe('claude:deleteMessagePair', () => {
+    it('should delete a message pair by UUID', async () => {
+      const fs = await import('fs/promises');
+
+      const sessionContent = `{"type":"user","message":{"role":"user","content":"First message"},"timestamp":"2024-01-15T09:00:00Z","uuid":"uuid-1"}
+{"type":"assistant","message":{"role":"assistant","content":"First response"},"timestamp":"2024-01-15T09:01:00Z","uuid":"uuid-2"}
+{"type":"user","message":{"role":"user","content":"Delete this message"},"timestamp":"2024-01-15T09:02:00Z","uuid":"uuid-delete"}
+{"type":"assistant","message":{"role":"assistant","content":"This response should be deleted too"},"timestamp":"2024-01-15T09:03:00Z","uuid":"uuid-delete-response"}
+{"type":"user","message":{"role":"user","content":"Third message"},"timestamp":"2024-01-15T09:04:00Z","uuid":"uuid-3"}
+{"type":"assistant","message":{"role":"assistant","content":"Third response"},"timestamp":"2024-01-15T09:05:00Z","uuid":"uuid-4"}`;
+
+      vi.mocked(fs.default.readFile).mockResolvedValue(sessionContent);
+      vi.mocked(fs.default.writeFile).mockResolvedValue(undefined);
+
+      const handler = handlers.get('claude:deleteMessagePair');
+      const result = await handler!({} as any, '/test/project', 'session-123', 'uuid-delete');
+
+      expect(result).toMatchObject({
+        success: true,
+        linesRemoved: 2,
+      });
+
+      // Verify writeFile was called with correct content (deleted lines removed)
+      expect(fs.default.writeFile).toHaveBeenCalledTimes(1);
+      const writtenContent = vi.mocked(fs.default.writeFile).mock.calls[0][1] as string;
+
+      // Should not contain the deleted messages
+      expect(writtenContent).not.toContain('uuid-delete');
+      expect(writtenContent).not.toContain('Delete this message');
+      expect(writtenContent).not.toContain('This response should be deleted too');
+
+      // Should still contain other messages
+      expect(writtenContent).toContain('uuid-1');
+      expect(writtenContent).toContain('uuid-3');
+    });
+
+    it('should return error when user message is not found', async () => {
+      const fs = await import('fs/promises');
+
+      const sessionContent = `{"type":"user","message":{"role":"user","content":"Some message"},"timestamp":"2024-01-15T09:00:00Z","uuid":"uuid-existing"}
+{"type":"assistant","message":{"role":"assistant","content":"Response"},"timestamp":"2024-01-15T09:01:00Z","uuid":"uuid-response"}`;
+
+      vi.mocked(fs.default.readFile).mockResolvedValue(sessionContent);
+
+      const handler = handlers.get('claude:deleteMessagePair');
+      const result = await handler!({} as any, '/test/project', 'session-123', 'uuid-nonexistent');
+
+      expect(result).toMatchObject({
+        success: false,
+        error: 'User message not found',
+      });
+
+      // writeFile should not be called since no deletion occurred
+      expect(fs.default.writeFile).not.toHaveBeenCalled();
+    });
+
+    it('should find message by fallback content when UUID match fails', async () => {
+      const fs = await import('fs/promises');
+
+      const sessionContent = `{"type":"user","message":{"role":"user","content":"First message"},"timestamp":"2024-01-15T09:00:00Z","uuid":"uuid-1"}
+{"type":"assistant","message":{"role":"assistant","content":"First response"},"timestamp":"2024-01-15T09:01:00Z","uuid":"uuid-2"}
+{"type":"user","message":{"role":"user","content":"Find me by content"},"timestamp":"2024-01-15T09:02:00Z","uuid":"uuid-different"}
+{"type":"assistant","message":{"role":"assistant","content":"Response to delete"},"timestamp":"2024-01-15T09:03:00Z","uuid":"uuid-response"}`;
+
+      vi.mocked(fs.default.readFile).mockResolvedValue(sessionContent);
+      vi.mocked(fs.default.writeFile).mockResolvedValue(undefined);
+
+      const handler = handlers.get('claude:deleteMessagePair');
+      // UUID doesn't match, but fallback content should find it
+      const result = await handler!({} as any, '/test/project', 'session-123', 'uuid-wrong', 'Find me by content');
+
+      expect(result).toMatchObject({
+        success: true,
+        linesRemoved: 2,
+      });
+
+      // Verify the correct messages were deleted
+      const writtenContent = vi.mocked(fs.default.writeFile).mock.calls[0][1] as string;
+      expect(writtenContent).not.toContain('Find me by content');
+      expect(writtenContent).not.toContain('Response to delete');
+      expect(writtenContent).toContain('First message');
+    });
+
+    it('should delete all assistant messages until next user message', async () => {
+      const fs = await import('fs/promises');
+
+      // Multiple assistant messages between user messages
+      const sessionContent = `{"type":"user","message":{"role":"user","content":"Question"},"timestamp":"2024-01-15T09:00:00Z","uuid":"uuid-question"}
+{"type":"assistant","message":{"role":"assistant","content":"First part of answer"},"timestamp":"2024-01-15T09:01:00Z","uuid":"uuid-ans-1"}
+{"type":"assistant","message":{"role":"assistant","content":"Second part of answer"},"timestamp":"2024-01-15T09:02:00Z","uuid":"uuid-ans-2"}
+{"type":"assistant","message":{"role":"assistant","content":"Third part of answer"},"timestamp":"2024-01-15T09:03:00Z","uuid":"uuid-ans-3"}
+{"type":"user","message":{"role":"user","content":"Next question"},"timestamp":"2024-01-15T09:04:00Z","uuid":"uuid-next"}`;
+
+      vi.mocked(fs.default.readFile).mockResolvedValue(sessionContent);
+      vi.mocked(fs.default.writeFile).mockResolvedValue(undefined);
+
+      const handler = handlers.get('claude:deleteMessagePair');
+      const result = await handler!({} as any, '/test/project', 'session-123', 'uuid-question');
+
+      expect(result).toMatchObject({
+        success: true,
+        linesRemoved: 4, // 1 user + 3 assistant messages
+      });
+
+      const writtenContent = vi.mocked(fs.default.writeFile).mock.calls[0][1] as string;
+      // Should only contain the last user message
+      expect(writtenContent).toContain('Next question');
+      expect(writtenContent).not.toContain('Question');
+      expect(writtenContent).not.toContain('First part of answer');
+    });
+
+    it('should delete to end of file when there is no next user message', async () => {
+      const fs = await import('fs/promises');
+
+      // Last message pair in session
+      const sessionContent = `{"type":"user","message":{"role":"user","content":"First message"},"timestamp":"2024-01-15T09:00:00Z","uuid":"uuid-1"}
+{"type":"assistant","message":{"role":"assistant","content":"First response"},"timestamp":"2024-01-15T09:01:00Z","uuid":"uuid-2"}
+{"type":"user","message":{"role":"user","content":"Delete this last message"},"timestamp":"2024-01-15T09:02:00Z","uuid":"uuid-last"}
+{"type":"assistant","message":{"role":"assistant","content":"Last response"},"timestamp":"2024-01-15T09:03:00Z","uuid":"uuid-last-response"}`;
+
+      vi.mocked(fs.default.readFile).mockResolvedValue(sessionContent);
+      vi.mocked(fs.default.writeFile).mockResolvedValue(undefined);
+
+      const handler = handlers.get('claude:deleteMessagePair');
+      const result = await handler!({} as any, '/test/project', 'session-123', 'uuid-last');
+
+      expect(result).toMatchObject({
+        success: true,
+        linesRemoved: 2,
+      });
+
+      const writtenContent = vi.mocked(fs.default.writeFile).mock.calls[0][1] as string;
+      expect(writtenContent).toContain('First message');
+      expect(writtenContent).toContain('First response');
+      expect(writtenContent).not.toContain('Delete this last message');
+      expect(writtenContent).not.toContain('Last response');
+    });
+
+    it('should handle array content when matching by fallback content', async () => {
+      const fs = await import('fs/promises');
+
+      // Message with array-style content
+      const sessionContent = `{"type":"user","message":{"role":"user","content":[{"type":"text","text":"Find me by array text"}]},"timestamp":"2024-01-15T09:00:00Z","uuid":"uuid-array"}
+{"type":"assistant","message":{"role":"assistant","content":"Response"},"timestamp":"2024-01-15T09:01:00Z","uuid":"uuid-response"}`;
+
+      vi.mocked(fs.default.readFile).mockResolvedValue(sessionContent);
+      vi.mocked(fs.default.writeFile).mockResolvedValue(undefined);
+
+      const handler = handlers.get('claude:deleteMessagePair');
+      const result = await handler!({} as any, '/test/project', 'session-123', 'uuid-wrong', 'Find me by array text');
+
+      expect(result).toMatchObject({
+        success: true,
+        linesRemoved: 2,
+      });
+    });
+
+    it('should clean up orphaned tool_result blocks when deleting message with tool_use', async () => {
+      const fs = await import('fs/promises');
+
+      // Message pair with tool_use that gets deleted, and a subsequent message with tool_result
+      const sessionContent = `{"type":"user","message":{"role":"user","content":"Read the file"},"timestamp":"2024-01-15T09:00:00Z","uuid":"uuid-1"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Reading file..."},{"type":"tool_use","id":"tool-123","name":"read_file","input":{"path":"test.txt"}}]},"timestamp":"2024-01-15T09:01:00Z","uuid":"uuid-2"}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"tool-123","content":"File contents here"}]},"timestamp":"2024-01-15T09:02:00Z","uuid":"uuid-3"}
+{"type":"assistant","message":{"role":"assistant","content":"Here is the file content"},"timestamp":"2024-01-15T09:03:00Z","uuid":"uuid-4"}
+{"type":"user","message":{"role":"user","content":"Next question"},"timestamp":"2024-01-15T09:04:00Z","uuid":"uuid-5"}`;
+
+      vi.mocked(fs.default.readFile).mockResolvedValue(sessionContent);
+      vi.mocked(fs.default.writeFile).mockResolvedValue(undefined);
+
+      const handler = handlers.get('claude:deleteMessagePair');
+      // Delete the first message pair which contains tool_use
+      const result = await handler!({} as any, '/test/project', 'session-123', 'uuid-1');
+
+      expect(result.success).toBe(true);
+
+      // Check that the orphaned tool_result was cleaned up
+      const writtenContent = vi.mocked(fs.default.writeFile).mock.calls[0][1] as string;
+      // The tool_result message should be gone since its tool_use was deleted
+      expect(writtenContent).not.toContain('tool-123');
+      // But the "Next question" message should still be there
+      expect(writtenContent).toContain('Next question');
+    });
+
+    it('should handle malformed JSON lines gracefully', async () => {
+      const fs = await import('fs/promises');
+
+      const sessionContent = `not valid json
+{"type":"user","message":{"role":"user","content":"Valid message to delete"},"timestamp":"2024-01-15T09:00:00Z","uuid":"uuid-delete"}
+{broken json here
+{"type":"assistant","message":{"role":"assistant","content":"Valid response"},"timestamp":"2024-01-15T09:01:00Z","uuid":"uuid-response"}`;
+
+      vi.mocked(fs.default.readFile).mockResolvedValue(sessionContent);
+      vi.mocked(fs.default.writeFile).mockResolvedValue(undefined);
+
+      const handler = handlers.get('claude:deleteMessagePair');
+      const result = await handler!({} as any, '/test/project', 'session-123', 'uuid-delete');
+
+      expect(result).toMatchObject({
+        success: true,
+        linesRemoved: 3, // user message + broken line + response
+      });
+
+      // Malformed lines are kept with null entry
+      const writtenContent = vi.mocked(fs.default.writeFile).mock.calls[0][1] as string;
+      // Only the first malformed line should remain (it's before the deleted message)
+      expect(writtenContent).toContain('not valid json');
+    });
+
+    it('should throw error when session file does not exist', async () => {
+      const fs = await import('fs/promises');
+
+      vi.mocked(fs.default.readFile).mockRejectedValue(new Error('ENOENT: no such file or directory'));
+
+      const handler = handlers.get('claude:deleteMessagePair');
+
+      await expect(handler!({} as any, '/test/project', 'nonexistent-session', 'uuid-1')).rejects.toThrow();
+    });
+
+    it('should preserve messages before and after deleted pair', async () => {
+      const fs = await import('fs/promises');
+
+      const sessionContent = `{"type":"user","message":{"role":"user","content":"Message A"},"timestamp":"2024-01-15T09:00:00Z","uuid":"uuid-a"}
+{"type":"assistant","message":{"role":"assistant","content":"Response A"},"timestamp":"2024-01-15T09:01:00Z","uuid":"uuid-a-response"}
+{"type":"user","message":{"role":"user","content":"Message B - DELETE"},"timestamp":"2024-01-15T09:02:00Z","uuid":"uuid-b"}
+{"type":"assistant","message":{"role":"assistant","content":"Response B - DELETE"},"timestamp":"2024-01-15T09:03:00Z","uuid":"uuid-b-response"}
+{"type":"user","message":{"role":"user","content":"Message C"},"timestamp":"2024-01-15T09:04:00Z","uuid":"uuid-c"}
+{"type":"assistant","message":{"role":"assistant","content":"Response C"},"timestamp":"2024-01-15T09:05:00Z","uuid":"uuid-c-response"}`;
+
+      vi.mocked(fs.default.readFile).mockResolvedValue(sessionContent);
+      vi.mocked(fs.default.writeFile).mockResolvedValue(undefined);
+
+      const handler = handlers.get('claude:deleteMessagePair');
+      const result = await handler!({} as any, '/test/project', 'session-123', 'uuid-b');
+
+      expect(result.success).toBe(true);
+
+      const writtenContent = vi.mocked(fs.default.writeFile).mock.calls[0][1] as string;
+
+      // Before messages preserved
+      expect(writtenContent).toContain('Message A');
+      expect(writtenContent).toContain('Response A');
+
+      // Deleted messages gone
+      expect(writtenContent).not.toContain('Message B - DELETE');
+      expect(writtenContent).not.toContain('Response B - DELETE');
+
+      // After messages preserved
+      expect(writtenContent).toContain('Message C');
+      expect(writtenContent).toContain('Response C');
+    });
+
+    it('should handle message with only assistant response (no subsequent user)', async () => {
+      const fs = await import('fs/promises');
+
+      // Delete a message where there's only an assistant response after (no next user)
+      const sessionContent = `{"type":"user","message":{"role":"user","content":"Question"},"timestamp":"2024-01-15T09:00:00Z","uuid":"uuid-q"}
+{"type":"assistant","message":{"role":"assistant","content":"Answer part 1"},"timestamp":"2024-01-15T09:01:00Z","uuid":"uuid-a1"}
+{"type":"assistant","message":{"role":"assistant","content":"Answer part 2"},"timestamp":"2024-01-15T09:02:00Z","uuid":"uuid-a2"}`;
+
+      vi.mocked(fs.default.readFile).mockResolvedValue(sessionContent);
+      vi.mocked(fs.default.writeFile).mockResolvedValue(undefined);
+
+      const handler = handlers.get('claude:deleteMessagePair');
+      const result = await handler!({} as any, '/test/project', 'session-123', 'uuid-q');
+
+      expect(result).toMatchObject({
+        success: true,
+        linesRemoved: 3, // user + 2 assistant messages
+      });
+
+      const writtenContent = vi.mocked(fs.default.writeFile).mock.calls[0][1] as string;
+      // Only newline should remain (empty file basically)
+      expect(writtenContent.trim()).toBe('');
+    });
+  });
 });
