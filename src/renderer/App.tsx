@@ -87,6 +87,7 @@ import { GitStatusProvider } from './contexts/GitStatusContext';
 import { InputProvider, useInputContext } from './contexts/InputContext';
 import { GroupChatProvider, useGroupChat } from './contexts/GroupChatContext';
 import { AutoRunProvider, useAutoRun } from './contexts/AutoRunContext';
+import { SessionProvider, useSession } from './contexts/SessionContext';
 import { ToastContainer } from './components/Toast';
 
 // Import services
@@ -290,16 +291,24 @@ function MaestroConsoleInner() {
   // --- KEYBOARD SHORTCUT HELPERS ---
   const { isShortcut, isTabShortcut } = useKeyboardShortcutHelpers({ shortcuts, tabShortcuts });
 
-  // --- STATE ---
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
+  // --- SESSION STATE (Phase 6: extracted to SessionContext) ---
+  // Use SessionContext for all core session states
+  const {
+    sessions, setSessions,
+    groups, setGroups,
+    activeSessionId, setActiveSessionId: setActiveSessionIdFromContext,
+    setActiveSessionIdInternal,
+    sessionsLoaded, setSessionsLoaded,
+    initialLoadComplete,
+    sessionsRef, groupsRef, activeSessionIdRef,
+    batchedUpdater,
+    activeSession,
+    cyclePositionRef,
+    removedWorktreePaths, setRemovedWorktreePaths, removedWorktreePathsRef,
+  } = useSession();
+
   // Spec Kit commands (loaded from bundled prompts)
   const [speckitCommands, setSpeckitCommands] = useState<SpecKitCommand[]>([]);
-  // Track worktree paths that were manually removed - prevents re-discovery during this session
-  const [removedWorktreePaths, setRemovedWorktreePaths] = useState<Set<string>>(new Set());
-  // Ref to always access current removed paths (avoids stale closure in async scanner)
-  const removedWorktreePathsRef = useRef<Set<string>>(removedWorktreePaths);
-  removedWorktreePathsRef.current = removedWorktreePaths;
 
   // --- GROUP CHAT STATE (Phase 4: extracted to GroupChatContext) ---
   // Note: groupChatsExpanded remains here as it's a UI layout concern (already in UILayoutContext)
@@ -326,29 +335,11 @@ function MaestroConsoleInner() {
     clearGroupChatError: handleClearGroupChatErrorBase,
   } = useGroupChat();
 
-  // --- BATCHED SESSION UPDATES (reduces React re-renders during AI streaming) ---
-  const batchedUpdater = useBatchedSessionUpdates(setSessions);
-
-  // Track if initial data has been loaded to prevent overwriting on mount
-  const initialLoadComplete = useRef(false);
-
-  // Track if sessions/groups have been loaded (for splash screen coordination)
-  const [sessionsLoaded, setSessionsLoaded] = useState(false);
-
-  const [activeSessionId, setActiveSessionIdInternal] = useState<string>(sessions[0]?.id || 's1');
-
-  // Track current position in visual order for cycling (allows same session to appear twice)
-  const cyclePositionRef = useRef<number>(-1);
-
-  // Wrapper that resets cycle position when session is changed via click (not cycling)
-  // Also flushes batched updates to ensure previous session's state is fully updated
-  // Dismisses any active group chat when selecting an agent
+  // Wrapper for setActiveSessionId that also dismisses active group chat
   const setActiveSessionId = useCallback((id: string) => {
-    batchedUpdater.flushNow(); // Flush pending updates before switching sessions
-    cyclePositionRef.current = -1; // Reset so next cycle finds first occurrence
     setActiveGroupChatId(null); // Dismiss group chat when selecting an agent
-    setActiveSessionIdInternal(id);
-  }, [batchedUpdater, setActiveGroupChatId]);
+    setActiveSessionIdFromContext(id);
+  }, [setActiveSessionIdFromContext, setActiveGroupChatId]);
 
   // Input State - extracted to InputContext for centralized management
   // Use InputContext for all input and completion states
@@ -2352,20 +2343,15 @@ function MaestroConsoleInner() {
   const mainPanelRef = useRef<MainPanelHandle>(null);
 
   // Refs for toast notifications (to access latest values in event handlers)
-  const groupsRef = useRef(groups);
+  // Note: sessionsRef, groupsRef, activeSessionIdRef are now provided by SessionContext
   const addToastRef = useRef(addToast);
-  const sessionsRef = useRef(sessions);
   const updateGlobalStatsRef = useRef(updateGlobalStats);
   const customAICommandsRef = useRef(customAICommands);
   const speckitCommandsRef = useRef(speckitCommands);
-  const activeSessionIdRef = useRef(activeSessionId);
-  groupsRef.current = groups;
   addToastRef.current = addToast;
-  sessionsRef.current = sessions;
   updateGlobalStatsRef.current = updateGlobalStats;
   customAICommandsRef.current = customAICommands;
   speckitCommandsRef.current = speckitCommands;
-  activeSessionIdRef.current = activeSessionId;
 
   // Note: spawnBackgroundSynopsisRef and spawnAgentWithPromptRef are now provided by useAgentExecution hook
   // Note: addHistoryEntryRef is now provided by useAgentSessionManagement hook
@@ -2409,10 +2395,7 @@ function MaestroConsoleInner() {
 
   // Keyboard navigation state
   const [selectedSidebarIndex, setSelectedSidebarIndex] = useState(0);
-  const activeSession = useMemo(() =>
-    sessions.find(s => s.id === activeSessionId) || sessions[0] || null,
-    [sessions, activeSessionId]
-  );
+  // Note: activeSession is now provided by SessionContext
   const activeTabForError = useMemo(() => (
     activeSession ? getActiveTab(activeSession) : null
   ), [activeSession]);
@@ -6407,7 +6390,7 @@ function MaestroConsoleInner() {
 
     // Handle slash command autocomplete
     if (slashCommandOpen) {
-      const isTerminalMode = activeSession.inputMode === 'terminal';
+      const isTerminalMode = activeSession?.inputMode === 'terminal';
       const filteredCommands = allSlashCommands.filter(cmd => {
         // Check if command is only available in terminal mode
         if ('terminalOnly' in cmd && cmd.terminalOnly && !isTerminalMode) return false;
@@ -6442,7 +6425,7 @@ function MaestroConsoleInner() {
 
     if (e.key === 'Enter') {
       // Use the appropriate setting based on input mode
-      const currentEnterToSend = activeSession.inputMode === 'terminal' ? enterToSendTerminal : enterToSendAI;
+      const currentEnterToSend = activeSession?.inputMode === 'terminal' ? enterToSendTerminal : enterToSendAI;
 
       if (currentEnterToSend && !e.shiftKey && !e.metaKey) {
         e.preventDefault();
@@ -6457,7 +6440,7 @@ function MaestroConsoleInner() {
       terminalOutputRef.current?.focus();
     } else if (e.key === 'ArrowUp') {
       // Only show command history in terminal mode, not AI mode
-      if (activeSession.inputMode === 'terminal') {
+      if (activeSession?.inputMode === 'terminal') {
         e.preventDefault();
         setCommandHistoryOpen(true);
         setCommandHistoryFilter(inputValue);
@@ -6927,7 +6910,7 @@ function MaestroConsoleInner() {
       // Only handle when right panel is focused and on files tab
       if (activeFocus !== 'right' || activeRightTab !== 'files' || flatFileList.length === 0) return;
 
-      const expandedFolders = new Set(activeSession.fileExplorerExpanded || []);
+      const expandedFolders = new Set(activeSession?.fileExplorerExpanded || []);
 
       // Cmd+Arrow: jump to top/bottom
       if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowUp') {
@@ -9641,16 +9624,19 @@ function MaestroConsoleInner() {
  * Phase 3: InputProvider - centralized input state management
  * Phase 4: GroupChatProvider - centralized group chat state management
  * Phase 5: AutoRunProvider - centralized Auto Run and batch processing state management
+ * Phase 6: SessionProvider - centralized session and group state management
  * See refactor-details-2.md for full plan.
  */
 export default function MaestroConsole() {
   return (
-    <AutoRunProvider>
-      <GroupChatProvider>
-        <InputProvider>
-          <MaestroConsoleInner />
-        </InputProvider>
-      </GroupChatProvider>
-    </AutoRunProvider>
+    <SessionProvider>
+      <AutoRunProvider>
+        <GroupChatProvider>
+          <InputProvider>
+            <MaestroConsoleInner />
+          </InputProvider>
+        </GroupChatProvider>
+      </AutoRunProvider>
+    </SessionProvider>
   );
 }
