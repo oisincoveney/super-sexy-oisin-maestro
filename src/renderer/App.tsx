@@ -59,7 +59,6 @@ import { GroupChatInfoOverlay } from './components/GroupChatInfoOverlay';
 // Import custom hooks
 import { useBatchProcessor } from './hooks/useBatchProcessor';
 import { useSettings, useActivityTracker, useMobileLandscape, useNavigationHistory, useAutoRunHandlers, useInputSync, useSessionNavigation, useDebouncedPersistence, useBatchedSessionUpdates } from './hooks';
-import type { AutoRunTreeNode } from './hooks';
 import { useTabCompletion, TabCompletionSuggestion, TabCompletionFilter } from './hooks/useTabCompletion';
 import { useAtMentionCompletion } from './hooks/useAtMentionCompletion';
 import { useKeyboardShortcutHelpers } from './hooks/useKeyboardShortcutHelpers';
@@ -87,6 +86,7 @@ import { useToast } from './contexts/ToastContext';
 import { GitStatusProvider } from './contexts/GitStatusContext';
 import { InputProvider, useInputContext } from './contexts/InputContext';
 import { GroupChatProvider, useGroupChat } from './contexts/GroupChatContext';
+import { AutoRunProvider, useAutoRun } from './contexts/AutoRunContext';
 import { ToastContainer } from './components/Toast';
 
 // Import services
@@ -558,11 +558,18 @@ function MaestroConsoleInner() {
   const [isLiveMode, setIsLiveMode] = useState(false);
   const [webInterfaceUrl, setWebInterfaceUrl] = useState<string | null>(null);
 
-  // Auto Run document management state (content is per-session in session.autoRunContent)
-  const [autoRunDocumentList, setAutoRunDocumentList] = useState<string[]>([]);
-  const [autoRunDocumentTree, setAutoRunDocumentTree] = useState<AutoRunTreeNode[]>([]);
-  const [autoRunIsLoadingDocuments, setAutoRunIsLoadingDocuments] = useState(false);
-  const [autoRunDocumentTaskCounts, setAutoRunDocumentTaskCounts] = useState<Map<string, { completed: number; total: number }>>(new Map());
+  // Auto Run document management state (Phase 5: now from AutoRunContext)
+  // Content is per-session in session.autoRunContent
+  const {
+    documentList: autoRunDocumentList,
+    setDocumentList: setAutoRunDocumentList,
+    documentTree: autoRunDocumentTree,
+    setDocumentTree: setAutoRunDocumentTree,
+    isLoadingDocuments: autoRunIsLoadingDocuments,
+    setIsLoadingDocuments: setAutoRunIsLoadingDocuments,
+    documentTaskCounts: autoRunDocumentTaskCounts,
+    setDocumentTaskCounts: setAutoRunDocumentTaskCounts,
+  } = useAutoRun();
 
   // Restore focus when LogViewer closes to ensure global hotkeys work
   useEffect(() => {
@@ -9633,14 +9640,17 @@ function MaestroConsoleInner() {
  * Wraps MaestroConsoleInner with context providers for centralized state management.
  * Phase 3: InputProvider - centralized input state management
  * Phase 4: GroupChatProvider - centralized group chat state management
+ * Phase 5: AutoRunProvider - centralized Auto Run and batch processing state management
  * See refactor-details-2.md for full plan.
  */
 export default function MaestroConsole() {
   return (
-    <GroupChatProvider>
-      <InputProvider>
-        <MaestroConsoleInner />
-      </InputProvider>
-    </GroupChatProvider>
+    <AutoRunProvider>
+      <GroupChatProvider>
+        <InputProvider>
+          <MaestroConsoleInner />
+        </InputProvider>
+      </GroupChatProvider>
+    </AutoRunProvider>
   );
 }
