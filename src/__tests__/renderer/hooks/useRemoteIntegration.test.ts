@@ -520,16 +520,28 @@ describe('useRemoteIntegration', () => {
   });
 
   describe('tab change broadcasting', () => {
-    it('broadcasts tab changes to web clients', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('broadcasts tab changes to web clients when in live mode', () => {
       const tab = createMockTab({ id: 'tab-1' });
       const session = createMockSession({
         id: 'session-1',
         aiTabs: [tab],
         activeTabId: 'tab-1',
       });
-      const deps = createDeps({ sessions: [session] });
+      // IMPORTANT: isLiveMode must be true for broadcast interval to be set up
+      const deps = createDeps({ sessions: [session], isLiveMode: true });
 
       renderHook(() => useRemoteIntegration(deps));
+
+      // Broadcast happens on 500ms interval, advance timers
+      vi.advanceTimersByTime(500);
 
       expect(mockWeb.broadcastTabsChange).toHaveBeenCalledWith(
         'session-1',
@@ -538,6 +550,23 @@ describe('useRemoteIntegration', () => {
         ]),
         'tab-1'
       );
+    });
+
+    it('does not broadcast when live mode is disabled', () => {
+      const tab = createMockTab({ id: 'tab-1' });
+      const session = createMockSession({
+        id: 'session-1',
+        aiTabs: [tab],
+        activeTabId: 'tab-1',
+      });
+      const deps = createDeps({ sessions: [session], isLiveMode: false });
+
+      renderHook(() => useRemoteIntegration(deps));
+
+      // Advance timers - should not broadcast since not in live mode
+      vi.advanceTimersByTime(1000);
+
+      expect(mockWeb.broadcastTabsChange).not.toHaveBeenCalled();
     });
   });
 });

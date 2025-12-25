@@ -3532,7 +3532,17 @@ function MaestroConsoleInner() {
   // This is session-specific so users can edit docs in other sessions while one runs
   // Quick Win 4: Memoized to prevent unnecessary re-calculations
   const currentSessionBatchState = useMemo(() => {
-    return activeSession ? getBatchState(activeSession.id) : null;
+    const state = activeSession ? getBatchState(activeSession.id) : null;
+    // DEBUG: Log currentSessionBatchState computation
+    if (state) {
+      console.log('[App:currentSessionBatchState] Computed:', {
+        sessionId: activeSession?.id,
+        loopIteration: state.loopIteration,
+        completedTasksAcrossAllDocs: state.completedTasksAcrossAllDocs,
+        totalTasksAcrossAllDocs: state.totalTasksAcrossAllDocs,
+      });
+    }
+    return state;
   }, [activeSession, getBatchState]);
 
   // Get batch state for display - prioritize the session with an active batch run,

@@ -309,13 +309,14 @@ export function AutoRunExpandedModal({
             {/* Run / Stop button */}
             {isLocked ? (
               <button
-                onClick={() => onStopBatchRun?.(sessionId)}
+                onClick={() => !isStopping && onStopBatchRun?.(sessionId)}
                 disabled={isStopping}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs transition-colors font-semibold ${isStopping ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded text-xs transition-colors font-semibold ${isStopping ? 'cursor-not-allowed' : ''}`}
                 style={{
-                  backgroundColor: theme.colors.error,
-                  color: 'white',
-                  border: `1px solid ${theme.colors.error}`
+                  backgroundColor: isStopping ? theme.colors.warning : theme.colors.error,
+                  color: isStopping ? theme.colors.bgMain : 'white',
+                  border: `1px solid ${isStopping ? theme.colors.warning : theme.colors.error}`,
+                  pointerEvents: isStopping ? 'none' : 'auto'
                 }}
                 title={isStopping ? 'Stopping after current task...' : 'Stop batch run'}
               >

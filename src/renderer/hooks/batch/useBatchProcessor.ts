@@ -258,6 +258,25 @@ export function useBatchProcessor({
       if (newStateForSession) {
         const prevSessionState = currentState[sessionId] || DEFAULT_BATCH_STATE;
 
+        // DEBUG: Log state update details
+        console.log('[BatchProcessor:onUpdate] State update:', {
+          sessionId,
+          prev: {
+            loopIteration: prevSessionState.loopIteration,
+            completedTasksAcrossAllDocs: prevSessionState.completedTasksAcrossAllDocs,
+            totalTasksAcrossAllDocs: prevSessionState.totalTasksAcrossAllDocs,
+          },
+          new: {
+            loopIteration: newStateForSession.loopIteration,
+            completedTasksAcrossAllDocs: newStateForSession.completedTasksAcrossAllDocs,
+            totalTasksAcrossAllDocs: newStateForSession.totalTasksAcrossAllDocs,
+          },
+          willDispatch: {
+            loopIteration: newStateForSession.loopIteration !== prevSessionState.loopIteration ? newStateForSession.loopIteration : 'SKIPPED',
+            completedTasksAcrossAllDocs: newStateForSession.completedTasksAcrossAllDocs !== prevSessionState.completedTasksAcrossAllDocs ? newStateForSession.completedTasksAcrossAllDocs : 'SKIPPED',
+          }
+        });
+
         // Dispatch UPDATE_PROGRESS with any changed fields
         dispatch({
           type: 'UPDATE_PROGRESS',
@@ -311,7 +330,17 @@ export function useBatchProcessor({
 
   // Helper to get batch state for a session
   const getBatchState = useCallback((sessionId: string): BatchRunState => {
-    return batchRunStates[sessionId] || DEFAULT_BATCH_STATE;
+    const state = batchRunStates[sessionId] || DEFAULT_BATCH_STATE;
+    // DEBUG: Log getBatchState calls
+    console.log('[BatchProcessor:getBatchState] Called:', {
+      sessionId,
+      state: {
+        loopIteration: state.loopIteration,
+        completedTasksAcrossAllDocs: state.completedTasksAcrossAllDocs,
+        totalTasksAcrossAllDocs: state.totalTasksAcrossAllDocs,
+      }
+    });
+    return state;
   }, [batchRunStates]);
 
   // Check if any session has an active batch

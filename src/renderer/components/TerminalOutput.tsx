@@ -855,7 +855,10 @@ interface TerminalOutputProps {
   onShowErrorDetails?: () => void; // Callback to show the error modal (for error log entries)
 }
 
-export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((props, ref) => {
+// PERFORMANCE: Wrap in React.memo to prevent re-renders when parent re-renders
+// but TerminalOutput's props haven't changed. This is critical because TerminalOutput
+// can render many log entries and is expensive to re-render.
+export const TerminalOutput = memo(forwardRef<HTMLDivElement, TerminalOutputProps>((props, ref) => {
   const {
     session, theme, fontFamily, activeFocus: _activeFocus, outputSearchOpen, outputSearchQuery,
     setOutputSearchOpen, setOutputSearchQuery, setActiveFocus, setLightboxImage,
@@ -1582,6 +1585,6 @@ export const TerminalOutput = forwardRef<HTMLDivElement, TerminalOutputProps>((p
       )}
     </div>
   );
-});
+}));
 
 TerminalOutput.displayName = 'TerminalOutput';

@@ -72,18 +72,29 @@ export function useRemoteIntegration(deps: UseRemoteIntegrationDeps): UseRemoteI
   // Handle remote commands from web interface
   // This allows web commands to go through the exact same code path as desktop commands
   useEffect(() => {
+    console.log('[useRemoteIntegration] Setting up onRemoteCommand listener');
     const unsubscribeRemote = window.maestro.process.onRemoteCommand((sessionId: string, command: string, inputMode?: 'ai' | 'terminal') => {
+      console.log('[useRemoteIntegration] onRemoteCommand callback invoked:', { sessionId, command: command?.substring(0, 50), inputMode });
+
       // Verify the session exists
       const targetSession = sessionsRef.current.find(s => s.id === sessionId);
+      console.log('[useRemoteIntegration] Target session lookup:', {
+        found: !!targetSession,
+        sessionCount: sessionsRef.current.length,
+        availableIds: sessionsRef.current.map(s => s.id)
+      });
 
       if (!targetSession) {
+        console.warn('[useRemoteIntegration] Session not found, dropping command');
         return;
       }
 
       // Check if session is busy (should have been checked by web server, but double-check)
       if (targetSession.state === 'busy') {
+        console.warn('[useRemoteIntegration] Session is busy, dropping command. State:', targetSession.state);
         return;
       }
+      console.log('[useRemoteIntegration] Session state check passed:', targetSession.state);
 
       // If web provided an inputMode, sync the session state before executing
       // This ensures the renderer uses the same mode the web intended
@@ -95,13 +106,16 @@ export function useRemoteIntegration(deps: UseRemoteIntegrationDeps): UseRemoteI
 
       // Switch to the target session (for visual feedback)
       setActiveSessionId(sessionId);
+      console.log('[useRemoteIntegration] Switched active session to:', sessionId);
 
       // Dispatch event directly - handleRemoteCommand handles all the logic
       // Don't set inputValue - we don't want command text to appear in the input bar
       // Pass the inputMode from web so handleRemoteCommand uses it
+      console.log('[useRemoteIntegration] Dispatching maestro:remoteCommand event:', { sessionId, command: command?.substring(0, 50), inputMode });
       window.dispatchEvent(new CustomEvent('maestro:remoteCommand', {
         detail: { sessionId, command, inputMode }
       }));
+      console.log('[useRemoteIntegration] Event dispatched successfully');
     });
 
     return () => {
@@ -310,54 +324,62 @@ export function useRemoteIntegration(deps: UseRemoteIntegrationDeps): UseRemoteI
   }, [sessionsRef, activeSessionIdRef, setSessions, setActiveSessionId, defaultSaveToHistory]);
 
   // Broadcast tab changes to web clients when tabs, activeTabId, or tab properties change
-  // Use a ref to track previous values and only broadcast on actual changes
+  // PERFORMANCE FIX: This effect was previously missing its dependency array, causing it to
+  // run on EVERY render (including every keystroke). Now it only runs when isLiveMode changes,
+  // and uses the sessionsRef to avoid reacting to every session state change.
+  // The internal comparison logic ensures broadcasts only happen when actually needed.
   const prevTabsRef = useRef<Map<string, { tabCount: number; activeTabId: string; tabsHash: string }>>(new Map());
 
+  // Only set up the interval when live mode is active
   useEffect(() => {
-    // Get current sessions from ref to ensure we have latest state
-    const sessions = sessionsRef.current;
+    // Skip entirely if not in live mode - no web clients to broadcast to
+    if (!isLiveMode) return;
 
-    // Broadcast tab changes for all sessions that have changed
-    sessions.forEach(session => {
-      if (!session.aiTabs || session.aiTabs.length === 0) return;
+    // Use an interval to periodically check for changes instead of running on every render
+    // This dramatically reduces CPU usage during normal typing
+    const intervalId = setInterval(() => {
+      const sessions = sessionsRef.current;
 
-      // Create a hash of tab properties that should trigger a broadcast when changed
-      // This includes: id, name, starred, state (properties visible in web UI)
-      const tabsHash = session.aiTabs.map(t => `${t.id}:${t.name || ''}:${t.starred}:${t.state}`).join('|');
+      sessions.forEach(session => {
+        if (!session.aiTabs || session.aiTabs.length === 0) return;
 
-      const prev = prevTabsRef.current.get(session.id);
-      const current = {
-        tabCount: session.aiTabs.length,
-        activeTabId: session.activeTabId || session.aiTabs[0]?.id || '',
-        tabsHash,
-      };
+        // Create a hash of tab properties that should trigger a broadcast when changed
+        const tabsHash = session.aiTabs.map(t => `${t.id}:${t.name || ''}:${t.starred}:${t.state}`).join('|');
 
-      // Check if anything changed (count, active tab, or any tab properties)
-      if (!prev || prev.tabCount !== current.tabCount || prev.activeTabId !== current.activeTabId || prev.tabsHash !== current.tabsHash) {
-        // Broadcast to web clients
-        const tabsForBroadcast = session.aiTabs.map(tab => ({
-          id: tab.id,
-          agentSessionId: tab.agentSessionId,
-          name: tab.name,
-          starred: tab.starred,
-          inputValue: tab.inputValue,
-          usageStats: tab.usageStats,
-          createdAt: tab.createdAt,
-          state: tab.state,
-          thinkingStartTime: tab.thinkingStartTime,
-        }));
+        const prev = prevTabsRef.current.get(session.id);
+        const current = {
+          tabCount: session.aiTabs.length,
+          activeTabId: session.activeTabId || session.aiTabs[0]?.id || '',
+          tabsHash,
+        };
 
-        window.maestro.web.broadcastTabsChange(
-          session.id,
-          tabsForBroadcast,
-          current.activeTabId
-        );
+        // Check if anything changed
+        if (!prev || prev.tabCount !== current.tabCount || prev.activeTabId !== current.activeTabId || prev.tabsHash !== current.tabsHash) {
+          const tabsForBroadcast = session.aiTabs.map(tab => ({
+            id: tab.id,
+            agentSessionId: tab.agentSessionId,
+            name: tab.name,
+            starred: tab.starred,
+            inputValue: tab.inputValue,
+            usageStats: tab.usageStats,
+            createdAt: tab.createdAt,
+            state: tab.state,
+            thinkingStartTime: tab.thinkingStartTime,
+          }));
 
-        // Update ref
-        prevTabsRef.current.set(session.id, current);
-      }
-    });
-  });
+          window.maestro.web.broadcastTabsChange(
+            session.id,
+            tabsForBroadcast,
+            current.activeTabId
+          );
+
+          prevTabsRef.current.set(session.id, current);
+        }
+      });
+    }, 500); // Check every 500ms - fast enough for good UX, slow enough to not impact typing
+
+    return () => clearInterval(intervalId);
+  }, [isLiveMode, sessionsRef]);
 
   return {};
 }
