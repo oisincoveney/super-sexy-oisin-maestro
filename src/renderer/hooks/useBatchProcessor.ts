@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useState, useCallback, useRef, useReducer } from 'react';
 import type { BatchRunState, BatchRunConfig, BatchDocumentEntry, Session, HistoryEntry, UsageStats, Group, AutoRunStats, AgentError, ToolType } from '../types';
 import { substituteTemplateVariables, TemplateContext } from '../utils/templateVariables';
 import { getBadgeForTime, getNextBadge, formatTimeRemaining } from '../constants/conductorBadges';
@@ -6,56 +6,23 @@ import { autorunSynopsisPrompt } from '../../prompts';
 import { parseSynopsis } from '../../shared/synopsis';
 import { formatElapsedTime } from '../../shared/formatters';
 import { gitService } from '../services/git';
+// Extracted batch processing modules
+import {
+  countUnfinishedTasks,
+  countCheckedTasks,
+  uncheckAllTasks,
+  useSessionDebounce,
+  batchReducer,
+  DEFAULT_BATCH_STATE,
+  useTimeTracking,
+} from './batch';
 
 // Debounce delay for batch state updates (Quick Win 1)
 const BATCH_STATE_DEBOUNCE_MS = 200;
 
-// Regex to count unchecked markdown checkboxes: - [ ] task (also * [ ])
-const UNCHECKED_TASK_REGEX = /^[\s]*[-*]\s*\[\s*\]\s*.+$/gm;
-
-// Regex to count checked markdown checkboxes: - [x] task (also * [x])
-const CHECKED_TASK_COUNT_REGEX = /^[\s]*[-*]\s*\[[xX✓✔]\]\s*.+$/gm;
-
 // Regex to match checked markdown checkboxes for reset-on-completion
 // Matches both [x] and [X] with various checkbox formats (standard and GitHub-style)
-const CHECKED_TASK_REGEX = /^(\s*[-*]\s*)\[[xX✓✔]\]/gm;
-
-// Default empty batch state
-const DEFAULT_BATCH_STATE: BatchRunState = {
-  isRunning: false,
-  isStopping: false,
-  // Multi-document progress (new fields)
-  documents: [],
-  lockedDocuments: [],
-  currentDocumentIndex: 0,
-  currentDocTasksTotal: 0,
-  currentDocTasksCompleted: 0,
-  totalTasksAcrossAllDocs: 0,
-  completedTasksAcrossAllDocs: 0,
-  // Loop mode
-  loopEnabled: false,
-  loopIteration: 0,
-  // Folder path for file operations
-  folderPath: '',
-  // Worktree tracking
-  worktreeActive: false,
-  worktreePath: undefined,
-  worktreeBranch: undefined,
-  // Legacy fields (kept for backwards compatibility)
-  totalTasks: 0,
-  completedTasks: 0,
-  currentTaskIndex: 0,
-  originalContent: '',
-  sessionIds: [],
-  // Time tracking (excludes sleep/suspend time)
-  accumulatedElapsedMs: 0,
-  lastActiveTimestamp: undefined,
-  // Error handling state (Phase 5.10)
-  error: undefined,
-  errorPaused: false,
-  errorDocumentIndex: undefined,
-  errorTaskDescription: undefined
-};
+// Note: countUnfinishedTasks, countCheckedTasks, uncheckAllTasks are now imported from ./batch/batchUtils
 
 interface BatchCompleteInfo {
   sessionId: string;
@@ -189,30 +156,9 @@ function createLoopSummaryEntry(params: LoopSummaryParams): Omit<HistoryEntry, '
   };
 }
 
-/**
- * Count unchecked tasks in markdown content
- * Matches lines like: - [ ] task description
- */
-export function countUnfinishedTasks(content: string): number {
-  const matches = content.match(UNCHECKED_TASK_REGEX);
-  return matches ? matches.length : 0;
-}
-
-/**
- * Count checked tasks in markdown content
- */
-function countCheckedTasks(content: string): number {
-  const matches = content.match(CHECKED_TASK_COUNT_REGEX);
-  return matches ? matches.length : 0;
-}
-
-/**
- * Uncheck all markdown checkboxes in content (for reset-on-completion)
- * Converts all - [x] to - [ ] (case insensitive)
- */
-export function uncheckAllTasks(content: string): string {
-  return content.replace(CHECKED_TASK_REGEX, '$1[ ]');
-}
+// Re-export utility functions for backwards compatibility
+// (countUnfinishedTasks and uncheckAllTasks are imported from ./batch/batchUtils)
+export { countUnfinishedTasks, uncheckAllTasks };
 
 /**
  * Hook for managing batch processing of scratchpad tasks across multiple sessions
@@ -233,8 +179,8 @@ export function useBatchProcessor({
   audioFeedbackCommand,
   autoRunStats
 }: UseBatchProcessorProps): UseBatchProcessorReturn {
-  // Batch states per session
-  const [batchRunStates, setBatchRunStates] = useState<Record<string, BatchRunState>>({});
+  // Batch states per session using reducer pattern for predictable state transitions
+  const [batchRunStates, dispatch] = useReducer(batchReducer, {});
 
   // Custom prompts per session
   const [customPrompts, setCustomPrompts] = useState<Record<string, string>>({});
@@ -246,56 +192,12 @@ export function useBatchProcessor({
   const sessionsRef = useRef(sessions);
   sessionsRef.current = sessions;
 
-  // Visibility-based time tracking refs (per session)
-  // Tracks accumulated time and last active timestamp for accurate elapsed time
-  const accumulatedTimeRefs = useRef<Record<string, number>>({});
-  const lastActiveTimestampRefs = useRef<Record<string, number | null>>({});
-
-  // Ref to track latest batchRunStates for visibility handler (Quick Win 2)
-  // This avoids re-registering the visibility listener on every state change
+  // Ref to track latest batchRunStates for time tracking callback
   const batchRunStatesRef = useRef(batchRunStates);
   batchRunStatesRef.current = batchRunStates;
 
-  // Debounce timer refs for batch state updates (Quick Win 1)
-  const debounceTimerRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const pendingUpdatesRef = useRef<Record<string, (prev: Record<string, BatchRunState>) => Record<string, BatchRunState>>>({});
-  const isMountedRef = useRef(true);
-
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-      Object.values(debounceTimerRefs.current).forEach(timer => {
-        clearTimeout(timer);
-      });
-      Object.keys(debounceTimerRefs.current).forEach(sessionId => {
-        delete debounceTimerRefs.current[sessionId];
-      });
-      Object.keys(pendingUpdatesRef.current).forEach(sessionId => {
-        delete pendingUpdatesRef.current[sessionId];
-      });
-    };
-  }, []);
-
   // Error resolution promises to pause batch processing until user action (per session)
   const errorResolutionRefs = useRef<Record<string, ErrorResolutionEntry>>({});
-
-  // Helper to get batch state for a session
-  const getBatchState = useCallback((sessionId: string): BatchRunState => {
-    return batchRunStates[sessionId] || DEFAULT_BATCH_STATE;
-  }, [batchRunStates]);
-
-  // Check if any session has an active batch
-  const hasAnyActiveBatch = Object.values(batchRunStates).some(state => state.isRunning);
-
-  // Get list of session IDs with active batches
-  const activeBatchSessionIds = Object.entries(batchRunStates)
-    .filter(([_, state]) => state.isRunning)
-    .map(([sessionId]) => sessionId);
-
-  // Set custom prompt for a session
-  const setCustomPrompt = useCallback((sessionId: string, prompt: string) => {
-    setCustomPrompts(prev => ({ ...prev, [sessionId]: prompt }));
-  }, []);
 
   /**
    * Broadcast Auto Run state to web interface immediately (synchronously).
@@ -317,10 +219,93 @@ export function useBatchProcessor({
     }
   }, []);
 
+  // Use extracted debounce hook for batch state updates (replaces manual debounce logic)
+  const { scheduleUpdate: scheduleDebouncedUpdate } = useSessionDebounce<Record<string, BatchRunState>>({
+    delayMs: BATCH_STATE_DEBOUNCE_MS,
+    onUpdate: useCallback((sessionId: string, updater: (prev: Record<string, BatchRunState>) => Record<string, BatchRunState>) => {
+      // Apply the updater and get the new state for broadcasting
+      // Note: We use a ref to capture the new state since dispatch doesn't return it
+      let newStateForSession: BatchRunState | null = null;
+
+      // For reducer, we need to convert the updater to an action
+      // Since the updater pattern doesn't map directly to actions, we wrap it
+      // by reading current state and computing the new state
+      const currentState = batchRunStatesRef.current;
+      const newState = updater(currentState);
+      newStateForSession = newState[sessionId] || null;
+
+      // Dispatch UPDATE_PROGRESS with the computed changes
+      // For complex state changes, we extract the session's new state and dispatch appropriately
+      if (newStateForSession) {
+        const prevSessionState = currentState[sessionId] || DEFAULT_BATCH_STATE;
+
+        // Dispatch UPDATE_PROGRESS with any changed fields
+        dispatch({
+          type: 'UPDATE_PROGRESS',
+          sessionId,
+          payload: {
+            currentDocumentIndex: newStateForSession.currentDocumentIndex !== prevSessionState.currentDocumentIndex ? newStateForSession.currentDocumentIndex : undefined,
+            currentDocTasksTotal: newStateForSession.currentDocTasksTotal !== prevSessionState.currentDocTasksTotal ? newStateForSession.currentDocTasksTotal : undefined,
+            currentDocTasksCompleted: newStateForSession.currentDocTasksCompleted !== prevSessionState.currentDocTasksCompleted ? newStateForSession.currentDocTasksCompleted : undefined,
+            totalTasksAcrossAllDocs: newStateForSession.totalTasksAcrossAllDocs !== prevSessionState.totalTasksAcrossAllDocs ? newStateForSession.totalTasksAcrossAllDocs : undefined,
+            completedTasksAcrossAllDocs: newStateForSession.completedTasksAcrossAllDocs !== prevSessionState.completedTasksAcrossAllDocs ? newStateForSession.completedTasksAcrossAllDocs : undefined,
+            totalTasks: newStateForSession.totalTasks !== prevSessionState.totalTasks ? newStateForSession.totalTasks : undefined,
+            completedTasks: newStateForSession.completedTasks !== prevSessionState.completedTasks ? newStateForSession.completedTasks : undefined,
+            currentTaskIndex: newStateForSession.currentTaskIndex !== prevSessionState.currentTaskIndex ? newStateForSession.currentTaskIndex : undefined,
+            sessionIds: newStateForSession.sessionIds !== prevSessionState.sessionIds ? newStateForSession.sessionIds : undefined,
+            accumulatedElapsedMs: newStateForSession.accumulatedElapsedMs !== prevSessionState.accumulatedElapsedMs ? newStateForSession.accumulatedElapsedMs : undefined,
+            lastActiveTimestamp: newStateForSession.lastActiveTimestamp !== prevSessionState.lastActiveTimestamp ? newStateForSession.lastActiveTimestamp : undefined,
+            loopIteration: newStateForSession.loopIteration !== prevSessionState.loopIteration ? newStateForSession.loopIteration : undefined,
+          }
+        });
+      }
+
+      broadcastAutoRunState(sessionId, newStateForSession);
+    }, [broadcastAutoRunState])
+  });
+
+  // Use extracted time tracking hook (replaces manual visibility-based time tracking)
+  const timeTracking = useTimeTracking({
+    getActiveSessionIds: useCallback(() => {
+      return Object.entries(batchRunStatesRef.current)
+        .filter(([_, state]) => state.isRunning)
+        .map(([sessionId]) => sessionId);
+    }, []),
+    onTimeUpdate: useCallback((sessionId: string, accumulatedMs: number, activeTimestamp: number | null) => {
+      // Update batch state with new time tracking values
+      dispatch({
+        type: 'UPDATE_PROGRESS',
+        sessionId,
+        payload: {
+          accumulatedElapsedMs: accumulatedMs,
+          lastActiveTimestamp: activeTimestamp ?? undefined
+        }
+      });
+    }, [])
+  });
+
+  // Helper to get batch state for a session
+  const getBatchState = useCallback((sessionId: string): BatchRunState => {
+    return batchRunStates[sessionId] || DEFAULT_BATCH_STATE;
+  }, [batchRunStates]);
+
+  // Check if any session has an active batch
+  const hasAnyActiveBatch = Object.values(batchRunStates).some(state => state.isRunning);
+
+  // Get list of session IDs with active batches
+  const activeBatchSessionIds = Object.entries(batchRunStates)
+    .filter(([_, state]) => state.isRunning)
+    .map(([sessionId]) => sessionId);
+
+  // Set custom prompt for a session
+  const setCustomPrompt = useCallback((sessionId: string, prompt: string) => {
+    setCustomPrompts(prev => ({ ...prev, [sessionId]: prompt }));
+  }, []);
+
   /**
    * Update batch state AND broadcast to web interface with debouncing.
-   * This wrapper batches rapid-fire state updates to reduce React re-renders
-   * during intensive task processing. (Quick Win 1)
+   * This wrapper uses the extracted useSessionDebounce hook to batch rapid-fire
+   * state updates and reduce React re-renders during intensive task processing.
    *
    * Critical updates (isRunning changes, errors) are processed immediately,
    * while progress updates are debounced by BATCH_STATE_DEBOUNCE_MS.
@@ -330,87 +315,8 @@ export function useBatchProcessor({
     updater: (prev: Record<string, BatchRunState>) => Record<string, BatchRunState>,
     immediate: boolean = false
   ) => {
-    // For immediate updates (start/stop/error), bypass debouncing
-    if (immediate) {
-      let newStateForSession: BatchRunState | null = null;
-      setBatchRunStates(prev => {
-        const newStates = updater(prev);
-        newStateForSession = newStates[sessionId] || null;
-        return newStates;
-      });
-      broadcastAutoRunState(sessionId, newStateForSession);
-      return;
-    }
-
-    // Compose this update with any pending updates for this session
-    const existingUpdater = pendingUpdatesRef.current[sessionId];
-    if (existingUpdater) {
-      pendingUpdatesRef.current[sessionId] = (prev) => updater(existingUpdater(prev));
-    } else {
-      pendingUpdatesRef.current[sessionId] = updater;
-    }
-
-    // Clear existing timer and set a new one
-    if (debounceTimerRefs.current[sessionId]) {
-      clearTimeout(debounceTimerRefs.current[sessionId]);
-    }
-
-    debounceTimerRefs.current[sessionId] = setTimeout(() => {
-      const composedUpdater = pendingUpdatesRef.current[sessionId];
-      if (composedUpdater) {
-        let newStateForSession: BatchRunState | null = null;
-        if (isMountedRef.current) {
-          setBatchRunStates(prev => {
-            const newStates = composedUpdater(prev);
-            newStateForSession = newStates[sessionId] || null;
-            return newStates;
-          });
-          broadcastAutoRunState(sessionId, newStateForSession);
-        }
-        delete pendingUpdatesRef.current[sessionId];
-      }
-      delete debounceTimerRefs.current[sessionId];
-    }, BATCH_STATE_DEBOUNCE_MS);
-  }, [broadcastAutoRunState]);
-
-  // Visibility change handler to pause/resume time tracking (Quick Win 2)
-  // Uses ref instead of state to avoid re-registering listener on every state change
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      const now = Date.now();
-
-      // Update time tracking for all running batch sessions
-      // Use ref to get latest state without causing effect re-registration
-      Object.entries(batchRunStatesRef.current).forEach(([sessionId, state]) => {
-        if (!state.isRunning) return;
-
-        if (document.hidden) {
-          // Going hidden: accumulate the time since last active timestamp
-          const lastActive = lastActiveTimestampRefs.current[sessionId];
-          if (lastActive !== null && lastActive !== undefined) {
-            accumulatedTimeRefs.current[sessionId] = (accumulatedTimeRefs.current[sessionId] || 0) + (now - lastActive);
-            lastActiveTimestampRefs.current[sessionId] = null;
-          }
-        } else {
-          // Becoming visible: reset the last active timestamp to now
-          lastActiveTimestampRefs.current[sessionId] = now;
-        }
-
-        // Update batch state with new accumulated time
-        setBatchRunStates(prev => ({
-          ...prev,
-          [sessionId]: {
-            ...prev[sessionId],
-            accumulatedElapsedMs: accumulatedTimeRefs.current[sessionId] || 0,
-            lastActiveTimestamp: lastActiveTimestampRefs.current[sessionId] ?? undefined
-          }
-        }));
-      });
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, []); // Empty deps - handler uses ref for latest state
+    scheduleDebouncedUpdate(sessionId, updater, immediate);
+  }, [scheduleDebouncedUpdate])
 
   /**
    * Helper function to read a document and count its tasks
@@ -472,9 +378,8 @@ ${docList}
     // Track batch start time for completion notification
     const batchStartTime = Date.now();
 
-    // Initialize visibility-based time tracking for this session
-    accumulatedTimeRefs.current[sessionId] = 0;
-    lastActiveTimestampRefs.current[sessionId] = batchStartTime;
+    // Initialize visibility-based time tracking for this session using the extracted hook
+    timeTracking.startTracking(sessionId);
 
     // Reset stop flag for this session
     stopRequestedRefs.current[sessionId] = false;
@@ -842,7 +747,7 @@ ${docList}
         if (remainingTasks === 0) {
           // For reset-on-completion documents, check if there are checked tasks that need resetting
           if (docEntry.resetOnCompletion && loopEnabled) {
-            const checkedTaskCount = (docContent.match(CHECKED_TASK_REGEX) || []).length;
+            const checkedTaskCount = countCheckedTasks(docContent);
             if (checkedTaskCount > 0) {
               console.log(`[BatchProcessor] Document ${docEntry.filename} has ${checkedTaskCount} checked tasks - resetting for next iteration`);
               const resetContent = uncheckAllTasks(docContent);
@@ -1510,12 +1415,9 @@ ${docList}
     }
 
     // Add final Auto Run summary entry
-    // Calculate visibility-aware elapsed time (excludes time when laptop was sleeping/suspended)
-    const finalAccumulatedTime = accumulatedTimeRefs.current[sessionId] || 0;
-    const finalLastActive = lastActiveTimestampRefs.current[sessionId];
-    const totalElapsedMs = finalLastActive !== null && finalLastActive !== undefined && !document.hidden
-      ? finalAccumulatedTime + (Date.now() - finalLastActive)
-      : finalAccumulatedTime;
+    // Calculate visibility-aware elapsed time using the extracted time tracking hook
+    // (excludes time when laptop was sleeping/suspended)
+    const totalElapsedMs = timeTracking.getElapsedTime(sessionId);
     const loopsCompleted = loopEnabled ? loopIteration + 1 : 1;
 
     console.log('[BatchProcessor] Creating final Auto Run summary:', { sessionId, totalElapsedMs, totalCompletedTasks, stalledCount: stalledDocuments.size });
@@ -1661,11 +1563,10 @@ ${docList}
       });
     }
 
-    // Clean up time tracking refs
-    delete accumulatedTimeRefs.current[sessionId];
-    delete lastActiveTimestampRefs.current[sessionId];
+    // Clean up time tracking and error resolution
+    timeTracking.stopTracking(sessionId);
     delete errorResolutionRefs.current[sessionId];
-  }, [onUpdateSession, onSpawnAgent, onSpawnSynopsis, onAddHistoryEntry, onComplete, onPRResult, audioFeedbackEnabled, audioFeedbackCommand, updateBatchStateAndBroadcast]);
+  }, [onUpdateSession, onSpawnAgent, onSpawnSynopsis, onAddHistoryEntry, onComplete, onPRResult, audioFeedbackEnabled, audioFeedbackCommand, updateBatchStateAndBroadcast, timeTracking]);
 
   /**
    * Request to stop the batch run for a specific session after current task completes
