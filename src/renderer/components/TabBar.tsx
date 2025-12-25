@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Plus, Star, Copy, Edit2, Mail, Pencil, Search, GitMerge, ArrowRightCircle, Minimize2, Clipboard, Download } from 'lucide-react';
+import { X, Plus, Star, Copy, Edit2, Mail, Pencil, Search, GitMerge, ArrowRightCircle, Minimize2 } from 'lucide-react';
 import type { AITab, Theme } from '../types';
 import { hasDraft } from '../utils/tabHelpers';
 
@@ -53,10 +53,18 @@ interface TabProps {
   onSendToAgent?: () => void;
   /** Handler to summarize and continue in a new tab */
   onSummarizeAndContinue?: () => void;
-  /** Handler to copy conversation context to clipboard */
-  onCopyContext?: () => void;
-  /** Handler to export tab as HTML */
-  onExportHtml?: () => void;
+  /** Handler to close other tabs */
+  onCloseOthers?: () => void;
+  /** Handler to close tabs to the left */
+  onCloseLeft?: () => void;
+  /** Handler to close tabs to the right */
+  onCloseRight?: () => void;
+  /** Is this the first tab? */
+  isFirstTab?: boolean;
+  /** Is this the last tab? */
+  isLastTab?: boolean;
+  /** Is this the only tab? */
+  hasOnlyOneTab?: boolean;
   shortcutHint?: number | null;
   registerRef?: (el: HTMLDivElement | null) => void;
   hasDraft?: boolean;
@@ -126,8 +134,12 @@ function Tab({
   onMergeWith,
   onSendToAgent,
   onSummarizeAndContinue,
-  onCopyContext,
-  onExportHtml,
+  onCloseOthers,
+  onCloseLeft,
+  onCloseRight,
+  isFirstTab,
+  isLastTab,
+  hasOnlyOneTab,
   shortcutHint,
   registerRef,
   hasDraft
@@ -238,15 +250,21 @@ function Tab({
     setOverlayOpen(false);
   };
 
-  const handleCopyContextClick = (e: React.MouseEvent) => {
+  const handleCloseOthersClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onCopyContext?.();
+    onCloseOthers?.();
     setOverlayOpen(false);
   };
 
-  const handleExportHtmlClick = (e: React.MouseEvent) => {
+  const handleCloseLeftClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onExportHtml?.();
+    onCloseLeft?.();
+    setOverlayOpen(false);
+  };
+
+  const handleCloseRightClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onCloseRight?.();
     setOverlayOpen(false);
   };
 
@@ -289,6 +307,7 @@ function Tab({
       onMouseDown={handleMouseDown}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onContextMenu={handleContextMenu}
       draggable
       onDragStart={onDragStart}
       onDragOver={onDragOver}
@@ -634,7 +653,7 @@ export function TabBar({
   }, [onRequestRename]);
 
   // Count unread tabs for the filter toggle tooltip
-  const _unreadCount = tabs.filter(t => t.hasUnread).length;
+  const unreadCount = tabs.filter(t => t.hasUnread).length;
 
   // Filter tabs based on unread filter state
   // When filter is on, show: unread tabs + active tab + tabs with drafts
@@ -662,6 +681,47 @@ export function TabBar({
       window.removeEventListener('resize', checkOverflow);
     };
   }, [tabs.length, displayedTabs.length]);
+
+  const handleCloseOthers = useCallback((tabId: string) => {
+    // Close all VISIBLE tabs except the specified one
+    displayedTabs.forEach(tab => {
+      if (tab.id !== tabId) {
+        onTabClose(tab.id);
+      }
+    });
+    // Set the specified tab as active if it wasn't already
+    if (activeTabId !== tabId) {
+      onTabSelect(tabId);
+    }
+  }, [displayedTabs, activeTabId, onTabClose, onTabSelect]);
+
+  const handleCloseLeft = useCallback((tabId: string) => {
+    // Find position in VISIBLE tabs
+    const clickedTabIndex = displayedTabs.findIndex(t => t.id === tabId);
+    // Close all VISIBLE tabs to the left of the clicked tab
+    for (let i = 0; i < clickedTabIndex; i++) {
+      onTabClose(displayedTabs[i].id);
+    }
+    // Set the clicked tab as active if the active tab was to the left
+    const activeTabIndex = displayedTabs.findIndex(t => t.id === activeTabId);
+    if (activeTabIndex < clickedTabIndex) {
+      onTabSelect(tabId);
+    }
+  }, [displayedTabs, activeTabId, onTabClose, onTabSelect]);
+
+  const handleCloseRight = useCallback((tabId: string) => {
+    // Find position in VISIBLE tabs
+    const clickedTabIndex = displayedTabs.findIndex(t => t.id === tabId);
+    // Close all VISIBLE tabs to the right of the clicked tab
+    for (let i = displayedTabs.length - 1; i > clickedTabIndex; i--) {
+      onTabClose(displayedTabs[i].id);
+    }
+    // Set the clicked tab as active if the active tab was to the right
+    const activeTabIndex = displayedTabs.findIndex(t => t.id === activeTabId);
+    if (activeTabIndex > clickedTabIndex) {
+      onTabSelect(tabId);
+    }
+  }, [displayedTabs, activeTabId, onTabClose, onTabSelect]);
 
   return (
     <div
@@ -728,6 +788,12 @@ export function TabBar({
         // Show separator between inactive tabs (not adjacent to active tab)
         const showSeparator = index > 0 && !isActive && !isPrevActive;
 
+        // Calculate position info for close actions (within visible tabs)
+        const displayedTabIndex = displayedTabs.findIndex(t => t.id === tab.id);
+        const isFirstTab = displayedTabIndex === 0;
+        const isLastTab = displayedTabIndex === displayedTabs.length - 1;
+        const hasOnlyOneTab = displayedTabs.length === 1;
+
         return (
           <React.Fragment key={tab.id}>
             {showSeparator && (
@@ -756,8 +822,12 @@ export function TabBar({
               onMergeWith={onMergeWith && tab.agentSessionId ? () => onMergeWith(tab.id) : undefined}
               onSendToAgent={onSendToAgent && tab.agentSessionId ? () => onSendToAgent(tab.id) : undefined}
               onSummarizeAndContinue={onSummarizeAndContinue && (tab.logs?.length ?? 0) >= 5 ? () => onSummarizeAndContinue(tab.id) : undefined}
-              onCopyContext={onCopyContext && (tab.logs?.length ?? 0) >= 1 ? () => onCopyContext(tab.id) : undefined}
-              onExportHtml={onExportHtml && (tab.logs?.length ?? 0) >= 1 ? () => onExportHtml(tab.id) : undefined}
+              onCloseOthers={() => handleCloseOthers(tab.id)}
+              onCloseLeft={() => handleCloseLeft(tab.id)}
+              onCloseRight={() => handleCloseRight(tab.id)}
+              isFirstTab={isFirstTab}
+              isLastTab={isLastTab}
+              hasOnlyOneTab={hasOnlyOneTab}
               shortcutHint={!showUnreadOnly && originalIndex < 9 ? originalIndex + 1 : null}
               hasDraft={hasDraft(tab)}
               registerRef={(el) => {
@@ -789,7 +859,6 @@ export function TabBar({
           <Plus className="w-4 h-4" />
         </button>
       </div>
-
     </div>
   );
 }
