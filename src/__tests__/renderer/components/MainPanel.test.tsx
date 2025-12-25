@@ -1050,6 +1050,430 @@ describe('MainPanel', () => {
 
       expect(onStopBatchRun).not.toHaveBeenCalled();
     });
+
+    it('should not display Auto mode button when currentSessionBatchState is null', () => {
+      render(<MainPanel {...defaultProps} currentSessionBatchState={null} />);
+
+      expect(screen.queryByText('Auto')).not.toBeInTheDocument();
+      expect(screen.queryByText('Stopping...')).not.toBeInTheDocument();
+    });
+
+    it('should not display Auto mode button when currentSessionBatchState is undefined', () => {
+      render(<MainPanel {...defaultProps} currentSessionBatchState={undefined} />);
+
+      expect(screen.queryByText('Auto')).not.toBeInTheDocument();
+    });
+
+    it('should not display Auto mode button when isRunning is false', () => {
+      const currentSessionBatchState: BatchRunState = {
+        isRunning: false,
+        isStopping: false,
+        documents: ['doc1.md'],
+        currentDocumentIndex: 0,
+        currentDocTasksTotal: 5,
+        currentDocTasksCompleted: 5,
+        totalTasksAcrossAllDocs: 5,
+        completedTasksAcrossAllDocs: 5,
+        loopEnabled: false,
+        loopIteration: 0,
+        folderPath: '/test/folder',
+        worktreeActive: false,
+        totalTasks: 5,
+        completedTasks: 5,
+        currentTaskIndex: 5,
+        originalContent: '',
+        sessionIds: [],
+      };
+
+      render(<MainPanel {...defaultProps} currentSessionBatchState={currentSessionBatchState} />);
+
+      expect(screen.queryByText('Auto')).not.toBeInTheDocument();
+    });
+
+    it('should display worktree indicator (GitBranch icon) when worktreeActive is true', () => {
+      const currentSessionBatchState: BatchRunState = {
+        isRunning: true,
+        isStopping: false,
+        documents: ['doc1.md'],
+        currentDocumentIndex: 0,
+        currentDocTasksTotal: 5,
+        currentDocTasksCompleted: 2,
+        totalTasksAcrossAllDocs: 5,
+        completedTasksAcrossAllDocs: 2,
+        loopEnabled: false,
+        loopIteration: 0,
+        folderPath: '/test/folder',
+        worktreeActive: true,
+        worktreeBranch: 'feature-branch',
+        totalTasks: 5,
+        completedTasks: 2,
+        currentTaskIndex: 2,
+        originalContent: '',
+        sessionIds: [],
+      };
+
+      render(<MainPanel {...defaultProps} currentSessionBatchState={currentSessionBatchState} />);
+
+      expect(screen.getByText('Auto')).toBeInTheDocument();
+      // Check for worktree title tooltip
+      const worktreeIcon = screen.getByTitle('Worktree: feature-branch');
+      expect(worktreeIcon).toBeInTheDocument();
+    });
+
+    it('should display worktree indicator with default title when worktreeBranch is not set', () => {
+      const currentSessionBatchState: BatchRunState = {
+        isRunning: true,
+        isStopping: false,
+        documents: ['doc1.md'],
+        currentDocumentIndex: 0,
+        currentDocTasksTotal: 5,
+        currentDocTasksCompleted: 2,
+        totalTasksAcrossAllDocs: 5,
+        completedTasksAcrossAllDocs: 2,
+        loopEnabled: false,
+        loopIteration: 0,
+        folderPath: '/test/folder',
+        worktreeActive: true,
+        worktreeBranch: undefined,
+        totalTasks: 5,
+        completedTasks: 2,
+        currentTaskIndex: 2,
+        originalContent: '',
+        sessionIds: [],
+      };
+
+      render(<MainPanel {...defaultProps} currentSessionBatchState={currentSessionBatchState} />);
+
+      // Check for default worktree title tooltip
+      const worktreeIcon = screen.getByTitle('Worktree: active');
+      expect(worktreeIcon).toBeInTheDocument();
+    });
+
+    it('should not display worktree indicator when worktreeActive is false', () => {
+      const currentSessionBatchState: BatchRunState = {
+        isRunning: true,
+        isStopping: false,
+        documents: ['doc1.md'],
+        currentDocumentIndex: 0,
+        currentDocTasksTotal: 5,
+        currentDocTasksCompleted: 2,
+        totalTasksAcrossAllDocs: 5,
+        completedTasksAcrossAllDocs: 2,
+        loopEnabled: false,
+        loopIteration: 0,
+        folderPath: '/test/folder',
+        worktreeActive: false,
+        totalTasks: 5,
+        completedTasks: 2,
+        currentTaskIndex: 2,
+        originalContent: '',
+        sessionIds: [],
+      };
+
+      render(<MainPanel {...defaultProps} currentSessionBatchState={currentSessionBatchState} />);
+
+      expect(screen.getByText('Auto')).toBeInTheDocument();
+      expect(screen.queryByTitle(/Worktree:/)).not.toBeInTheDocument();
+    });
+
+    it('should have button disabled when isStopping is true', () => {
+      const currentSessionBatchState: BatchRunState = {
+        isRunning: true,
+        isStopping: true,
+        documents: ['doc1.md'],
+        currentDocumentIndex: 0,
+        currentDocTasksTotal: 5,
+        currentDocTasksCompleted: 2,
+        totalTasksAcrossAllDocs: 5,
+        completedTasksAcrossAllDocs: 2,
+        loopEnabled: false,
+        loopIteration: 0,
+        folderPath: '/test/folder',
+        worktreeActive: false,
+        totalTasks: 5,
+        completedTasks: 2,
+        currentTaskIndex: 2,
+        originalContent: '',
+        sessionIds: [],
+      };
+
+      render(<MainPanel {...defaultProps} currentSessionBatchState={currentSessionBatchState} />);
+
+      const button = screen.getByText('Stopping...').closest('button');
+      expect(button).toBeDisabled();
+    });
+
+    it('should have button enabled when isStopping is false', () => {
+      const currentSessionBatchState: BatchRunState = {
+        isRunning: true,
+        isStopping: false,
+        documents: ['doc1.md'],
+        currentDocumentIndex: 0,
+        currentDocTasksTotal: 5,
+        currentDocTasksCompleted: 2,
+        totalTasksAcrossAllDocs: 5,
+        completedTasksAcrossAllDocs: 2,
+        loopEnabled: false,
+        loopIteration: 0,
+        folderPath: '/test/folder',
+        worktreeActive: false,
+        totalTasks: 5,
+        completedTasks: 2,
+        currentTaskIndex: 2,
+        originalContent: '',
+        sessionIds: [],
+      };
+
+      render(<MainPanel {...defaultProps} currentSessionBatchState={currentSessionBatchState} />);
+
+      const button = screen.getByText('Auto').closest('button');
+      expect(button).not.toBeDisabled();
+    });
+
+    it('should display correct tooltip when running', () => {
+      const currentSessionBatchState: BatchRunState = {
+        isRunning: true,
+        isStopping: false,
+        documents: ['doc1.md'],
+        currentDocumentIndex: 0,
+        currentDocTasksTotal: 5,
+        currentDocTasksCompleted: 2,
+        totalTasksAcrossAllDocs: 5,
+        completedTasksAcrossAllDocs: 2,
+        loopEnabled: false,
+        loopIteration: 0,
+        folderPath: '/test/folder',
+        worktreeActive: false,
+        totalTasks: 5,
+        completedTasks: 2,
+        currentTaskIndex: 2,
+        originalContent: '',
+        sessionIds: [],
+      };
+
+      render(<MainPanel {...defaultProps} currentSessionBatchState={currentSessionBatchState} />);
+
+      const button = screen.getByText('Auto').closest('button');
+      expect(button).toHaveAttribute('title', 'Click to stop batch run');
+    });
+
+    it('should display correct tooltip when stopping', () => {
+      const currentSessionBatchState: BatchRunState = {
+        isRunning: true,
+        isStopping: true,
+        documents: ['doc1.md'],
+        currentDocumentIndex: 0,
+        currentDocTasksTotal: 5,
+        currentDocTasksCompleted: 2,
+        totalTasksAcrossAllDocs: 5,
+        completedTasksAcrossAllDocs: 2,
+        loopEnabled: false,
+        loopIteration: 0,
+        folderPath: '/test/folder',
+        worktreeActive: false,
+        totalTasks: 5,
+        completedTasks: 2,
+        currentTaskIndex: 2,
+        originalContent: '',
+        sessionIds: [],
+      };
+
+      render(<MainPanel {...defaultProps} currentSessionBatchState={currentSessionBatchState} />);
+
+      const button = screen.getByText('Stopping...').closest('button');
+      expect(button).toHaveAttribute('title', 'Stopping after current task...');
+    });
+
+    it('should display progress with zero completed tasks', () => {
+      const currentSessionBatchState: BatchRunState = {
+        isRunning: true,
+        isStopping: false,
+        documents: ['doc1.md'],
+        currentDocumentIndex: 0,
+        currentDocTasksTotal: 10,
+        currentDocTasksCompleted: 0,
+        totalTasksAcrossAllDocs: 10,
+        completedTasksAcrossAllDocs: 0,
+        loopEnabled: false,
+        loopIteration: 0,
+        folderPath: '/test/folder',
+        worktreeActive: false,
+        totalTasks: 10,
+        completedTasks: 0,
+        currentTaskIndex: 0,
+        originalContent: '',
+        sessionIds: [],
+      };
+
+      render(<MainPanel {...defaultProps} currentSessionBatchState={currentSessionBatchState} />);
+
+      expect(screen.getByText('Auto')).toBeInTheDocument();
+      expect(screen.getByText('0/10')).toBeInTheDocument();
+    });
+
+    it('should display progress with all tasks completed', () => {
+      const currentSessionBatchState: BatchRunState = {
+        isRunning: true,
+        isStopping: false,
+        documents: ['doc1.md'],
+        currentDocumentIndex: 0,
+        currentDocTasksTotal: 8,
+        currentDocTasksCompleted: 8,
+        totalTasksAcrossAllDocs: 8,
+        completedTasksAcrossAllDocs: 8,
+        loopEnabled: false,
+        loopIteration: 0,
+        folderPath: '/test/folder',
+        worktreeActive: false,
+        totalTasks: 8,
+        completedTasks: 8,
+        currentTaskIndex: 8,
+        originalContent: '',
+        sessionIds: [],
+      };
+
+      render(<MainPanel {...defaultProps} currentSessionBatchState={currentSessionBatchState} />);
+
+      expect(screen.getByText('Auto')).toBeInTheDocument();
+      expect(screen.getByText('8/8')).toBeInTheDocument();
+    });
+
+    it('should apply error background color styling to Auto button', () => {
+      const currentSessionBatchState: BatchRunState = {
+        isRunning: true,
+        isStopping: false,
+        documents: ['doc1.md'],
+        currentDocumentIndex: 0,
+        currentDocTasksTotal: 5,
+        currentDocTasksCompleted: 2,
+        totalTasksAcrossAllDocs: 5,
+        completedTasksAcrossAllDocs: 2,
+        loopEnabled: false,
+        loopIteration: 0,
+        folderPath: '/test/folder',
+        worktreeActive: false,
+        totalTasks: 5,
+        completedTasks: 2,
+        currentTaskIndex: 2,
+        originalContent: '',
+        sessionIds: [],
+      };
+
+      render(<MainPanel {...defaultProps} currentSessionBatchState={currentSessionBatchState} />);
+
+      const button = screen.getByText('Auto').closest('button');
+      expect(button).toHaveStyle({ backgroundColor: theme.colors.error });
+    });
+
+    it('should apply cursor-not-allowed class when stopping', () => {
+      const currentSessionBatchState: BatchRunState = {
+        isRunning: true,
+        isStopping: true,
+        documents: ['doc1.md'],
+        currentDocumentIndex: 0,
+        currentDocTasksTotal: 5,
+        currentDocTasksCompleted: 2,
+        totalTasksAcrossAllDocs: 5,
+        completedTasksAcrossAllDocs: 2,
+        loopEnabled: false,
+        loopIteration: 0,
+        folderPath: '/test/folder',
+        worktreeActive: false,
+        totalTasks: 5,
+        completedTasks: 2,
+        currentTaskIndex: 2,
+        originalContent: '',
+        sessionIds: [],
+      };
+
+      render(<MainPanel {...defaultProps} currentSessionBatchState={currentSessionBatchState} />);
+
+      const button = screen.getByText('Stopping...').closest('button');
+      expect(button).toHaveClass('cursor-not-allowed');
+    });
+
+    it('should apply cursor-pointer class when not stopping', () => {
+      const currentSessionBatchState: BatchRunState = {
+        isRunning: true,
+        isStopping: false,
+        documents: ['doc1.md'],
+        currentDocumentIndex: 0,
+        currentDocTasksTotal: 5,
+        currentDocTasksCompleted: 2,
+        totalTasksAcrossAllDocs: 5,
+        completedTasksAcrossAllDocs: 2,
+        loopEnabled: false,
+        loopIteration: 0,
+        folderPath: '/test/folder',
+        worktreeActive: false,
+        totalTasks: 5,
+        completedTasks: 2,
+        currentTaskIndex: 2,
+        originalContent: '',
+        sessionIds: [],
+      };
+
+      render(<MainPanel {...defaultProps} currentSessionBatchState={currentSessionBatchState} />);
+
+      const button = screen.getByText('Auto').closest('button');
+      expect(button).toHaveClass('cursor-pointer');
+    });
+
+    it('should display uppercase AUTO text', () => {
+      const currentSessionBatchState: BatchRunState = {
+        isRunning: true,
+        isStopping: false,
+        documents: ['doc1.md'],
+        currentDocumentIndex: 0,
+        currentDocTasksTotal: 5,
+        currentDocTasksCompleted: 2,
+        totalTasksAcrossAllDocs: 5,
+        completedTasksAcrossAllDocs: 2,
+        loopEnabled: false,
+        loopIteration: 0,
+        folderPath: '/test/folder',
+        worktreeActive: false,
+        totalTasks: 5,
+        completedTasks: 2,
+        currentTaskIndex: 2,
+        originalContent: '',
+        sessionIds: [],
+      };
+
+      render(<MainPanel {...defaultProps} currentSessionBatchState={currentSessionBatchState} />);
+
+      // The text should have uppercase class applied
+      const autoText = screen.getByText('Auto');
+      expect(autoText).toHaveClass('uppercase');
+    });
+
+    it('should handle onStopBatchRun being undefined gracefully', () => {
+      const currentSessionBatchState: BatchRunState = {
+        isRunning: true,
+        isStopping: false,
+        documents: ['doc1.md'],
+        currentDocumentIndex: 0,
+        currentDocTasksTotal: 5,
+        currentDocTasksCompleted: 2,
+        totalTasksAcrossAllDocs: 5,
+        completedTasksAcrossAllDocs: 2,
+        loopEnabled: false,
+        loopIteration: 0,
+        folderPath: '/test/folder',
+        worktreeActive: false,
+        totalTasks: 5,
+        completedTasks: 2,
+        currentTaskIndex: 2,
+        originalContent: '',
+        sessionIds: [],
+      };
+
+      // Render without onStopBatchRun callback
+      render(<MainPanel {...defaultProps} currentSessionBatchState={currentSessionBatchState} onStopBatchRun={undefined} />);
+
+      // Click should not throw
+      expect(() => fireEvent.click(screen.getByText('Auto'))).not.toThrow();
+    });
   });
 
   describe('Git tooltip', () => {
