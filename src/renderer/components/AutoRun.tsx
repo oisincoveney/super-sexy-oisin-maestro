@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, memo, useMemo, forwardRef, useImperativeHandle } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeSlug from 'rehype-slug';
 import { Eye, Edit, Play, Square, HelpCircle, Loader2, Image, X, Search, ChevronDown, ChevronRight, FolderOpen, FileText, RefreshCw, Maximize2, AlertTriangle, SkipForward, XCircle } from 'lucide-react';
 import { getEncoder, formatTokenCount } from '../utils/tokenCounter';
 import type { BatchRunState, SessionState, Theme, Shortcut } from '../types';
@@ -1142,6 +1143,8 @@ const AutoRunInner = forwardRef<AutoRunHandle, AutoRunProps>(function AutoRunInn
       onFileClick: handleFileClick,
       // Open external links in system browser
       onExternalLinkClick: (href) => window.maestro.shell.openExternal(href),
+      // Provide container ref for anchor link scrolling
+      containerRef: previewRef,
       // Add search highlighting when search is active with matches
       searchHighlight: searchOpen && searchQuery.trim() && totalMatches > 0
         ? {
@@ -1614,6 +1617,7 @@ const AutoRunInner = forwardRef<AutoRunHandle, AutoRunProps>(function AutoRunInn
             <style>{proseStyles}</style>
             <ReactMarkdown
               remarkPlugins={remarkPlugins}
+              rehypePlugins={[rehypeSlug]}
               components={markdownComponents}
             >
               {localContent || '*No content yet. Switch to Edit mode to start writing.*'}

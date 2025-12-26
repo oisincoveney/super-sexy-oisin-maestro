@@ -34,6 +34,7 @@ export interface SessionItemProps {
   groupId?: string; // The group ID context for generating editing key
   gitFileCount?: number;
   isInBatch?: boolean;
+  isBatchStopping?: boolean; // Whether the batch is in stopping state
   jumpNumber?: string | null; // Session jump shortcut number (1-9, 0)
 
   // Handlers
@@ -74,6 +75,7 @@ export const SessionItem = memo(function SessionItem({
   groupId,
   gitFileCount,
   isInBatch = false,
+  isBatchStopping = false,
   jumpNumber,
   onSelect,
   onDragStart,
@@ -210,12 +212,15 @@ export const SessionItem = memo(function SessionItem({
         {/* AUTO Mode Indicator */}
         {isInBatch && (
           <div
-            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase animate-pulse"
-            style={{ backgroundColor: theme.colors.warning + '30', color: theme.colors.warning }}
-            title="Auto Run active"
+            className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${isBatchStopping ? '' : 'animate-pulse'}`}
+            style={{
+              backgroundColor: isBatchStopping ? theme.colors.error + '30' : theme.colors.warning + '30',
+              color: isBatchStopping ? theme.colors.error : theme.colors.warning
+            }}
+            title={isBatchStopping ? 'Auto Run stopping...' : 'Auto Run active'}
           >
             <Bot className="w-2.5 h-2.5" />
-            AUTO
+            {isBatchStopping ? 'STOPPING' : 'AUTO'}
           </div>
         )}
 

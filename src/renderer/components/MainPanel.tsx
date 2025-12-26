@@ -687,8 +687,9 @@ export const MainPanel = React.memo(forwardRef<MainPanelHandle, MainPanelProps>(
                 disabled={isCurrentSessionStopping}
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all ${isCurrentSessionStopping ? 'cursor-not-allowed' : 'hover:opacity-90 cursor-pointer'}`}
                 style={{
-                  backgroundColor: theme.colors.error,
-                  color: 'white'
+                  backgroundColor: isCurrentSessionStopping ? theme.colors.warning : theme.colors.error,
+                  color: isCurrentSessionStopping ? theme.colors.bgMain : 'white',
+                  pointerEvents: isCurrentSessionStopping ? 'none' : 'auto'
                 }}
                 title={isCurrentSessionStopping ? 'Stopping after current task...' : 'Click to stop batch run'}
               >

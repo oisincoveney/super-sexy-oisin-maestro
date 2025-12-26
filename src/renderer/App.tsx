@@ -1005,16 +1005,20 @@ function MaestroConsoleInner() {
             }
 
             // Check if a session already exists for this worktree
-            const existingSession = sessions.find(s =>
-              (s.parentSessionId === parentSession.id && s.worktreeBranch === subdir.branch) ||
-              s.cwd === subdir.path
-            );
+            // Normalize paths for comparison (remove trailing slashes)
+            const normalizedSubdirPath = subdir.path.replace(/\/+$/, '');
+            const existingSession = sessions.find(s => {
+              const normalizedCwd = s.cwd.replace(/\/+$/, '');
+              // Check if same path (regardless of parent) or same branch under same parent
+              return normalizedCwd === normalizedSubdirPath ||
+                (s.parentSessionId === parentSession.id && s.worktreeBranch === subdir.branch);
+            });
             if (existingSession) {
               continue;
             }
 
             // Also check in sessions we're about to add
-            if (newWorktreeSessions.some(s => s.cwd === subdir.path)) {
+            if (newWorktreeSessions.some(s => s.cwd.replace(/\/+$/, '') === normalizedSubdirPath)) {
               continue;
             }
 
@@ -3311,6 +3315,7 @@ function MaestroConsoleInner() {
     batchRunStates: _batchRunStates,
     getBatchState,
     activeBatchSessionIds,
+    stoppingBatchSessionIds,
     startBatchRun,
     stopBatchRun,
     // Error handling (Phase 5.10)
@@ -3532,17 +3537,7 @@ function MaestroConsoleInner() {
   // This is session-specific so users can edit docs in other sessions while one runs
   // Quick Win 4: Memoized to prevent unnecessary re-calculations
   const currentSessionBatchState = useMemo(() => {
-    const state = activeSession ? getBatchState(activeSession.id) : null;
-    // DEBUG: Log currentSessionBatchState computation
-    if (state) {
-      console.log('[App:currentSessionBatchState] Computed:', {
-        sessionId: activeSession?.id,
-        loopIteration: state.loopIteration,
-        completedTasksAcrossAllDocs: state.completedTasksAcrossAllDocs,
-        totalTasksAcrossAllDocs: state.totalTasksAcrossAllDocs,
-      });
-    }
-    return state;
+    return activeSession ? getBatchState(activeSession.id) : null;
   }, [activeSession, getBatchState]);
 
   // Get batch state for display - prioritize the session with an active batch run,
@@ -3800,10 +3795,14 @@ function MaestroConsoleInner() {
       if (!parentSession) return;
 
       // Check if session already exists for this worktree
-      const existingSession = currentSessions.find(s =>
-        (s.parentSessionId === sessionId && s.worktreeBranch === worktree.branch) ||
-        s.cwd === worktree.path
-      );
+      // Normalize paths for comparison (remove trailing slashes)
+      const normalizedWorktreePath = worktree.path.replace(/\/+$/, '');
+      const existingSession = currentSessions.find(s => {
+        const normalizedCwd = s.cwd.replace(/\/+$/, '');
+        // Check if same path (regardless of parent) or same branch under same parent
+        return normalizedCwd === normalizedWorktreePath ||
+          (s.parentSessionId === sessionId && s.worktreeBranch === worktree.branch);
+      });
       if (existingSession) return;
 
       // Create new worktree session
@@ -8444,6 +8443,7 @@ function MaestroConsoleInner() {
               ));
             }}
             activeBatchSessionIds={activeBatchSessionIds}
+            stoppingBatchSessionIds={stoppingBatchSessionIds}
             showSessionJumpNumbers={showSessionJumpNumbers}
             visibleSessions={visibleSessions}
             autoRunStats={autoRunStats}

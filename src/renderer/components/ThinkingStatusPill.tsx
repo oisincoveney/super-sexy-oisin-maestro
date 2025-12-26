@@ -237,14 +237,15 @@ const AutoRunPill = memo(({
               style={{ backgroundColor: theme.colors.border }}
             />
             <button
-              onClick={onStop}
+              onClick={() => !isStopping && onStop()}
               disabled={isStopping}
               className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-colors ${
-                isStopping ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80'
+                isStopping ? 'cursor-not-allowed' : 'hover:opacity-80'
               }`}
               style={{
-                backgroundColor: theme.colors.error,
-                color: 'white'
+                backgroundColor: isStopping ? theme.colors.warning : theme.colors.error,
+                color: isStopping ? theme.colors.bgMain : 'white',
+                pointerEvents: isStopping ? 'none' : 'auto'
               }}
               title={isStopping ? 'Stopping after current task...' : 'Stop auto-run after current task'}
             >

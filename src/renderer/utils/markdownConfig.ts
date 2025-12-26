@@ -50,6 +50,10 @@ export interface MarkdownComponentsOptions {
   onFileClick?: (filePath: string) => void;
   /** Callback when external link is clicked - if not provided, uses default browser behavior */
   onExternalLinkClick?: (href: string) => void;
+  /** Callback when anchor link is clicked (same-page #section links) */
+  onAnchorClick?: (anchorId: string) => void;
+  /** Container ref for scrolling to anchors - if not provided, uses document.getElementById */
+  containerRef?: React.RefObject<HTMLElement>;
   /** Search highlighting options */
   searchHighlight?: {
     query: string;
@@ -286,7 +290,7 @@ function highlightSearchMatches(
 }
 
 export function createMarkdownComponents(options: MarkdownComponentsOptions): Partial<Components> {
-  const { theme, imageRenderer, customLanguageRenderers = {}, onFileClick, onExternalLinkClick, searchHighlight } = options;
+  const { theme, imageRenderer, customLanguageRenderers = {}, onFileClick, onExternalLinkClick, onAnchorClick, containerRef, searchHighlight } = options;
 
   // Reset match counter at start of each render
   globalMatchCounter = 0;
@@ -365,14 +369,18 @@ export function createMarkdownComponents(options: MarkdownComponentsOptions): Pa
     };
   }
 
-  // Link handler - supports both internal file links and external links
-  if (onFileClick || onExternalLinkClick) {
+  // Link handler - supports internal file links, anchor links, and external links
+  if (onFileClick || onExternalLinkClick || onAnchorClick) {
     components.a = ({ node: _node, href, children, ...props }: any) => {
       // Check for maestro-file:// protocol OR data-maestro-file attribute
       // (data attribute is fallback when rehype strips custom protocols)
       const dataFilePath = props['data-maestro-file'];
       const isMaestroFile = href?.startsWith('maestro-file://') || !!dataFilePath;
       const filePath = dataFilePath || (href?.startsWith('maestro-file://') ? href.replace('maestro-file://', '') : null);
+
+      // Check for anchor links (same-page navigation)
+      const isAnchorLink = href?.startsWith('#');
+      const anchorId = isAnchorLink ? href.slice(1) : null;
 
       return React.createElement(
         'a',
@@ -383,6 +391,19 @@ export function createMarkdownComponents(options: MarkdownComponentsOptions): Pa
             e.preventDefault();
             if (isMaestroFile && filePath && onFileClick) {
               onFileClick(filePath);
+            } else if (isAnchorLink && anchorId) {
+              // Handle anchor links - scroll to the target element
+              if (onAnchorClick) {
+                onAnchorClick(anchorId);
+              } else {
+                // Default behavior: find element by ID and scroll to it
+                const targetElement = containerRef?.current
+                  ? containerRef.current.querySelector(`#${CSS.escape(anchorId)}`)
+                  : document.getElementById(anchorId);
+                if (targetElement) {
+                  targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }
             } else if (href && onExternalLinkClick) {
               onExternalLinkClick(href);
             }

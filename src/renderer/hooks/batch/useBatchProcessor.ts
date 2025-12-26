@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useReducer, useEffect } from 'react';
+import { useState, useCallback, useRef, useReducer, useEffect, useMemo } from 'react';
 import type { BatchRunState, BatchRunConfig, Session, HistoryEntry, UsageStats, Group, AutoRunStats, AgentError, ToolType } from '../../types';
 import { getBadgeForTime, getNextBadge, formatTimeRemaining } from '../../constants/conductorBadges';
 import { formatElapsedTime } from '../../../shared/formatters';
@@ -61,6 +61,8 @@ interface UseBatchProcessorReturn {
   hasAnyActiveBatch: boolean;
   // Get list of session IDs with active batches
   activeBatchSessionIds: string[];
+  // Get list of session IDs that are in stopping state
+  stoppingBatchSessionIds: string[];
   // Start batch run for a specific session with multi-document support
   startBatchRun: (sessionId: string, config: BatchRunConfig, folderPath: string) => Promise<void>;
   // Stop batch run for a specific session
@@ -193,6 +195,9 @@ export function useBatchProcessor({
   const batchRunStatesRef = useRef(batchRunStates);
   batchRunStatesRef.current = batchRunStates;
 
+  // Ref to track latest updateBatchStateAndBroadcast for async callbacks (fixes HMR stale closure)
+  const updateBatchStateAndBroadcastRef = useRef<typeof updateBatchStateAndBroadcast | null>(null);
+
   // Error resolution promises to pause batch processing until user action (per session)
   const errorResolutionRefs = useRef<Record<string, ErrorResolutionEntry>>({});
 
@@ -313,13 +318,27 @@ export function useBatchProcessor({
     return batchRunStates[sessionId] || DEFAULT_BATCH_STATE;
   }, [batchRunStates]);
 
-  // Check if any session has an active batch
-  const hasAnyActiveBatch = Object.values(batchRunStates).some(state => state.isRunning);
+  // Check if any session has an active batch (memoized to prevent re-renders on unrelated state changes)
+  const hasAnyActiveBatch = useMemo(() =>
+    Object.values(batchRunStates).some(state => state.isRunning),
+    [batchRunStates]
+  );
 
-  // Get list of session IDs with active batches
-  const activeBatchSessionIds = Object.entries(batchRunStates)
-    .filter(([_, state]) => state.isRunning)
-    .map(([sessionId]) => sessionId);
+  // Get list of session IDs with active batches (memoized to prevent new array references)
+  const activeBatchSessionIds = useMemo(() =>
+    Object.entries(batchRunStates)
+      .filter(([, state]) => state.isRunning)
+      .map(([sessionId]) => sessionId),
+    [batchRunStates]
+  );
+
+  // Get list of session IDs that are in stopping state (memoized to prevent new array references)
+  const stoppingBatchSessionIds = useMemo(() =>
+    Object.entries(batchRunStates)
+      .filter(([, state]) => state.isRunning && state.isStopping)
+      .map(([sessionId]) => sessionId),
+    [batchRunStates]
+  );
 
   // Set custom prompt for a session
   const setCustomPrompt = useCallback((sessionId: string, prompt: string) => {
@@ -340,7 +359,10 @@ export function useBatchProcessor({
     immediate: boolean = false
   ) => {
     scheduleDebouncedUpdate(sessionId, updater, immediate);
-  }, [scheduleDebouncedUpdate])
+  }, [scheduleDebouncedUpdate]);
+
+  // Update ref to always have latest updateBatchStateAndBroadcast (fixes HMR stale closure)
+  updateBatchStateAndBroadcastRef.current = updateBatchStateAndBroadcast;
 
   // Use readDocAndCountTasks from the extracted documentProcessor hook
   // This replaces the previous inline helper function
@@ -659,7 +681,7 @@ export function useBatchProcessor({
               await window.maestro.autorun.writeDoc(folderPath, docEntry.filename + '.md', resetContent);
               // Update task count in state
               const resetTaskCount = countUnfinishedTasks(resetContent);
-              updateBatchStateAndBroadcast(sessionId, prev => ({
+              updateBatchStateAndBroadcastRef.current!(sessionId, prev => ({
                 ...prev,
                 [sessionId]: {
                   ...prev[sessionId],
@@ -698,7 +720,7 @@ export function useBatchProcessor({
         );
 
         // Update state to show current document
-        updateBatchStateAndBroadcast(sessionId, prev => ({
+        updateBatchStateAndBroadcastRef.current!(sessionId, prev => ({
           ...prev,
           [sessionId]: {
             ...prev[sessionId],
@@ -814,7 +836,7 @@ export function useBatchProcessor({
               docTasksTotal += addedUncheckedTasks;
             }
 
-            updateBatchStateAndBroadcast(sessionId, prev => {
+            updateBatchStateAndBroadcastRef.current!(sessionId, prev => {
               const prevState = prev[sessionId] || DEFAULT_BATCH_STATE;
               const nextTotalAcrossAllDocs = Math.max(0, prevState.totalTasksAcrossAllDocs + addedUncheckedTasks);
               const nextTotalTasks = Math.max(0, prevState.totalTasks + addedUncheckedTasks);
@@ -985,7 +1007,7 @@ export function useBatchProcessor({
               // Count tasks in restored content for loop mode
               if (loopEnabled) {
                 const { taskCount: resetTaskCount } = await readDocAndCountTasks(folderPath, docEntry.filename);
-                updateBatchStateAndBroadcast(sessionId, prev => ({
+                updateBatchStateAndBroadcastRef.current!(sessionId, prev => ({
                   ...prev,
                   [sessionId]: {
                     ...prev[sessionId],
@@ -1005,7 +1027,7 @@ export function useBatchProcessor({
 
               if (loopEnabled) {
                 const resetTaskCount = countUnfinishedTasks(resetContent);
-                updateBatchStateAndBroadcast(sessionId, prev => ({
+                updateBatchStateAndBroadcastRef.current!(sessionId, prev => ({
                   ...prev,
                   [sessionId]: {
                     ...prev[sessionId],
@@ -1023,7 +1045,7 @@ export function useBatchProcessor({
 
             if (loopEnabled) {
               const resetTaskCount = countUnfinishedTasks(resetContent);
-              updateBatchStateAndBroadcast(sessionId, prev => ({
+              updateBatchStateAndBroadcastRef.current!(sessionId, prev => ({
                 ...prev,
                 [sessionId]: {
                   ...prev[sessionId],
@@ -1173,7 +1195,7 @@ export function useBatchProcessor({
       // Continue looping
       loopIteration++;
 
-      updateBatchStateAndBroadcast(sessionId, prev => ({
+      updateBatchStateAndBroadcastRef.current!(sessionId, prev => ({
         ...prev,
         [sessionId]: {
           ...prev[sessionId],
@@ -1353,7 +1375,8 @@ export function useBatchProcessor({
     timeTracking.stopTracking(sessionId);
     delete errorResolutionRefs.current[sessionId];
     delete stopRequestedRefs.current[sessionId];
-  }, [onUpdateSession, onSpawnAgent, onSpawnSynopsis, onAddHistoryEntry, onComplete, onPRResult, audioFeedbackEnabled, audioFeedbackCommand, updateBatchStateAndBroadcast, timeTracking]);
+  // Note: updateBatchStateAndBroadcast is accessed via ref to avoid stale closure in long-running async
+  }, [onUpdateSession, onSpawnAgent, onSpawnSynopsis, onAddHistoryEntry, onComplete, onPRResult, audioFeedbackEnabled, audioFeedbackCommand, timeTracking]);
 
   /**
    * Request to stop the batch run for a specific session after current task completes
@@ -1530,6 +1553,7 @@ export function useBatchProcessor({
     getBatchState,
     hasAnyActiveBatch,
     activeBatchSessionIds,
+    stoppingBatchSessionIds,
     startBatchRun,
     stopBatchRun,
     customPrompts,

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
+import rehypeSlug from 'rehype-slug';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { FileCode, X, Eye, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Clipboard, Loader2, Image, Globe, Save, Edit, FolderOpen, AlertTriangle } from 'lucide-react';
@@ -1534,7 +1535,7 @@ export function FilePreview({ file, onClose, theme, markdownEditMode, setMarkdow
                   ? [[remarkFileLinks, { fileTree, cwd }] as any]
                   : [])
               ]}
-              rehypePlugins={[rehypeRaw]}
+              rehypePlugins={[rehypeRaw, rehypeSlug]}
               components={{
                 a: ({ node: _node, href, children, ...props }) => {
                   // Check for maestro-file:// protocol OR data-maestro-file attribute
@@ -1542,6 +1543,10 @@ export function FilePreview({ file, onClose, theme, markdownEditMode, setMarkdow
                   const dataFilePath = (props as any)['data-maestro-file'];
                   const isMaestroFile = href?.startsWith('maestro-file://') || !!dataFilePath;
                   const filePath = dataFilePath || (href?.startsWith('maestro-file://') ? href.replace('maestro-file://', '') : null);
+
+                  // Check for anchor links (same-page navigation)
+                  const isAnchorLink = href?.startsWith('#') ?? false;
+                  const anchorId = isAnchorLink && href ? href.slice(1) : null;
 
                   return (
                     <a
@@ -1551,6 +1556,14 @@ export function FilePreview({ file, onClose, theme, markdownEditMode, setMarkdow
                         e.preventDefault();
                         if (isMaestroFile && filePath && onFileClick) {
                           onFileClick(filePath);
+                        } else if (isAnchorLink && anchorId) {
+                          // Handle anchor links - scroll to the target element
+                          const targetElement = markdownContainerRef.current
+                            ? markdownContainerRef.current.querySelector(`#${CSS.escape(anchorId)}`)
+                            : document.getElementById(anchorId);
+                          if (targetElement) {
+                            targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          }
                         } else if (href) {
                           window.maestro.shell.openExternal(href);
                         }

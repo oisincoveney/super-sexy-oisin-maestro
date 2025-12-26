@@ -65,7 +65,7 @@ export function useSortedSessions(deps: UseSortedSessionsDeps): UseSortedSession
     }
     // Sort each group once
     for (const [, children] of map) {
-      children.sort((a, b) => compareNamesIgnoringEmojis(a.worktreeBranch || a.name, b.worktreeBranch || b.name));
+      children.sort((a, b) => compareNamesIgnoringEmojis(a.name, b.name));
     }
     return map;
   }, [sessions]);
