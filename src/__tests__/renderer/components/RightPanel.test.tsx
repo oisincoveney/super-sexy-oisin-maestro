@@ -985,9 +985,8 @@ describe('RightPanel', () => {
   });
 
   describe('Elapsed time calculation', () => {
-    // Note: Elapsed time display now uses cumulativeTaskTimeMs from batch state
-    // instead of calculating from startTime. This provides more accurate work time
-    // by tracking actual task durations rather than wall-clock time.
+    // Note: Elapsed time display uses wall clock time (Date.now() - startTime)
+    // and is updated via an interval while the batch run is active.
 
     it('should clear elapsed time when batch run is not running', async () => {
       const currentSessionBatchState: BatchRunState = {
@@ -1003,7 +1002,7 @@ describe('RightPanel', () => {
         completedTasksAcrossAllDocs: 5,
         loopEnabled: false,
         loopIteration: 0,
-        startTime: Date.now(),
+        startTime: Date.now() - 5000,
         cumulativeTaskTimeMs: 5000,
       };
       const props = createDefaultProps({ currentSessionBatchState });
@@ -1014,6 +1013,7 @@ describe('RightPanel', () => {
     });
 
     it('should display elapsed seconds when batch run is running', async () => {
+      // Set startTime to 5 seconds ago
       const currentSessionBatchState: BatchRunState = {
         isRunning: true,
         isStopping: false,
@@ -1027,17 +1027,18 @@ describe('RightPanel', () => {
         completedTasksAcrossAllDocs: 5,
         loopEnabled: false,
         loopIteration: 0,
-        startTime: Date.now(),
-        cumulativeTaskTimeMs: 5000, // 5 seconds of work
+        startTime: Date.now() - 5000, // 5 seconds ago
+        cumulativeTaskTimeMs: 5000,
       };
       const props = createDefaultProps({ currentSessionBatchState });
       render(<RightPanel {...props} />);
 
-      // Should show "5s" based on cumulativeTaskTimeMs
+      // Should show "5s" based on wall clock time (startTime was 5 seconds ago)
       expect(screen.getByText('5s')).toBeInTheDocument();
     });
 
     it('should display elapsed minutes and seconds', async () => {
+      // Set startTime to 2 minutes 5 seconds ago
       const currentSessionBatchState: BatchRunState = {
         isRunning: true,
         isStopping: false,
@@ -1051,8 +1052,8 @@ describe('RightPanel', () => {
         completedTasksAcrossAllDocs: 5,
         loopEnabled: false,
         loopIteration: 0,
-        startTime: Date.now(),
-        cumulativeTaskTimeMs: 125000, // 2 minutes 5 seconds of work
+        startTime: Date.now() - 125000, // 2 minutes 5 seconds ago
+        cumulativeTaskTimeMs: 125000,
       };
       const props = createDefaultProps({ currentSessionBatchState });
       render(<RightPanel {...props} />);
@@ -1062,6 +1063,7 @@ describe('RightPanel', () => {
     });
 
     it('should display elapsed hours and minutes', async () => {
+      // Set startTime to 1 hour 2 minutes 5 seconds ago
       const currentSessionBatchState: BatchRunState = {
         isRunning: true,
         isStopping: false,
@@ -1075,8 +1077,8 @@ describe('RightPanel', () => {
         completedTasksAcrossAllDocs: 5,
         loopEnabled: false,
         loopIteration: 0,
-        startTime: Date.now(),
-        cumulativeTaskTimeMs: 3725000, // 1 hour, 2 minutes, 5 seconds of work
+        startTime: Date.now() - 3725000, // 1 hour, 2 minutes, 5 seconds ago
+        cumulativeTaskTimeMs: 3725000,
       };
       const props = createDefaultProps({ currentSessionBatchState });
       render(<RightPanel {...props} />);
@@ -1085,7 +1087,8 @@ describe('RightPanel', () => {
       expect(screen.getByText('1h 2m')).toBeInTheDocument();
     });
 
-    it('should update elapsed time when cumulativeTaskTimeMs changes', async () => {
+    it('should update elapsed time when startTime changes', async () => {
+      const now = Date.now();
       const currentSessionBatchState: BatchRunState = {
         isRunning: true,
         isStopping: false,
@@ -1099,8 +1102,8 @@ describe('RightPanel', () => {
         completedTasksAcrossAllDocs: 5,
         loopEnabled: false,
         loopIteration: 0,
-        startTime: Date.now(),
-        cumulativeTaskTimeMs: 3000, // 3 seconds
+        startTime: now - 3000, // 3 seconds ago
+        cumulativeTaskTimeMs: 3000,
       };
       const props = createDefaultProps({ currentSessionBatchState });
       const { rerender } = render(<RightPanel {...props} />);
@@ -1108,15 +1111,15 @@ describe('RightPanel', () => {
       // Initial render shows 3s
       expect(screen.getByText('3s')).toBeInTheDocument();
 
-      // Update cumulativeTaskTimeMs to 6 seconds
-      const updatedBatchState = { ...currentSessionBatchState, cumulativeTaskTimeMs: 6000 };
+      // Update startTime to 6 seconds ago (simulating a new batch run or elapsed time update)
+      const updatedBatchState = { ...currentSessionBatchState, startTime: now - 6000 };
       rerender(<RightPanel {...createDefaultProps({ currentSessionBatchState: updatedBatchState })} />);
 
       // Should now show 6s
       expect(screen.getByText('6s')).toBeInTheDocument();
     });
 
-    it('should not show elapsed time when cumulativeTaskTimeMs is 0', async () => {
+    it('should show 0s elapsed time when batch run just started', async () => {
       const currentSessionBatchState: BatchRunState = {
         isRunning: true,
         isStopping: false,
@@ -1130,14 +1133,14 @@ describe('RightPanel', () => {
         completedTasksAcrossAllDocs: 0,
         loopEnabled: false,
         loopIteration: 0,
-        startTime: Date.now(),
-        cumulativeTaskTimeMs: 0, // No work done yet
+        startTime: Date.now(), // Just started
+        cumulativeTaskTimeMs: 0,
       };
       const props = createDefaultProps({ currentSessionBatchState });
       render(<RightPanel {...props} />);
 
-      // Should not show elapsed time when no work has been done
-      expect(screen.queryByText(/\d+s/)).not.toBeInTheDocument();
+      // Should show 0s when just started (elapsed time is displayed even at 0)
+      expect(screen.getByText('0s')).toBeInTheDocument();
     });
   });
 

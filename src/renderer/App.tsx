@@ -99,7 +99,7 @@ import type {
   ToolType, SessionState, RightPanelTab,
   FocusArea, LogEntry, Session, AITab, UsageStats, QueuedItem, BatchRunConfig,
   AgentError, BatchRunState, GroupChatMessage,
-  SpecKitCommand, LeaderboardRegistration
+  SpecKitCommand, LeaderboardRegistration, CustomAICommand
 } from './types';
 import { THEMES } from './constants/themes';
 import { generateId } from './utils/ids';
@@ -3087,6 +3087,20 @@ function MaestroConsoleInner() {
     });
   }, [activeSession, canSummarize, minContextUsagePercent, startSummarize, setSessions, addToast, clearTabState]);
 
+  // Combine custom AI commands with spec-kit commands for input processing (slash command execution)
+  // This ensures speckit commands are processed the same way as custom commands
+  const allCustomCommands = useMemo((): CustomAICommand[] => {
+    // Convert speckit commands to CustomAICommand format
+    const speckitAsCustom: CustomAICommand[] = speckitCommands.map(cmd => ({
+      id: `speckit-${cmd.id}`,
+      command: cmd.command,
+      description: cmd.description,
+      prompt: cmd.prompt,
+      isBuiltIn: true, // Speckit commands are built-in (bundled)
+    }));
+    return [...customAICommands, ...speckitAsCustom];
+  }, [customAICommands, speckitCommands]);
+
   // Combine built-in slash commands with custom AI commands, spec-kit commands, AND agent-specific commands for autocomplete
   const allSlashCommands = useMemo(() => {
     const customCommandsAsSlash = customAICommands
@@ -3884,7 +3898,7 @@ function MaestroConsoleInner() {
     stagedImages,
     setStagedImages,
     inputRef,
-    customAICommands,
+    customAICommands: allCustomCommands, // Use combined custom + speckit commands
     setSlashCommandOpen,
     syncAiInputToSession,
     syncTerminalInputToSession,

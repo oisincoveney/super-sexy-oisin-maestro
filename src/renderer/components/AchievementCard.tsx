@@ -147,6 +147,7 @@ interface AchievementCardProps {
   autoRunStats: AutoRunStats;
   globalStats?: GlobalStatsSubset | null;
   usageStats?: MaestroUsageStats | null;
+  handsOnTimeMs?: number;
 }
 
 interface BadgeTooltipProps {
@@ -261,7 +262,7 @@ function BadgeTooltip({ badge, theme, isUnlocked, position, onClose: _onClose }:
  * Achievement card component for displaying in the About modal
  * Shows current badge, progress to next level, and stats
  */
-export function AchievementCard({ theme, autoRunStats, globalStats, usageStats, onEscapeWithBadgeOpen }: AchievementCardProps & { onEscapeWithBadgeOpen?: (handler: (() => boolean) | null) => void }) {
+export function AchievementCard({ theme, autoRunStats, globalStats, usageStats, handsOnTimeMs, onEscapeWithBadgeOpen }: AchievementCardProps & { onEscapeWithBadgeOpen?: (handler: (() => boolean) | null) => void }) {
   const [selectedBadge, setSelectedBadge] = useState<number | null>(null);
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
@@ -365,15 +366,36 @@ export function AchievementCard({ theme, autoRunStats, globalStats, usageStats, 
 
   // formatTokensCompact imported from ../utils/formatters
 
+  // Format hands-on time for display
+  const formatHandsOnTime = (ms: number): string => {
+    if (ms < 1000) return '0m';
+    const totalMinutes = Math.floor(ms / 60000);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+  };
+
   // Generate shareable achievement card as canvas
   const generateShareImage = useCallback(async (): Promise<HTMLCanvasElement> => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d')!;
 
+    // High-DPI rendering for crisp text
+    const scale = 3;  // 3x resolution for sharp output
     const width = 600;
-    const height = 480;  // Increased height for additional stats
-    canvas.width = width;
-    canvas.height = height;
+    const height = 560;  // 3-row stats layout
+    canvas.width = width * scale;
+    canvas.height = height * scale;
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    ctx.scale(scale, scale);
+
+    // Enable font smoothing
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
     // Background gradient matching app icon (radial gradient from center)
     const bgGradient = ctx.createRadialGradient(
@@ -421,31 +443,30 @@ export function AchievementCard({ theme, autoRunStats, globalStats, usageStats, 
     ctx.fill();
 
     // Trophy emoji
-    ctx.font = 'bold 32px system-ui';
+    ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#78350F';
     ctx.fillText('🏆', trophyX, trophyY + 2);
 
     // Title
-    ctx.font = 'bold 18px system-ui';
-    ctx.fillStyle = '#F472B6';  // Pink accent like in screenshots
-    ctx.letterSpacing = '2px';
+    ctx.font = '600 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.fillStyle = '#F472B6';
     ctx.fillText('MAESTRO ACHIEVEMENTS', width / 2, 105);
 
     if (currentBadge) {
       // Level indicator with stars
-      ctx.font = 'bold 14px system-ui';
+      ctx.font = '600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.fillStyle = goldColor;
       ctx.fillText(`★ Level ${currentBadge.level} of 11 ★`, width / 2, 130);
 
       // Badge name - larger and more prominent
-      ctx.font = 'bold 26px system-ui';
+      ctx.font = '700 26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.fillStyle = '#F472B6';
       ctx.fillText(currentBadge.name, width / 2, 162);
 
       // Flavor text in quotes
-      ctx.font = 'italic 13px system-ui';
+      ctx.font = 'italic 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
       const flavorLines = wrapText(ctx, `"${currentBadge.flavorText}"`, width - 100);
       let yOffset = 190;
@@ -455,122 +476,129 @@ export function AchievementCard({ theme, autoRunStats, globalStats, usageStats, 
       });
     } else {
       // No badge yet
-      ctx.font = 'bold 22px system-ui';
+      ctx.font = '700 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
       ctx.fillText('Journey Just Beginning...', width / 2, 155);
 
-      ctx.font = '14px system-ui';
+      ctx.font = '400 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
       ctx.fillText('Complete 15 minutes of AutoRun to unlock first badge', width / 2, 185);
     }
 
-    // Primary stats container with dark background
-    const statsY = 240;
-    const statsHeight = 70;
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-    ctx.roundRect(30, statsY, width - 60, statsHeight, 12);
-    ctx.fill();
-
-    // Stats border
-    ctx.strokeStyle = 'rgba(139, 92, 246, 0.3)';
-    ctx.lineWidth = 1;
-    ctx.roundRect(30, statsY, width - 60, statsHeight, 12);
-    ctx.stroke();
-
-    // Stats grid - 4 columns
-    const statsColWidth = (width - 60) / 4;
-    const statsCenterY = statsY + statsHeight / 2;
-
-    // Helper to draw a stat
-    const drawStat = (x: number, value: string, label: string, fontSize: number = 20) => {
-      ctx.font = `bold ${fontSize}px system-ui`;
-      ctx.fillStyle = '#FFFFFF';
-      ctx.textAlign = 'center';
-      ctx.fillText(value, x, statsCenterY - 5);
-
-      ctx.font = '10px system-ui';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-      ctx.fillText(label, x, statsCenterY + 12);
-    };
-
-    // Column 1: Total AutoRun
-    drawStat(30 + statsColWidth * 0.5, formatCumulativeTime(autoRunStats.cumulativeTimeMs), 'Total AutoRun', 18);
-
-    // Column 2: Longest Run
-    drawStat(30 + statsColWidth * 1.5, formatCumulativeTime(autoRunStats.longestRunMs), 'Longest Run', 18);
-
-    // Column 3: Sessions (from globalStats)
-    const sessionsValue = globalStats?.totalSessions?.toLocaleString() || '—';
-    drawStat(30 + statsColWidth * 2.5, sessionsValue, 'Sessions', 18);
-
-    // Column 4: Total Tokens (from globalStats)
+    // Get stat values
     const totalTokens = globalStats
       ? globalStats.totalInputTokens + globalStats.totalOutputTokens
       : 0;
     const tokensValue = totalTokens > 0 ? formatTokensCompact(totalTokens) : '—';
-    drawStat(30 + statsColWidth * 3.5, tokensValue, 'Total Tokens', 18);
+    const sessionsValue = globalStats?.totalSessions?.toLocaleString() || '—';
+    const handsOnValue = handsOnTimeMs ? formatHandsOnTime(handsOnTimeMs) : '—';
+    const autoRunTotal = formatCumulativeTime(autoRunStats.cumulativeTimeMs);
+    const autoRunBest = formatCumulativeTime(autoRunStats.longestRunMs);
 
-    // Secondary stats container (usage peaks)
-    const peakStatsY = statsY + statsHeight + 15;
-    const peakStatsHeight = 70;
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
-    ctx.roundRect(30, peakStatsY, width - 60, peakStatsHeight, 12);
+    // Get peak values from usageStats
+    const maxAgents = usageStats?.maxAgents?.toString() || '0';
+    const maxAutoRuns = usageStats?.maxSimultaneousAutoRuns?.toString() || '0';
+    const maxQueries = usageStats?.maxSimultaneousQueries?.toString() || '0';
+    const maxQueue = usageStats?.maxQueueDepth?.toString() || '0';
+
+    const rowHeight = 60;
+    const rowGap = 12;
+
+    // --- Row 1: Sessions & Tokens (2 columns) ---
+    const row1Y = 240;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+    ctx.roundRect(30, row1Y, width - 60, rowHeight, 12);
     ctx.fill();
+    ctx.strokeStyle = 'rgba(139, 92, 246, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.roundRect(30, row1Y, width - 60, rowHeight, 12);
+    ctx.stroke();
 
-    // Peak stats border
+    const row1ColWidth = (width - 60) / 2;
+    const row1CenterY = row1Y + rowHeight / 2;
+
+    // Helper to draw a stat
+    const drawStatInRow = (x: number, centerY: number, value: string, label: string, fontSize: number = 20) => {
+      ctx.font = `700 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.textAlign = 'center';
+      ctx.fillText(value, x, centerY - 3);
+
+      ctx.font = '500 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.fillText(label, x, centerY + 16);
+    };
+
+    drawStatInRow(30 + row1ColWidth * 0.5, row1CenterY, sessionsValue, 'Sessions', 22);
+    drawStatInRow(30 + row1ColWidth * 1.5, row1CenterY, tokensValue, 'Total Tokens', 22);
+
+    // --- Row 2: AutoRun Total, AutoRun Best, Hands-on Time (3 columns) ---
+    const row2Y = row1Y + rowHeight + rowGap;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.30)';
+    ctx.roundRect(30, row2Y, width - 60, rowHeight, 12);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(139, 92, 246, 0.25)';
+    ctx.lineWidth = 1;
+    ctx.roundRect(30, row2Y, width - 60, rowHeight, 12);
+    ctx.stroke();
+
+    const row2ColWidth = (width - 60) / 3;
+    const row2CenterY = row2Y + rowHeight / 2;
+
+    drawStatInRow(30 + row2ColWidth * 0.5, row2CenterY, autoRunTotal, 'Total AutoRun', 18);
+    drawStatInRow(30 + row2ColWidth * 1.5, row2CenterY, autoRunBest, 'Longest AutoRun', 18);
+    drawStatInRow(30 + row2ColWidth * 2.5, row2CenterY, handsOnValue, 'Hands-on Time', 18);
+
+    // --- Row 3: Peak Usage (4 columns) ---
+    const row3Y = row2Y + rowHeight + rowGap;
+    const row3Height = 70;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+    ctx.roundRect(30, row3Y, width - 60, row3Height, 12);
+    ctx.fill();
     ctx.strokeStyle = 'rgba(139, 92, 246, 0.2)';
     ctx.lineWidth = 1;
-    ctx.roundRect(30, peakStatsY, width - 60, peakStatsHeight, 12);
+    ctx.roundRect(30, row3Y, width - 60, row3Height, 12);
     ctx.stroke();
 
     // Peak stats header
-    ctx.font = 'bold 10px system-ui';
+    ctx.font = '600 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.textAlign = 'center';
-    ctx.fillText('PEAK USAGE', width / 2, peakStatsY + 12);
+    ctx.fillText('PEAK USAGE', width / 2, row3Y + 14);
 
-    // Peak stats - 5 columns
-    const peakColWidth = (width - 60) / 5;
-    const peakCenterY = peakStatsY + peakStatsHeight / 2 + 8;
+    const row3ColWidth = (width - 60) / 4;
+    const row3CenterY = row3Y + row3Height / 2 + 8;
 
     // Helper to draw peak stat
     const drawPeakStat = (x: number, value: string, label: string) => {
-      ctx.font = 'bold 16px system-ui';
+      ctx.font = '700 18px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.fillStyle = '#FFFFFF';
       ctx.textAlign = 'center';
-      ctx.fillText(value, x, peakCenterY - 3);
+      ctx.fillText(value, x, row3CenterY - 3);
 
-      ctx.font = '9px system-ui';
+      ctx.font = '500 9px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-      ctx.fillText(label, x, peakCenterY + 12);
+      ctx.fillText(label, x, row3CenterY + 12);
     };
 
-    // Get values from usageStats or show placeholder
-    const maxAgents = usageStats?.maxAgents?.toString() || '—';
-    const maxDefined = usageStats?.maxDefinedAgents?.toString() || '—';
-    const maxAutoRuns = usageStats?.maxSimultaneousAutoRuns?.toString() || '—';
-    const maxQueries = usageStats?.maxSimultaneousQueries?.toString() || '—';
-    const maxQueue = usageStats?.maxQueueDepth?.toString() || '—';
+    drawPeakStat(30 + row3ColWidth * 0.5, maxAgents, 'Registered Agents');
+    drawPeakStat(30 + row3ColWidth * 1.5, maxAutoRuns, 'Parallel AutoRuns');
+    drawPeakStat(30 + row3ColWidth * 2.5, maxQueries, 'Parallel Queries');
+    drawPeakStat(30 + row3ColWidth * 3.5, maxQueue, 'Queue Depth');
 
-    drawPeakStat(30 + peakColWidth * 0.5, maxAgents, 'Max Agents');
-    drawPeakStat(30 + peakColWidth * 1.5, maxDefined, 'Defined');
-    drawPeakStat(30 + peakColWidth * 2.5, maxAutoRuns, 'Auto Runs');
-    drawPeakStat(30 + peakColWidth * 3.5, maxQueries, 'Queries');
-    drawPeakStat(30 + peakColWidth * 4.5, maxQueue, 'Queue');
-
-    // Footer with branding and GitHub
-    ctx.font = 'bold 11px system-ui';
+    // Footer with branding
+    ctx.font = '600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.textAlign = 'center';
     ctx.fillText('MAESTRO • Agent Orchestration Command Center', width / 2, height - 30);
 
-    // GitHub link
-    ctx.font = '10px system-ui';
+    // Website link
+    ctx.font = '400 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.fillStyle = 'rgba(139, 92, 246, 0.8)';
-    ctx.fillText('github.com/pedramamini/Maestro', width / 2, height - 14);
+    ctx.fillText('RunMaestro.ai', width / 2, height - 14);
 
     return canvas;
-  }, [currentBadge, autoRunStats.cumulativeTimeMs, autoRunStats.longestRunMs, globalStats, usageStats]);
+  }, [currentBadge, autoRunStats.cumulativeTimeMs, autoRunStats.longestRunMs, globalStats, usageStats, handsOnTimeMs, wrapText]);
 
   // Copy to clipboard
   const copyToClipboard = useCallback(async () => {

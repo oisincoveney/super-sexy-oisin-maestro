@@ -221,6 +221,7 @@ export function AboutModal({ theme, sessions, autoRunStats, usageStats, onClose,
             autoRunStats={autoRunStats}
             globalStats={globalStats}
             usageStats={usageStats}
+            handsOnTimeMs={totalActiveTimeMs}
             onEscapeWithBadgeOpen={(handler) => { badgeEscapeHandlerRef.current = handler; }}
           />
 

@@ -122,8 +122,7 @@ export const RightPanel = forwardRef<RightPanelHandle, RightPanelProps>(function
   const historyPanelRef = useRef<HistoryPanelHandle>(null);
   const autoRunRef = useRef<AutoRunHandle>(null);
 
-  // Elapsed time for Auto Run display - uses cumulative task time (sum of actual task durations)
-  // This is the most accurate measure of actual work time, unaffected by display sleep
+  // Elapsed time for Auto Run display - tracks wall clock time from startTime
   const [elapsedTime, setElapsedTime] = useState<string>('');
 
   // Shared draft state for Auto Run (shared between panel and expanded modal)
@@ -191,18 +190,25 @@ export const RightPanel = forwardRef<RightPanelHandle, RightPanelProps>(function
     }
   }, []);
 
-  // Update elapsed time display when cumulative task time changes
-  // This is simply reading from the batch state - no complex tracking needed
+  // Update elapsed time display using wall clock time from startTime
+  // Uses an interval to update every second while running
   useEffect(() => {
-    if (!currentSessionBatchState?.isRunning) {
+    if (!currentSessionBatchState?.isRunning || !currentSessionBatchState?.startTime) {
       setElapsedTime('');
       return;
     }
 
-    // Use cumulative task time (sum of actual task durations) as primary display
-    const cumulativeMs = currentSessionBatchState.cumulativeTaskTimeMs || 0;
-    setElapsedTime(cumulativeMs > 0 ? formatElapsed(cumulativeMs) : '');
-  }, [currentSessionBatchState?.isRunning, currentSessionBatchState?.cumulativeTaskTimeMs, formatElapsed]);
+    // Calculate elapsed immediately
+    const updateElapsed = () => {
+      const elapsed = Date.now() - currentSessionBatchState.startTime!;
+      setElapsedTime(formatElapsed(elapsed));
+    };
+
+    updateElapsed();
+    const interval = setInterval(updateElapsed, 1000);
+
+    return () => clearInterval(interval);
+  }, [currentSessionBatchState?.isRunning, currentSessionBatchState?.startTime, formatElapsed]);
 
   // Expose methods to parent
   useImperativeHandle(ref, () => ({
@@ -458,12 +464,12 @@ export const RightPanel = forwardRef<RightPanelHandle, RightPanelProps>(function
                 </span>
               )}
             </div>
-            {/* Elapsed time - shows sum of actual task durations */}
-            {elapsedTime && !currentSessionBatchState.isStopping && (
+            {/* Elapsed time - wall clock time since run started */}
+            {elapsedTime && (
               <span
                 className="text-xs font-mono"
                 style={{ color: theme.colors.textDim }}
-                title="Total task time"
+                title="Total elapsed time"
               >
                 {elapsedTime}
               </span>
