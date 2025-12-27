@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import {
   Wand2, Plus, Settings, ChevronRight, ChevronDown, ChevronUp, X, Keyboard,
   Radio, Copy, ExternalLink, PanelLeftClose, PanelLeftOpen, Folder, Info, GitBranch, Bot, Clock,
@@ -751,7 +751,8 @@ interface SessionListProps {
   allGroupChatParticipantStates?: Map<string, Map<string, 'idle' | 'working'>>;
 }
 
-export function SessionList(props: SessionListProps) {
+// PERFORMANCE: Memoize to prevent re-renders when parent state changes but props are the same
+function SessionListInner(props: SessionListProps) {
   const {
     theme, sessions, groups, sortedSessions, activeSessionId, leftSidebarOpen,
     leftSidebarWidthState, activeFocus, selectedSidebarIndex, editingGroupId,
@@ -2167,3 +2168,6 @@ export function SessionList(props: SessionListProps) {
     </div>
   );
 }
+
+// PERFORMANCE: Export memoized version to prevent unnecessary re-renders
+export const SessionList = memo(SessionListInner);

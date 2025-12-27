@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronRight, ChevronDown, ChevronUp, Folder, RefreshCw, Check, Eye, EyeOff } from 'lucide-react';
@@ -54,7 +54,8 @@ interface FileExplorerPanelProps {
   setShowHiddenFiles: (value: boolean) => void;
 }
 
-export function FileExplorerPanel(props: FileExplorerPanelProps) {
+// PERFORMANCE: Memoize to prevent re-renders when parent state changes but props are the same
+function FileExplorerPanelInner(props: FileExplorerPanelProps) {
   const {
     session, theme, fileTreeFilter, setFileTreeFilter, fileTreeFilterOpen, setFileTreeFilterOpen,
     filteredFileTree, selectedFileIndex, setSelectedFileIndex, activeFocus, activeRightTab,
@@ -548,3 +549,6 @@ export function FileExplorerPanel(props: FileExplorerPanelProps) {
     </div>
   );
 }
+
+// PERFORMANCE: Export memoized version to prevent unnecessary re-renders
+export const FileExplorerPanel = memo(FileExplorerPanelInner);

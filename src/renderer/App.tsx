@@ -685,10 +685,13 @@ function MaestroConsoleInner() {
         }
 
         // Reset all tab states to idle - processes don't survive app restart
+        // Also ensure saveToHistory defaults to true for old sessions that predate this feature
         const resetAiTabs = correctedSession.aiTabs.map(tab => ({
           ...tab,
           state: 'idle' as const,
           thinkingStartTime: undefined,
+          // Default saveToHistory to true for tabs from old sessions (backwards compatibility)
+          saveToHistory: tab.saveToHistory ?? true,
         }));
 
         // Session restored - no superfluous messages added to AI Terminal or Command Terminal
@@ -2326,6 +2329,10 @@ function MaestroConsoleInner() {
   const fileTreeContainerRef = useRef<HTMLDivElement>(null);
   const fileTreeFilterInputRef = useRef<HTMLInputElement>(null);
   const fileTreeKeyboardNavRef = useRef(false); // Track if selection change came from keyboard
+  // PERFORMANCE: Refs for input handlers to avoid recreating functions on every render
+  const handleInputKeyDownRef = useRef<((e: React.KeyboardEvent) => void) | null>(null);
+  const handlePasteRef = useRef<((e: React.ClipboardEvent) => void) | null>(null);
+  const handleDropRef = useRef<((e: React.DragEvent) => void) | null>(null);
   const rightPanelRef = useRef<RightPanelHandle>(null);
   const mainPanelRef = useRef<MainPanelHandle>(null);
 
@@ -6836,7 +6843,8 @@ function MaestroConsoleInner() {
     }
   };
 
-  const handleInputKeyDown = (e: React.KeyboardEvent) => {
+  // PERFORMANCE: Assign to ref during render, create stable wrapper below
+  handleInputKeyDownRef.current = (e: React.KeyboardEvent) => {
     // Cmd+F opens output search from input field - handle first, before any modal logic
     if (e.key === 'f' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
@@ -7020,6 +7028,10 @@ function MaestroConsoleInner() {
       // We just need to prevent default here
     }
   };
+  // PERFORMANCE: Stable callback wrapper - prevents InputArea re-render on every keystroke
+  const handleInputKeyDown = useCallback((e: React.KeyboardEvent) => {
+    handleInputKeyDownRef.current?.(e);
+  }, []);
 
   // Image Handlers
   const showImageAttachBlockedNotice = useCallback(() => {
@@ -7028,7 +7040,8 @@ function MaestroConsoleInner() {
     setTimeout(() => setSuccessFlashNotification(null), 4000);
   }, [setSuccessFlashNotification]);
 
-  const handlePaste = (e: React.ClipboardEvent) => {
+  // PERFORMANCE: Assign to ref during render, create stable wrapper below
+  handlePasteRef.current = (e: React.ClipboardEvent) => {
     // Allow image pasting in group chat or direct AI mode
     const isGroupChatActive = !!activeGroupChatId;
     const isDirectAIMode = activeSession && activeSession.inputMode === 'ai';
@@ -7079,8 +7092,13 @@ function MaestroConsoleInner() {
       }
     }
   };
+  // PERFORMANCE: Stable callback wrapper
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    handlePasteRef.current?.(e);
+  }, []);
 
-  const handleDrop = (e: React.DragEvent) => {
+  // PERFORMANCE: Assign to ref during render, create stable wrapper below
+  handleDropRef.current = (e: React.DragEvent) => {
     e.preventDefault();
     dragCounterRef.current = 0;
     setIsDraggingImage(false);
@@ -7130,6 +7148,10 @@ function MaestroConsoleInner() {
       }
     }
   };
+  // PERFORMANCE: Stable callback wrapper
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    handleDropRef.current?.(e);
+  }, []);
 
   // --- FILE TREE MANAGEMENT ---
   // Extracted hook for file tree operations (refresh, git state, filtering)
