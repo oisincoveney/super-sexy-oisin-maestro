@@ -1,0 +1,11 @@
+{
+  "name": "Maestro",
+  "logo": "/build/icon.png",
+  "favicon": "/build/icon.ico",
+  "navigation": [
+    {
+      "group": "Overview",
+      "pages": ["index"]
+    }
+  ]
+}
