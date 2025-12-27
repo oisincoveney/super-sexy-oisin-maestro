@@ -11,7 +11,7 @@ Run multiple agents in parallel with a Linear/Superhuman-level responsive interf
 
 ## Documentation
 
-Full documentation lives at **https://docs.runmaestro.ai** and is built from the `/docs` folder in this repo. Every detail from the original README has been preserved there and expanded with screenshots.
+Full documentation lives at **https://docs.runmaestro.ai** and is built from the `/docs` folder in this repo. Here are some launching points:
 
 - [Docs Home](https://docs.runmaestro.ai)
 - [Installation](https://docs.runmaestro.ai/installation)
