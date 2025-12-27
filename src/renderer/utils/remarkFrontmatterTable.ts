@@ -1,8 +1,8 @@
 /**
- * remarkFrontmatterTable - A remark plugin that transforms YAML frontmatter into a styled metadata table.
+ * remarkFrontmatterTable - A remark plugin that transforms YAML frontmatter into a GFM table.
  *
  * Requires remark-frontmatter to be used first to parse the frontmatter into a YAML AST node.
- * This plugin then transforms that node into an HTML table for display.
+ * This plugin then transforms that node into a proper markdown table node (no raw HTML needed).
  *
  * Example input:
  * ---
@@ -10,11 +10,11 @@
  * share_note_updated: 2025-05-19T13:15:43-05:00
  * ---
  *
- * Output: A compact two-column table with key/value pairs, styled with smaller font.
+ * Output: A GFM table with key/value pairs, wrapped in a paragraph for styling context.
  */
 
 import { visit } from 'unist-util-visit';
-import type { Root } from 'mdast';
+import type { Root, Table, TableRow, TableCell, Link, Text, Paragraph, Strong } from 'mdast';
 
 /**
  * Parse simple YAML key-value pairs from frontmatter content.
@@ -55,53 +55,67 @@ function isUrl(value: string): boolean {
 }
 
 /**
- * Escape HTML special characters
+ * Create a table cell with the given content
  */
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+function createCell(content: (Text | Link | Strong)[]): TableCell {
+  return {
+    type: 'tableCell',
+    children: content,
+  };
 }
 
 /**
- * Generate HTML table from frontmatter entries
+ * Create a table row with the given cells
  */
-function generateTableHtml(entries: Array<{ key: string; value: string }>): string {
-  if (entries.length === 0) return '';
+function createRow(cells: TableCell[]): TableRow {
+  return {
+    type: 'tableRow',
+    children: cells,
+  };
+}
 
-  const rows = entries.map(({ key, value }) => {
-    const escapedKey = escapeHtml(key);
-    let valueHtml: string;
+/**
+ * Generate a GFM table node from frontmatter entries
+ */
+function generateTableNode(entries: Array<{ key: string; value: string }>): Table {
+  const rows: TableRow[] = entries.map(({ key, value }) => {
+    // Key cell with bold text
+    const keyCell = createCell([
+      {
+        type: 'strong',
+        children: [{ type: 'text', value: key }],
+      } as Strong,
+    ]);
 
+    // Value cell - link if URL, otherwise plain text
+    let valueCell: TableCell;
     if (isUrl(value)) {
-      // Render URLs as clickable links
-      const escapedUrl = escapeHtml(value);
       // Truncate long URLs for display
       const displayUrl = value.length > 50 ? value.substring(0, 47) + '...' : value;
-      valueHtml = `<a href="${escapedUrl}" style="color: inherit; text-decoration: underline;" title="${escapedUrl}">${escapeHtml(displayUrl)}</a>`;
+      valueCell = createCell([
+        {
+          type: 'link',
+          url: value,
+          title: value,
+          children: [{ type: 'text', value: displayUrl }],
+        } as Link,
+      ]);
     } else {
-      valueHtml = escapeHtml(value);
+      valueCell = createCell([{ type: 'text', value }]);
     }
 
-    return `<tr>
-      <td style="padding: 2px 8px 2px 0; font-weight: 500; white-space: nowrap; vertical-align: top;">${escapedKey}</td>
-      <td style="padding: 2px 0; word-break: break-word;">${valueHtml}</td>
-    </tr>`;
-  }).join('\n');
+    return createRow([keyCell, valueCell]);
+  });
 
-  return `<div class="frontmatter-table" style="font-size: 0.75em; opacity: 0.7; margin-bottom: 1em; padding: 8px; border-radius: 4px; background: rgba(128,128,128,0.1);">
-    <table style="border-collapse: collapse; width: 100%;">
-      <tbody>
-        ${rows}
-      </tbody>
-    </table>
-  </div>`;
+  return {
+    type: 'table',
+    align: ['left', 'left'],
+    children: rows,
+  };
 }
 
 /**
- * The remark plugin - transforms YAML frontmatter nodes into HTML tables
+ * The remark plugin - transforms YAML frontmatter nodes into GFM tables
  */
 export function remarkFrontmatterTable() {
   return (tree: Root) => {
@@ -117,16 +131,24 @@ export function remarkFrontmatterTable() {
         return index;
       }
 
-      const tableHtml = generateTableHtml(entries);
+      const tableNode = generateTableNode(entries);
 
-      // Replace the YAML node with an HTML node
-      const htmlNode = {
-        type: 'html',
-        value: tableHtml,
+      // Wrap in a paragraph with a data attribute for styling (using emphasis as a marker)
+      // Actually, just insert the table directly - we'll style it via CSS class on the container
+      // Add a small italic text before the table as a visual separator
+      const metadataMarker: Paragraph = {
+        type: 'paragraph',
+        children: [
+          {
+            type: 'emphasis',
+            children: [{ type: 'text', value: 'Document metadata:' }],
+          },
+        ],
       };
 
-      parent.children.splice(index, 1, htmlNode);
-      return index + 1;
+      // Replace the YAML node with the marker and table
+      parent.children.splice(index, 1, metadataMarker, tableNode);
+      return index + 2;
     });
   };
 }

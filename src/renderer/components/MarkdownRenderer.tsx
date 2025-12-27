@@ -184,7 +184,7 @@ interface MarkdownRendererProps {
   projectRoot?: string;
   /** Callback when a file link is clicked */
   onFileClick?: (path: string) => void;
-  /** Allow raw HTML passthrough via rehype-raw (can break table/bold rendering) */
+  /** Allow raw HTML passthrough via rehype-raw (may break GFM table rendering) */
   allowRawHtml?: boolean;
 }
 
