@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Download, ExternalLink, Loader2, CheckCircle2, AlertCircle, RefreshCw, ChevronDown, ChevronRight, RotateCcw } from 'lucide-react';
+import { X, Download, ExternalLink, Loader2, CheckCircle2, AlertCircle, RefreshCw, ChevronDown, ChevronRight, RotateCcw, FlaskConical } from 'lucide-react';
 import type { Theme } from '../types';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
 import ReactMarkdown from 'react-markdown';
@@ -43,7 +43,7 @@ export function UpdateCheckModal({ theme, onClose }: UpdateCheckModalProps) {
   const [expandedReleases, setExpandedReleases] = useState<Set<string>>(new Set());
 
   // Get beta updates setting
-  const { enableBetaUpdates } = useSettings();
+  const { enableBetaUpdates, setEnableBetaUpdates } = useSettings();
 
   // Auto-updater state
   const [downloadStatus, setDownloadStatus] = useState<UpdateStatus>({ status: 'idle' });
@@ -442,6 +442,60 @@ export function UpdateCheckModal({ theme, onClose }: UpdateCheckModalProps) {
             </button>
           </div>
         )}
+
+        {/* Beta Opt-in Toggle */}
+        <div
+          className="mt-4 pt-4 border-t"
+          style={{ borderColor: theme.colors.border }}
+        >
+          <label
+            className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors hover:bg-white/5"
+            style={{
+              borderColor: enableBetaUpdates ? theme.colors.accent : theme.colors.border,
+              backgroundColor: enableBetaUpdates ? `${theme.colors.accent}10` : theme.colors.bgMain,
+            }}
+          >
+            <div
+              className="relative flex items-center justify-center w-5 h-5 rounded border-2 transition-colors"
+              style={{
+                borderColor: enableBetaUpdates ? theme.colors.accent : theme.colors.border,
+                backgroundColor: enableBetaUpdates ? theme.colors.accent : 'transparent',
+              }}
+            >
+              {enableBetaUpdates && (
+                <svg
+                  className="w-3 h-3"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  stroke={theme.colors.bgMain}
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M2 6l3 3 5-6" />
+                </svg>
+              )}
+              <input
+                type="checkbox"
+                checked={enableBetaUpdates}
+                onChange={(e) => setEnableBetaUpdates(e.target.checked)}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+              />
+            </div>
+            <FlaskConical
+              className="w-4 h-4"
+              style={{ color: enableBetaUpdates ? theme.colors.accent : theme.colors.textDim }}
+            />
+            <div className="flex-1">
+              <div className="text-sm font-medium" style={{ color: theme.colors.textMain }}>
+                Include pre-release updates
+              </div>
+              <div className="text-xs mt-0.5" style={{ color: theme.colors.textDim }}>
+                Beta and release candidate versions
+              </div>
+            </div>
+          </label>
+        </div>
       </div>
     </Modal>
   );
