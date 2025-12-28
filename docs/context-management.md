@@ -1,7 +1,7 @@
 ---
 title: Context Management
 description: Compact, merge, and transfer conversation context between sessions and agents.
-icon: layers
+icon: layer-group
 ---
 
 ## Tab Menu

@@ -1,7 +1,7 @@
 ---
 title: Configuration
 description: Settings overview, updates, storage locations, and cross-device sync.
-icon: settings
+icon: gear
 ---
 
 ## Settings Overview

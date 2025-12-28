@@ -1,7 +1,7 @@
 ---
 title: General Usage
 description: Learn the Maestro UI layout, agent status indicators, file explorer, and output filtering.
-icon: layout-dashboard
+icon: grid-2
 ---
 
 ## UI Overview

@@ -1,7 +1,7 @@
 ---
 title: Git and Worktrees
 description: Browse commit history, view diffs, and run AI agents in parallel on isolated branches with Git worktree sub-agents.
-icon: git-branch
+icon: code-branch
 ---
 
 Maestro integrates deeply with Git, providing visual tools for exploring repository history and enabling parallel development with worktree sub-agents.
