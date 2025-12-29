@@ -556,4 +556,229 @@ with newline](./file.md).`;
       });
     });
   });
+
+  describe('external URLs with special characters', () => {
+    describe('URLs with parentheses', () => {
+      it('should handle URLs with balanced parentheses (Wikipedia-style)', () => {
+        const content = '[Wikipedia](https://en.wikipedia.org/wiki/Markdown_(example))';
+        const result = parseMarkdownLinks(content, 'readme.md');
+
+        expect(result.externalLinks).toHaveLength(1);
+        expect(result.externalLinks[0].url).toBe('https://en.wikipedia.org/wiki/Markdown_(example)');
+        expect(result.externalLinks[0].domain).toBe('en.wikipedia.org');
+      });
+
+      it('should handle URLs with multiple parentheses pairs', () => {
+        const content = '[Link](https://example.com/path/(a)/(b)/file)';
+        const result = parseMarkdownLinks(content, 'readme.md');
+
+        expect(result.externalLinks).toHaveLength(1);
+        expect(result.externalLinks[0].url).toBe('https://example.com/path/(a)/(b)/file');
+      });
+
+      it('should handle URLs with parentheses at the end', () => {
+        const content = '[Reference](https://example.com/wiki/Term_(disambiguation))';
+        const result = parseMarkdownLinks(content, 'readme.md');
+
+        expect(result.externalLinks).toHaveLength(1);
+        expect(result.externalLinks[0].url).toBe('https://example.com/wiki/Term_(disambiguation)');
+      });
+
+      it('should handle multiple URLs with parentheses in same content', () => {
+        const content = `
+See [First](https://en.wikipedia.org/wiki/A_(letter)) and
+[Second](https://en.wikipedia.org/wiki/B_(letter)).
+        `;
+        const result = parseMarkdownLinks(content, 'readme.md');
+
+        expect(result.externalLinks).toHaveLength(2);
+        expect(result.externalLinks[0].url).toContain('A_(letter)');
+        expect(result.externalLinks[1].url).toContain('B_(letter)');
+      });
+    });
+
+    describe('URLs with query parameters', () => {
+      it('should handle URLs with query parameters', () => {
+        const content = '[Search](https://example.com/search?q=test&page=1&sort=date)';
+        const result = parseMarkdownLinks(content, 'readme.md');
+
+        expect(result.externalLinks).toHaveLength(1);
+        expect(result.externalLinks[0].url).toBe('https://example.com/search?q=test&page=1&sort=date');
+      });
+
+      it('should handle URLs with special characters in query parameters', () => {
+        const content = '[Encode](https://example.com/api?data=%7B%22key%22%3A%22value%22%7D)';
+        const result = parseMarkdownLinks(content, 'readme.md');
+
+        expect(result.externalLinks).toHaveLength(1);
+        expect(result.externalLinks[0].url).toContain('data=');
+      });
+
+      it('should handle URLs with plus signs in query', () => {
+        const content = '[Query](https://example.com/search?q=hello+world)';
+        const result = parseMarkdownLinks(content, 'readme.md');
+
+        expect(result.externalLinks).toHaveLength(1);
+        expect(result.externalLinks[0].url).toBe('https://example.com/search?q=hello+world');
+      });
+    });
+
+    describe('URLs with fragments', () => {
+      it('should handle URLs with fragment identifiers', () => {
+        const content = '[Section](https://example.com/page#section-2)';
+        const result = parseMarkdownLinks(content, 'readme.md');
+
+        expect(result.externalLinks).toHaveLength(1);
+        expect(result.externalLinks[0].url).toBe('https://example.com/page#section-2');
+      });
+
+      it('should handle URLs with both query and fragment', () => {
+        const content = '[Full](https://example.com/page?id=123#heading)';
+        const result = parseMarkdownLinks(content, 'readme.md');
+
+        expect(result.externalLinks).toHaveLength(1);
+        expect(result.externalLinks[0].url).toBe('https://example.com/page?id=123#heading');
+      });
+    });
+
+    describe('URLs with special domains', () => {
+      it('should handle URLs with port numbers', () => {
+        const content = '[Local](https://localhost:3000/api/test)';
+        const result = parseMarkdownLinks(content, 'readme.md');
+
+        expect(result.externalLinks).toHaveLength(1);
+        expect(result.externalLinks[0].domain).toBe('localhost');
+      });
+
+      it('should handle URLs with IP addresses', () => {
+        const content = '[Server](https://192.168.1.1:8080/admin)';
+        const result = parseMarkdownLinks(content, 'readme.md');
+
+        expect(result.externalLinks).toHaveLength(1);
+        expect(result.externalLinks[0].domain).toBe('192.168.1.1');
+      });
+
+      it('should handle URLs with authentication info', () => {
+        const content = '[Auth](https://user:pass@example.com/secure)';
+        const result = parseMarkdownLinks(content, 'readme.md');
+
+        expect(result.externalLinks).toHaveLength(1);
+        expect(result.externalLinks[0].domain).toBe('example.com');
+      });
+    });
+
+    describe('URLs with Unicode and special characters', () => {
+      it('should handle URLs with percent-encoded characters', () => {
+        const content = '[Encoded](https://example.com/path%20with%20spaces)';
+        const result = parseMarkdownLinks(content, 'readme.md');
+
+        expect(result.externalLinks).toHaveLength(1);
+        expect(result.externalLinks[0].url).toBe('https://example.com/path%20with%20spaces');
+      });
+
+      it('should handle URLs with unicode path segments', () => {
+        const content = '[Unicode](https://example.com/文档/测试)';
+        const result = parseMarkdownLinks(content, 'readme.md');
+
+        expect(result.externalLinks).toHaveLength(1);
+        expect(result.externalLinks[0].url).toContain('文档');
+      });
+
+      it('should handle URLs with emoji in path', () => {
+        const content = '[Emoji](https://example.com/docs/🎉/welcome)';
+        const result = parseMarkdownLinks(content, 'readme.md');
+
+        expect(result.externalLinks).toHaveLength(1);
+        expect(result.externalLinks[0].url).toContain('🎉');
+      });
+
+      it('should handle URLs with hyphens and underscores', () => {
+        const content = '[Dashes](https://my-site.example.com/path_to/some-file)';
+        const result = parseMarkdownLinks(content, 'readme.md');
+
+        expect(result.externalLinks).toHaveLength(1);
+        expect(result.externalLinks[0].domain).toBe('my-site.example.com');
+      });
+    });
+
+    describe('extractDomain edge cases', () => {
+      it('should handle IDN domains (punycode)', () => {
+        // The URL constructor converts IDN to punycode
+        expect(extractDomain('https://例え.jp/path')).toBe('xn--r8jz45g.jp');
+      });
+
+      it('should strip www prefix from complex URLs', () => {
+        expect(extractDomain('https://www.docs.example.com/path')).toBe('docs.example.com');
+      });
+
+      it('should handle URLs with trailing slashes', () => {
+        expect(extractDomain('https://example.com/')).toBe('example.com');
+      });
+
+      it('should handle URLs with deep paths', () => {
+        expect(extractDomain('https://github.com/org/repo/blob/main/src/file.ts')).toBe('github.com');
+      });
+
+      it('should return original for malformed URLs', () => {
+        // The regex fallback should handle these
+        expect(extractDomain('http://incomplete')).toBe('incomplete');
+      });
+
+      it('should handle URLs with unusual TLDs', () => {
+        expect(extractDomain('https://site.museum/collection')).toBe('site.museum');
+        expect(extractDomain('https://company.technology/product')).toBe('company.technology');
+      });
+    });
+
+    describe('complex real-world URLs', () => {
+      it('should handle GitHub file URLs', () => {
+        const content = '[Code](https://github.com/user/repo/blob/main/src/index.ts#L10-L20)';
+        const result = parseMarkdownLinks(content, 'readme.md');
+
+        expect(result.externalLinks).toHaveLength(1);
+        expect(result.externalLinks[0].url).toContain('#L10-L20');
+        expect(result.externalLinks[0].domain).toBe('github.com');
+      });
+
+      it('should handle Google search URLs', () => {
+        const content = '[Google](https://www.google.com/search?q=markdown+tutorial&source=hp)';
+        const result = parseMarkdownLinks(content, 'readme.md');
+
+        expect(result.externalLinks).toHaveLength(1);
+        expect(result.externalLinks[0].domain).toBe('google.com');
+      });
+
+      it('should handle YouTube URLs with video IDs', () => {
+        const content = '[Video](https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30s)';
+        const result = parseMarkdownLinks(content, 'readme.md');
+
+        expect(result.externalLinks).toHaveLength(1);
+        expect(result.externalLinks[0].url).toContain('dQw4w9WgXcQ');
+      });
+
+      it('should handle Amazon product URLs', () => {
+        const content = '[Product](https://www.amazon.com/dp/B08N5WRWNW?ref=cm_sw_r_cp_api)';
+        const result = parseMarkdownLinks(content, 'readme.md');
+
+        expect(result.externalLinks).toHaveLength(1);
+        expect(result.externalLinks[0].domain).toBe('amazon.com');
+      });
+
+      it('should handle Stack Overflow question URLs', () => {
+        const content = '[Question](https://stackoverflow.com/questions/12345678/how-to-do-something)';
+        const result = parseMarkdownLinks(content, 'readme.md');
+
+        expect(result.externalLinks).toHaveLength(1);
+        expect(result.externalLinks[0].domain).toBe('stackoverflow.com');
+      });
+
+      it('should handle Twitter/X status URLs', () => {
+        const content = '[Tweet](https://twitter.com/user/status/1234567890123456789)';
+        const result = parseMarkdownLinks(content, 'readme.md');
+
+        expect(result.externalLinks).toHaveLength(1);
+        expect(result.externalLinks[0].domain).toBe('twitter.com');
+      });
+    });
+  });
 });

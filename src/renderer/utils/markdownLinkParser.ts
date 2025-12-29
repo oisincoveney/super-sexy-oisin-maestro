@@ -42,8 +42,16 @@ const WIKI_LINK_PATTERN = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
 /**
  * Standard markdown links: [text](url)
  * Captures: [1] = display text, [2] = url
+ *
+ * The URL pattern handles:
+ * - Simple URLs without parentheses
+ * - URLs with balanced parentheses (e.g., Wikipedia links like /wiki/Test_(example))
+ * - URLs with query parameters, fragments, and special characters
+ *
+ * The regex uses:
+ * - (?:[^()\s]|\([^()]*\))+ to match: non-paren/non-space chars OR balanced parens
  */
-const MARKDOWN_LINK_PATTERN = /\[([^\]]*)\]\(([^)]+)\)/g;
+const MARKDOWN_LINK_PATTERN = /\[([^\]]*)\]\(((?:[^()\s]|\([^()]*\))+)\)/g;
 
 /**
  * Front matter delimiter pattern - matches YAML front matter block
