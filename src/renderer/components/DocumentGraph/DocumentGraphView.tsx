@@ -412,26 +412,44 @@ function DocumentGraphViewInner({
       setLoadedDocuments(graphData.loadedDocuments);
       setHasMore(graphData.hasMore);
 
-      // Check for saved positions first
+      // Determine node positions based on context
       let layoutedNodes: Node<GraphNodeData>[];
+      const isInitial = isInitialLoadRef.current;
+
       if (hasSavedPositions(rootPath)) {
+        // Restore saved positions (from user drags or previous layout)
         layoutedNodes = restoreNodePositions(rootPath, graphData.nodes);
+      } else if (!isInitial && previousNodes.length > 0) {
+        // Real-time update with no saved positions: preserve current positions for unchanged nodes
+        // This handles the case where files change before any user interaction (drag/layout toggle)
+        const previousPositions = new Map(previousNodes.map((n) => [n.id, n.position]));
+        layoutedNodes = graphData.nodes.map((node) => {
+          const savedPos = previousPositions.get(node.id);
+          if (savedPos) {
+            // Preserve position from previous render (unchanged node)
+            return { ...node, position: { ...savedPos } };
+          }
+          // New node: apply layout for this single node or use default position
+          return node;
+        });
       } else {
-        // Apply layout algorithm
+        // Initial load or no previous nodes: apply layout algorithm
         layoutedNodes = applyLayout(graphData.nodes, graphData.edges);
       }
 
       // Store layouted nodes (without theme) for future diffs
       previousNodesRef.current = layoutedNodes;
 
-      // Check if this is the initial load or if there are changes to animate
-      const isInitial = isInitialLoadRef.current;
+      // Handle initial load vs real-time updates
       if (isInitial) {
         isInitialLoadRef.current = false;
         // Initial load: just set nodes without animation
         const themedNodes = injectThemeIntoNodes(layoutedNodes);
         setNodes(themedNodes as Node[]);
         setEdges(graphData.edges);
+
+        // Save positions after initial layout (ensures positions are preserved on first file change)
+        saveNodePositions(rootPath, layoutedNodes);
 
         // Fit view after nodes are set
         setTimeout(() => {
