@@ -279,4 +279,64 @@ describe('ExternalLinkNode', () => {
       expect(nodeElement).toHaveStyle({ borderRadius: '12px' });
     });
   });
+
+  describe('Search/Filter Dimming', () => {
+    it('renders with full opacity when search is not active', () => {
+      const props = createNodeProps({
+        searchActive: false,
+        searchMatch: true,
+      });
+
+      const { container } = renderWithProvider(<ExternalLinkNode {...props} />);
+
+      const nodeElement = container.querySelector('.external-link-node');
+      expect(nodeElement).toHaveStyle({
+        opacity: '1',
+        filter: 'none',
+      });
+    });
+
+    it('renders with full opacity when search is active and node matches', () => {
+      const props = createNodeProps({
+        searchActive: true,
+        searchMatch: true,
+      });
+
+      const { container } = renderWithProvider(<ExternalLinkNode {...props} />);
+
+      const nodeElement = container.querySelector('.external-link-node');
+      expect(nodeElement).toHaveStyle({
+        opacity: '1',
+        filter: 'none',
+      });
+    });
+
+    it('renders with reduced opacity when search is active and node does not match', () => {
+      const props = createNodeProps({
+        searchActive: true,
+        searchMatch: false,
+      });
+
+      const { container } = renderWithProvider(<ExternalLinkNode {...props} />);
+
+      const nodeElement = container.querySelector('.external-link-node');
+      expect(nodeElement).toHaveStyle({
+        opacity: '0.35',
+        filter: 'grayscale(50%)',
+      });
+    });
+
+    it('renders with full opacity when searchActive/searchMatch are undefined', () => {
+      const props = createNodeProps();
+      // Don't set searchActive or searchMatch - should default to full opacity
+
+      const { container } = renderWithProvider(<ExternalLinkNode {...props} />);
+
+      const nodeElement = container.querySelector('.external-link-node');
+      expect(nodeElement).toHaveStyle({
+        opacity: '1',
+        filter: 'none',
+      });
+    });
+  });
 });

@@ -16,9 +16,13 @@ import type { Theme } from '../../types';
 import type { DocumentNodeData } from './graphDataBuilder';
 
 /**
- * Extended node data including theme for styling
+ * Extended node data including theme and search state for styling
  */
-export interface DocumentNodeProps extends NodeProps<DocumentNodeData & { theme: Theme }> {
+export interface DocumentNodeProps extends NodeProps<DocumentNodeData & {
+  theme: Theme;
+  searchActive?: boolean;
+  searchMatch?: boolean;
+}> {
   // Props come from React Flow - data, selected, etc.
 }
 
@@ -42,7 +46,10 @@ export const DocumentNode = memo(function DocumentNode({
   data,
   selected,
 }: DocumentNodeProps) {
-  const { title, lineCount, wordCount, size, description, filePath, theme } = data;
+  const { title, lineCount, wordCount, size, description, filePath, theme, searchActive, searchMatch } = data;
+
+  // Determine if this node should be dimmed (search active but not matching)
+  const isDimmed = searchActive && !searchMatch;
 
   // Memoize styles to prevent unnecessary recalculations
   const containerStyle = useMemo(() => ({
@@ -59,7 +66,9 @@ export const DocumentNode = memo(function DocumentNode({
       : '0 2px 8px rgba(0, 0, 0, 0.15)',
     transition: 'all 0.2s ease',
     cursor: 'pointer',
-  }), [theme.colors, selected]);
+    opacity: isDimmed ? 0.35 : 1,
+    filter: isDimmed ? 'grayscale(50%)' : 'none',
+  }), [theme.colors, selected, isDimmed]);
 
   const titleStyle = useMemo(() => ({
     color: theme.colors.textMain,

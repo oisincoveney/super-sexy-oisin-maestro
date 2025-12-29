@@ -38,14 +38,14 @@ import ReactFlow, {
   NodeMouseHandler,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { X, LayoutGrid, Network, ExternalLink, RefreshCw, Maximize2, ChevronDown, Loader2 } from 'lucide-react';
+import { X, LayoutGrid, Network, ExternalLink, RefreshCw, Maximize2, ChevronDown, Loader2, Search } from 'lucide-react';
 import type { Theme } from '../../types';
 import { useLayerStack } from '../../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../../constants/modalPriorities';
 import { useDebouncedCallback } from '../../hooks/utils';
 import { DocumentNode } from './DocumentNode';
 import { ExternalLinkNode } from './ExternalLinkNode';
-import { buildGraphData, GraphNodeData, ProgressData } from './graphDataBuilder';
+import { buildGraphData, GraphNodeData, ProgressData, DocumentNodeData, ExternalLinkNodeData } from './graphDataBuilder';
 import { NodeContextMenu } from './NodeContextMenu';
 import {
   applyForceLayout,
@@ -119,6 +119,7 @@ function DocumentGraphViewInner({
   const [includeExternalLinks, setIncludeExternalLinks] = useState(true);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [progress, setProgress] = useState<ProgressData | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Pagination state for large directories
   const [totalDocuments, setTotalDocuments] = useState(0);
@@ -135,6 +136,9 @@ function DocumentGraphViewInner({
   } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchQueryRef = useRef(searchQuery);
+  searchQueryRef.current = searchQuery;
   const { registerLayer, unregisterLayer } = useLayerStack();
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -361,19 +365,49 @@ function DocumentGraphViewInner({
   );
 
   /**
-   * Inject theme into node data for styling
+   * Check if a node matches the search query
+   */
+  const nodeMatchesSearch = useCallback(
+    (node: Node<GraphNodeData>, query: string): boolean => {
+      if (!query.trim()) return true;
+      const lowerQuery = query.toLowerCase().trim();
+
+      if (node.data.nodeType === 'document') {
+        const docData = node.data as DocumentNodeData;
+        return (
+          docData.title.toLowerCase().includes(lowerQuery) ||
+          docData.filePath.toLowerCase().includes(lowerQuery) ||
+          (docData.description?.toLowerCase().includes(lowerQuery) ?? false)
+        );
+      } else if (node.data.nodeType === 'external') {
+        const extData = node.data as ExternalLinkNodeData;
+        return (
+          extData.domain.toLowerCase().includes(lowerQuery) ||
+          extData.urls.some((url) => url.toLowerCase().includes(lowerQuery))
+        );
+      }
+      return false;
+    },
+    []
+  );
+
+  /**
+   * Inject theme and search state into node data for styling
    */
   const injectThemeIntoNodes = useCallback(
-    (rawNodes: Node<GraphNodeData>[]): Node<GraphNodeData & { theme: Theme }>[] => {
+    (rawNodes: Node<GraphNodeData>[], query: string = ''): Node<GraphNodeData & { theme: Theme; searchMatch: boolean; searchActive: boolean }>[] => {
+      const searchActive = query.trim().length > 0;
       return rawNodes.map((node) => ({
         ...node,
         data: {
           ...node.data,
           theme,
+          searchActive,
+          searchMatch: searchActive ? nodeMatchesSearch(node, query) : true,
         },
       }));
     },
-    [theme]
+    [theme, nodeMatchesSearch]
   );
 
   /**
@@ -444,7 +478,7 @@ function DocumentGraphViewInner({
       if (isInitial) {
         isInitialLoadRef.current = false;
         // Initial load: just set nodes without animation
-        const themedNodes = injectThemeIntoNodes(layoutedNodes);
+        const themedNodes = injectThemeIntoNodes(layoutedNodes, searchQueryRef.current);
         setNodes(themedNodes as Node[]);
         setEdges(graphData.edges);
 
@@ -510,12 +544,12 @@ function DocumentGraphViewInner({
           });
         } else {
           // No additions or removals, just update with theme
-          const themedNodes = injectThemeIntoNodes(layoutedNodes);
+          const themedNodes = injectThemeIntoNodes(layoutedNodes, searchQueryRef.current);
           setNodes(themedNodes as Node[]);
         }
       } else {
         // Fallback: no previous nodes or animation in progress
-        const themedNodes = injectThemeIntoNodes(layoutedNodes);
+        const themedNodes = injectThemeIntoNodes(layoutedNodes, searchQueryRef.current);
         setNodes(themedNodes as Node[]);
         setEdges(graphData.edges);
 
@@ -576,6 +610,7 @@ function DocumentGraphViewInner({
       isInitialMountRef.current = true;
       isInitialLoadRef.current = true;
       previousNodesRef.current = [];
+      setSearchQuery('');
     }
   }, [isOpen]);
 
@@ -622,6 +657,28 @@ function DocumentGraphViewInner({
       setNodes(themedNodes);
     }
   }, [theme]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Update search matching state when searchQuery changes
+  useEffect(() => {
+    if (!loading && nodes.length > 0) {
+      const searchActive = searchQuery.trim().length > 0;
+      const updatedNodes = nodes.map((node) => {
+        // Strip existing search state to avoid stale data
+        const nodeWithoutSearch = { ...node };
+        const existingData = node.data as GraphNodeData & { theme: Theme };
+
+        return {
+          ...nodeWithoutSearch,
+          data: {
+            ...existingData,
+            searchActive,
+            searchMatch: searchActive ? nodeMatchesSearch(node as Node<GraphNodeData>, searchQuery) : true,
+          },
+        };
+      });
+      setNodes(updatedNodes);
+    }
+  }, [searchQuery]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
    * Handle selection change - track selected node for edge highlighting
@@ -862,8 +919,8 @@ function DocumentGraphViewInner({
       // Apply layout to new nodes
       const layoutedNodes = applyLayout(graphData.nodes, graphData.edges);
 
-      // Inject theme
-      const themedNodes = injectThemeIntoNodes(layoutedNodes);
+      // Inject theme and search state
+      const themedNodes = injectThemeIntoNodes(layoutedNodes, searchQueryRef.current);
 
       setNodes(themedNodes as Node[]);
       setEdges(graphData.edges);
@@ -881,6 +938,12 @@ function DocumentGraphViewInner({
 
   const documentCount = nodes.filter((n) => n.type === 'documentNode').length;
   const externalCount = nodes.filter((n) => n.type === 'externalLinkNode').length;
+
+  // Count matching nodes when search is active
+  const searchMatchCount = searchQuery.trim()
+    ? nodes.filter((n) => (n.data as { searchMatch?: boolean }).searchMatch).length
+    : 0;
+  const totalNodesCount = documentCount + externalCount;
 
   return (
     <div
@@ -926,6 +989,47 @@ function DocumentGraphViewInner({
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Search Input */}
+            <div className="relative">
+              <Search
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+                style={{ color: theme.colors.textDim }}
+              />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search documents..."
+                className="pl-8 pr-3 py-1.5 rounded text-sm outline-none transition-colors"
+                style={{
+                  backgroundColor: `${theme.colors.accent}10`,
+                  color: theme.colors.textMain,
+                  border: `1px solid ${searchQuery ? theme.colors.accent : 'transparent'}`,
+                  width: 180,
+                }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = theme.colors.accent)}
+                onBlur={(e) => (e.currentTarget.style.borderColor = searchQuery ? theme.colors.accent : 'transparent')}
+                aria-label="Search documents in graph"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    searchInputRef.current?.focus();
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full transition-colors"
+                  style={{ color: theme.colors.textDim }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = theme.colors.textMain)}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = theme.colors.textDim)}
+                  title="Clear search"
+                  aria-label="Clear search"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
             {/* Layout Toggle */}
             <button
               onClick={handleLayoutToggle}
@@ -1159,11 +1263,18 @@ function DocumentGraphViewInner({
         >
           <div className="flex items-center gap-3">
             <span>
-              {documentCount > 0
-                ? `${documentCount}${totalDocuments > loadedDocuments ? ` of ${totalDocuments}` : ''} document${documentCount !== 1 ? 's' : ''}${
-                    includeExternalLinks && externalCount > 0 ? `, ${externalCount} external domain${externalCount !== 1 ? 's' : ''}` : ''
-                  }`
-                : 'No documents found'}
+              {searchQuery.trim() ? (
+                <>
+                  <span style={{ color: theme.colors.accent }}>{searchMatchCount}</span>
+                  {` of ${totalNodesCount} matching`}
+                </>
+              ) : documentCount > 0 ? (
+                `${documentCount}${totalDocuments > loadedDocuments ? ` of ${totalDocuments}` : ''} document${documentCount !== 1 ? 's' : ''}${
+                  includeExternalLinks && externalCount > 0 ? `, ${externalCount} external domain${externalCount !== 1 ? 's' : ''}` : ''
+                }`
+              ) : (
+                'No documents found'
+              )}
             </span>
             {/* Load More Button */}
             {hasMore && (

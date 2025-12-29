@@ -18,9 +18,13 @@ import type { Theme } from '../../types';
 import type { ExternalLinkNodeData } from './graphDataBuilder';
 
 /**
- * Extended node data including theme for styling
+ * Extended node data including theme and search state for styling
  */
-export interface ExternalLinkNodeProps extends NodeProps<ExternalLinkNodeData & { theme: Theme }> {
+export interface ExternalLinkNodeProps extends NodeProps<ExternalLinkNodeData & {
+  theme: Theme;
+  searchActive?: boolean;
+  searchMatch?: boolean;
+}> {
   // Props come from React Flow - data, selected, etc.
 }
 
@@ -31,7 +35,10 @@ export const ExternalLinkNode = memo(function ExternalLinkNode({
   data,
   selected,
 }: ExternalLinkNodeProps) {
-  const { domain, linkCount, urls, theme } = data;
+  const { domain, linkCount, urls, theme, searchActive, searchMatch } = data;
+
+  // Determine if this node should be dimmed (search active but not matching)
+  const isDimmed = searchActive && !searchMatch;
 
   // Build tooltip text showing all URLs
   const tooltipText = useMemo(() => {
@@ -59,7 +66,9 @@ export const ExternalLinkNode = memo(function ExternalLinkNode({
     justifyContent: 'center' as const,
     gap: 6,
     position: 'relative' as const,
-  }), [theme.colors, selected]);
+    opacity: isDimmed ? 0.35 : 1,
+    filter: isDimmed ? 'grayscale(50%)' : 'none',
+  }), [theme.colors, selected, isDimmed]);
 
   const domainStyle = useMemo(() => ({
     color: theme.colors.textMain,

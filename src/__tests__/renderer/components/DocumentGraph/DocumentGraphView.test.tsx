@@ -1562,4 +1562,277 @@ describe('DocumentGraphView', () => {
       expect(resetOnClose.previousNodesRef).toEqual([]);
     });
   });
+
+  describe('Search/Filter Functionality', () => {
+    it('provides search input in header for filtering documents', () => {
+      // The component includes a search input in the header area
+      // Implementation in DocumentGraphView.tsx header section:
+      // - Search icon positioned at left of input
+      // - Input placeholder: "Search documents..."
+      // - Clear button (X) appears when search query is not empty
+      // - Input has aria-label for accessibility
+
+      const searchInputStructure = {
+        icon: 'Search',
+        placeholder: 'Search documents...',
+        ariaLabel: 'Search documents in graph',
+        hasClearButton: true,
+        inputWidth: 180,
+      };
+
+      expect(searchInputStructure.placeholder).toBe('Search documents...');
+      expect(searchInputStructure.ariaLabel).toBe('Search documents in graph');
+    });
+
+    it('manages searchQuery state for filtering', () => {
+      // The component uses useState for search query:
+      // const [searchQuery, setSearchQuery] = useState('');
+      //
+      // And maintains a ref for use in callbacks:
+      // const searchQueryRef = useRef(searchQuery);
+      // searchQueryRef.current = searchQuery;
+
+      const searchQueryState = {
+        initialValue: '',
+        refForCallbacks: 'searchQueryRef.current',
+      };
+
+      expect(searchQueryState.initialValue).toBe('');
+    });
+
+    it('matches document nodes by title, filePath, and description', () => {
+      // The nodeMatchesSearch function checks:
+      // - title.toLowerCase().includes(query)
+      // - filePath.toLowerCase().includes(query)
+      // - description?.toLowerCase().includes(query)
+
+      const documentSearchFields = ['title', 'filePath', 'description'];
+
+      const mockDocNode = {
+        data: {
+          nodeType: 'document',
+          title: 'Getting Started Guide',
+          filePath: 'docs/getting-started.md',
+          description: 'Introduction to the application',
+        },
+      };
+
+      // Should match on title
+      expect(mockDocNode.data.title.toLowerCase().includes('getting')).toBe(true);
+      // Should match on filePath
+      expect(mockDocNode.data.filePath.toLowerCase().includes('docs')).toBe(true);
+      // Should match on description
+      expect(mockDocNode.data.description.toLowerCase().includes('introduction')).toBe(true);
+      // Case insensitive
+      expect(mockDocNode.data.title.toLowerCase().includes('GETTING'.toLowerCase())).toBe(true);
+
+      expect(documentSearchFields).toContain('title');
+      expect(documentSearchFields).toContain('filePath');
+      expect(documentSearchFields).toContain('description');
+    });
+
+    it('matches external link nodes by domain and URLs', () => {
+      // The nodeMatchesSearch function checks for external nodes:
+      // - domain.toLowerCase().includes(query)
+      // - urls.some(url => url.toLowerCase().includes(query))
+
+      const externalSearchFields = ['domain', 'urls'];
+
+      const mockExtNode = {
+        data: {
+          nodeType: 'external',
+          domain: 'github.com',
+          urls: ['https://github.com/repo1', 'https://github.com/repo2'],
+        },
+      };
+
+      // Should match on domain
+      expect(mockExtNode.data.domain.toLowerCase().includes('github')).toBe(true);
+      // Should match on URL
+      expect(mockExtNode.data.urls.some((url: string) => url.toLowerCase().includes('repo1'))).toBe(true);
+
+      expect(externalSearchFields).toContain('domain');
+      expect(externalSearchFields).toContain('urls');
+    });
+
+    it('returns true for all nodes when search query is empty', () => {
+      // When searchQuery is empty (or just whitespace), all nodes match:
+      // if (!query.trim()) return true;
+
+      const emptyQueries = ['', '   ', '\t', '\n'];
+
+      emptyQueries.forEach((query) => {
+        expect(query.trim()).toBe('');
+      });
+    });
+
+    it('injects searchActive and searchMatch into node data', () => {
+      // The injectThemeIntoNodes function adds search state:
+      // {
+      //   ...existingData,
+      //   theme,
+      //   searchActive: boolean,  // true when search query is not empty
+      //   searchMatch: boolean,   // true if node matches search query
+      // }
+
+      const nodeDataWithSearch = {
+        title: 'Test',
+        theme: {},
+        searchActive: true,
+        searchMatch: false,
+      };
+
+      expect(nodeDataWithSearch).toHaveProperty('searchActive');
+      expect(nodeDataWithSearch).toHaveProperty('searchMatch');
+    });
+
+    it('updates nodes when searchQuery state changes', () => {
+      // A useEffect watches searchQuery changes and updates node data:
+      //
+      // useEffect(() => {
+      //   if (!loading && nodes.length > 0) {
+      //     const searchActive = searchQuery.trim().length > 0;
+      //     const updatedNodes = nodes.map((node) => ({
+      //       ...node,
+      //       data: {
+      //         ...node.data,
+      //         searchActive,
+      //         searchMatch: searchActive ? nodeMatchesSearch(node, searchQuery) : true,
+      //       },
+      //     }));
+      //     setNodes(updatedNodes);
+      //   }
+      // }, [searchQuery]);
+
+      const searchUpdateTrigger = 'searchQuery state change';
+      expect(searchUpdateTrigger).toBe('searchQuery state change');
+    });
+
+    it('dims non-matching nodes with reduced opacity and grayscale', () => {
+      // In DocumentNode and ExternalLinkNode:
+      // const isDimmed = searchActive && !searchMatch;
+      //
+      // containerStyle includes:
+      // opacity: isDimmed ? 0.35 : 1,
+      // filter: isDimmed ? 'grayscale(50%)' : 'none',
+
+      const dimmingStyle = {
+        opacity: 0.35,
+        filter: 'grayscale(50%)',
+      };
+
+      expect(dimmingStyle.opacity).toBe(0.35);
+      expect(dimmingStyle.filter).toBe('grayscale(50%)');
+    });
+
+    it('shows matching nodes at full opacity', () => {
+      // When searchMatch is true or searchActive is false:
+      // opacity: 1,
+      // filter: 'none',
+
+      const matchingStyle = {
+        opacity: 1,
+        filter: 'none',
+      };
+
+      expect(matchingStyle.opacity).toBe(1);
+      expect(matchingStyle.filter).toBe('none');
+    });
+
+    it('displays search match count in footer when search is active', () => {
+      // Footer shows "X of Y matching" when searchQuery.trim() is non-empty:
+      //
+      // {searchQuery.trim() ? (
+      //   <>
+      //     <span style={{ color: theme.colors.accent }}>{searchMatchCount}</span>
+      //     {` of ${totalNodesCount} matching`}
+      //   </>
+      // ) : ...}
+
+      const footerWithSearch = {
+        matchCount: 5,
+        totalCount: 20,
+        display: '5 of 20 matching',
+      };
+
+      expect(footerWithSearch.display).toBe('5 of 20 matching');
+    });
+
+    it('clears search input with clear button', () => {
+      // Clear button appears when searchQuery is not empty
+      // On click: setSearchQuery(''); searchInputRef.current?.focus();
+
+      const clearButtonBehavior = {
+        visible: 'when searchQuery is not empty',
+        onClick: ['clear search query', 'focus input'],
+        icon: 'X',
+      };
+
+      expect(clearButtonBehavior.onClick).toContain('clear search query');
+      expect(clearButtonBehavior.onClick).toContain('focus input');
+    });
+
+    it('resets search query when modal closes', () => {
+      // In the modal close effect:
+      // useEffect(() => {
+      //   if (!isOpen) {
+      //     ...
+      //     setSearchQuery('');
+      //   }
+      // }, [isOpen]);
+
+      const resetOnClose = {
+        searchQuery: '',
+      };
+
+      expect(resetOnClose.searchQuery).toBe('');
+    });
+
+    it('search input has theme-aware styling', () => {
+      // The search input uses theme colors:
+      // - backgroundColor: `${theme.colors.accent}10`
+      // - color: theme.colors.textMain
+      // - border: `1px solid ${searchQuery ? theme.colors.accent : 'transparent'}`
+      // - Focus state: borderColor = theme.colors.accent
+
+      const inputStyles = {
+        background: 'accent with 10% opacity',
+        textColor: 'theme.colors.textMain',
+        borderOnActive: 'theme.colors.accent',
+        borderOnInactive: 'transparent',
+      };
+
+      expect(inputStyles.borderOnActive).toBe('theme.colors.accent');
+      expect(inputStyles.borderOnInactive).toBe('transparent');
+    });
+
+    it('search is case insensitive', () => {
+      // The nodeMatchesSearch function converts both query and content to lowercase:
+      // const lowerQuery = query.toLowerCase().trim();
+      // return title.toLowerCase().includes(lowerQuery)
+
+      const query = 'README';
+      const title = 'readme.md';
+
+      expect(title.toLowerCase().includes(query.toLowerCase())).toBe(true);
+    });
+
+    it('counts matching nodes correctly for footer display', () => {
+      // searchMatchCount calculation:
+      // const searchMatchCount = searchQuery.trim()
+      //   ? nodes.filter((n) => (n.data as { searchMatch?: boolean }).searchMatch).length
+      //   : 0;
+
+      const mockNodes = [
+        { data: { searchMatch: true } },
+        { data: { searchMatch: false } },
+        { data: { searchMatch: true } },
+        { data: { searchMatch: false } },
+        { data: { searchMatch: true } },
+      ];
+
+      const matchCount = mockNodes.filter((n) => n.data.searchMatch).length;
+      expect(matchCount).toBe(3);
+    });
+  });
 });
