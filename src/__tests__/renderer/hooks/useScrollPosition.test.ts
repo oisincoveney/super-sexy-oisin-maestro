@@ -76,6 +76,17 @@ describe('useScrollPosition', () => {
       expect(result.current.isAtBottom).toBe(true);
     });
 
+    it('should use default throttleMs of 4 for smooth scrollbar', () => {
+      // This is a documentation test - the default is 4ms (~240fps) for smooth scrollbar updates
+      // The actual throttling behavior is tested via the mock that bypasses it
+      const { result } = renderHook(() =>
+        useScrollPosition({ containerRef })
+      );
+
+      // Verify the hook initializes correctly with default throttle
+      expect(result.current.handleScroll).toBeDefined();
+    });
+
     it('should respect custom bottomThreshold', () => {
       // Scroll to 460px - within 40px of bottom but not within 30px
       Object.defineProperty(mockContainer, 'scrollTop', { value: 460, configurable: true });

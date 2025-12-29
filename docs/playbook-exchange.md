@@ -23,6 +23,10 @@ The exchange displays playbooks in a searchable grid organized by category:
 
 Use `Cmd+Shift+[` / `Cmd+Shift+]` to quickly switch between category tabs.
 
+<Frame>
+  <img src="/screenshots/playbook-exchange-list.png" alt="Playbook Exchange browsing view" />
+</Frame>
+
 ## Playbook Details
 
 Clicking a playbook tile opens the detail view where you can:
@@ -31,6 +35,10 @@ Clicking a playbook tile opens the detail view where you can:
 - **Preview documents** — browse individual task documents before importing
 - **View metadata** — author, tags, loop settings, and document list
 - **Set import folder** — customize the target folder name
+
+<Frame>
+  <img src="/screenshots/playbook-exchange-details.png" alt="Playbook Exchange detail view" />
+</Frame>
 
 ## Importing a Playbook
 

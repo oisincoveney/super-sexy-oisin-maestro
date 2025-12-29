@@ -41,7 +41,7 @@
  * } = useScrollPosition({
  *   containerRef,
  *   bottomThreshold: 50,
- *   throttleMs: 16,
+ *   throttleMs: 4,
  *   onAtBottomChange,
  *   onScrollPositionChange,
  * });
@@ -63,7 +63,7 @@ export interface UseScrollPositionOptions {
   bottomThreshold?: number;
 
   /**
-   * Milliseconds to throttle scroll handler (default: 16, ~60fps)
+   * Milliseconds to throttle scroll handler (default: 4, ~240fps for smooth scrollbar)
    * Set to 0 to disable throttling
    */
   throttleMs?: number;
@@ -232,7 +232,7 @@ export function useScrollPosition(options: UseScrollPositionOptions): UseScrollP
   const {
     containerRef,
     bottomThreshold = 50,
-    throttleMs = 16,
+    throttleMs = 4,
     onAtBottomChange,
     onScrollPositionChange,
     positionChangeThrottleMs = 200,
