@@ -18,6 +18,7 @@ import {
   groupChatModeratorSystemPrompt,
   groupChatModeratorSynthesisPrompt,
 } from '../../prompts';
+import { powerManager } from '../power-manager';
 
 /**
  * Interface for the process manager dependency.
@@ -224,6 +225,9 @@ export async function killModerator(
 
   activeModeratorSessions.delete(groupChatId);
   sessionActivityTimestamps.delete(groupChatId);
+
+  // Remove power block reason when moderator is killed
+  powerManager.removeBlockReason(`groupchat:${groupChatId}`);
 
   // Clear the session ID in storage
   try {

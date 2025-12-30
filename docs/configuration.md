@@ -12,7 +12,7 @@ Settings are organized into tabs:
 
 | Tab | Contents |
 |-----|----------|
-| **General** | Theme, input behavior, toggles defaults, context warnings, log level, storage location |
+| **General** | Theme, input behavior, toggles defaults, context warnings, log level, storage location, power management |
 | **Shortcuts** | Customize keyboard shortcuts (see [Keyboard Shortcuts](./keyboard-shortcuts)) |
 | **Appearance** | Font size, UI density |
 | **Notifications** | Sound alerts, text-to-speech settings |
@@ -107,6 +107,47 @@ Notifications are sent when:
 - An AI task completes (OS notification + optional TTS)
 - A long-running command finishes (OS notification)
 - The LLM analysis generates a feedback synopsis (TTS only, if configured)
+
+## Sleep Prevention
+
+Maestro can prevent your computer from sleeping while AI agents are actively working, ensuring long-running tasks complete without interruption.
+
+**To enable:**
+1. Open **Settings** (`Cmd+,` / `Ctrl+,`) → **General** tab
+2. Scroll to the **Power** section
+3. Toggle **Prevent sleep while working** on
+
+### When Sleep Prevention Activates
+
+Sleep prevention automatically activates when:
+- Any session is **busy** (agent processing a request)
+- **Auto Run** is active (batch processing tasks)
+- **Group Chat** is in progress (moderator or agents responding)
+
+When all activity stops, sleep prevention deactivates automatically.
+
+### Platform Support
+
+| Platform | Support Level | Notes |
+|----------|---------------|-------|
+| **macOS** | Full support | Equivalent to running `caffeinate`. Check Activity Monitor → View → Columns → "Preventing Sleep" to verify. |
+| **Windows** | Full support | Uses `SetThreadExecutionState`. Verify with `powercfg /requests` in admin CMD. |
+| **Linux** | Varies by desktop environment | Works on GNOME, KDE, XFCE via D-Bus. See notes below. |
+
+### Linux Desktop Environment Notes
+
+Sleep prevention on Linux uses standard freedesktop.org interfaces:
+- **GNOME, KDE, XFCE**: Full support via D-Bus screen saver inhibition
+- **Minimal window managers** (i3, sway, dwm, bspwm): May not work. These environments typically don't run a screen saver daemon.
+
+**If sleep prevention doesn't work on Linux:**
+1. Ensure `xdg-screensaver` is installed
+2. Verify a D-Bus screen saver service is running
+3. Some systems may need `gnome-screensaver`, `xscreensaver`, or equivalent
+
+<Info>
+On unsupported Linux configurations, the feature silently does nothing — your system will sleep normally according to its power settings.
+</Info>
 
 ## Storage Location
 

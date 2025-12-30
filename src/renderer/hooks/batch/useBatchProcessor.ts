@@ -534,6 +534,9 @@ export function useBatchProcessor({
     // State machine: INITIALIZING -> RUNNING (initialization complete)
     dispatch({ type: 'SET_RUNNING', sessionId });
 
+    // Prevent system sleep while Auto Run is active
+    window.maestro.power.addReason(`autorun:${sessionId}`);
+
     // Start stats tracking for this Auto Run session
     let statsAutoRunId: string | null = null;
     try {
@@ -1332,6 +1335,9 @@ export function useBatchProcessor({
     timeTracking.stopTracking(sessionId);
     delete errorResolutionRefs.current[sessionId];
     delete stopRequestedRefs.current[sessionId];
+
+    // Allow system to sleep now that Auto Run is complete
+    window.maestro.power.removeReason(`autorun:${sessionId}`);
   // Note: updateBatchStateAndBroadcast is accessed via ref to avoid stale closure in long-running async
   }, [onUpdateSession, onSpawnAgent, onAddHistoryEntry, onComplete, onPRResult, audioFeedbackEnabled, audioFeedbackCommand, timeTracking, onProcessQueueAfterCompletion]);
 

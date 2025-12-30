@@ -22,6 +22,7 @@ import {
   addParticipant,
 } from './group-chat-agent';
 import { AgentDetector } from '../agent-detector';
+import { powerManager } from '../power-manager';
 import { buildAgentArgs, applyAgentConfigOverrides, getContextWindowValue } from '../utils/agent-args';
 import { groupChatParticipantRequestPrompt } from '../../prompts';
 
@@ -414,6 +415,9 @@ ${message}`;
         groupChatEmitters.emitStateChange?.(groupChatId, 'moderator-thinking');
         console.log(`[GroupChat:Debug] Emitted state change: moderator-thinking`);
 
+        // Add power block reason to prevent sleep during group chat activity
+        powerManager.addBlockReason(`groupchat:${groupChatId}`);
+
         const spawnResult = processManager.spawn({
           sessionId,
           toolType: chat.moderatorAgentId,
@@ -435,6 +439,8 @@ ${message}`;
         console.error(`[GroupChat:Debug] SPAWN ERROR:`, error);
         console.error(`[GroupChatRouter] Failed to spawn moderator for ${groupChatId}:`, error);
         groupChatEmitters.emitStateChange?.(groupChatId, 'idle');
+        // Remove power block reason on error since we're going idle
+        powerManager.removeBlockReason(`groupchat:${groupChatId}`);
         throw new Error(`Failed to spawn moderator: ${error instanceof Error ? error.message : String(error)}`);
       }
     } else {
@@ -726,6 +732,8 @@ export async function routeModeratorResponse(
     // Set state back to idle since no agents are being spawned
     groupChatEmitters.emitStateChange?.(groupChatId, 'idle');
     console.log(`[GroupChat:Debug] Emitted state change: idle`);
+    // Remove power block reason since round is complete
+    powerManager.removeBlockReason(`groupchat:${groupChatId}`);
   }
 
   // Store pending participants for synthesis tracking
@@ -973,6 +981,8 @@ Review the agent responses above. Either:
     console.error(`[GroupChat:Debug] SYNTHESIS SPAWN ERROR:`, error);
     console.error(`[GroupChatRouter] Failed to spawn moderator synthesis for ${groupChatId}:`, error);
     groupChatEmitters.emitStateChange?.(groupChatId, 'idle');
+    // Remove power block reason on synthesis error since we're going idle
+    powerManager.removeBlockReason(`groupchat:${groupChatId}`);
   }
 }
 
