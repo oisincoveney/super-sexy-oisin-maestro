@@ -765,9 +765,9 @@ export const SettingsModal = memo(function SettingsModal(props: SettingsModalPro
             <Cpu className="w-4 h-4" />
             {activeTab === 'aicommands' && <span>AI Commands</span>}
           </button>
-          <button onClick={() => setActiveTab('ssh')} className={`px-4 py-4 text-sm font-bold border-b-2 ${activeTab === 'ssh' ? 'border-indigo-500' : 'border-transparent'} flex items-center gap-2`} tabIndex={-1} title="SSH">
+          <button onClick={() => setActiveTab('ssh')} className={`px-4 py-4 text-sm font-bold border-b-2 ${activeTab === 'ssh' ? 'border-indigo-500' : 'border-transparent'} flex items-center gap-2`} tabIndex={-1} title="SSH Hosts">
             <Server className="w-4 h-4" />
-            {activeTab === 'ssh' && <span>SSH</span>}
+            {activeTab === 'ssh' && <span>SSH Hosts</span>}
           </button>
           <div className="flex-1 flex justify-end items-center pr-4">
             <button onClick={onClose} tabIndex={-1}><X className="w-5 h-5 opacity-50 hover:opacity-100" /></button>

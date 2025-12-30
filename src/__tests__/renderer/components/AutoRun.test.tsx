@@ -747,7 +747,7 @@ describe('AutoRun', () => {
 
       // Use getAllByText since the refresh button exists in both document selector and empty state
       expect(screen.getAllByText('Refresh').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getByText('Change Auto-run Folder')).toBeInTheDocument();
+      expect(screen.getByText('Select Folder')).toBeInTheDocument();
     });
 
     it('calls onRefresh when clicking Refresh in empty state', async () => {
@@ -768,8 +768,8 @@ describe('AutoRun', () => {
       const props = createDefaultProps({ documentList: [], selectedFile: null });
       renderWithProvider(<AutoRun {...props} />);
 
-      // Get the Change Auto-run Folder button in the empty state
-      fireEvent.click(screen.getByText('Change Auto-run Folder'));
+      // Get the Select Folder button in the empty state
+      fireEvent.click(screen.getByText('Select Folder'));
 
       await waitFor(() => {
         expect(props.onOpenSetup).toHaveBeenCalled();

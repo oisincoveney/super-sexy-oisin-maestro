@@ -72,14 +72,17 @@ describe('Chart Accessibility - AgentComparisonChart', () => {
     expect(figure.getAttribute('aria-label')).toContain('3 agents displayed');
   });
 
-  it('has aria-pressed on toggle buttons', () => {
+  it('has proper aria attributes on meter elements', () => {
     render(<AgentComparisonChart data={mockStatsData} theme={mockTheme} />);
-    const countButton = screen.getByRole('button', { name: /show query count/i });
-    const durationButton = screen.getByRole('button', { name: /show total duration/i });
+    const meters = screen.getAllByRole('meter');
 
-    // Default is duration
-    expect(durationButton).toHaveAttribute('aria-pressed', 'true');
-    expect(countButton).toHaveAttribute('aria-pressed', 'false');
+    // Component now shows unified view with meter elements for each agent bar
+    expect(meters.length).toBeGreaterThanOrEqual(1);
+    meters.forEach(meter => {
+      expect(meter).toHaveAttribute('aria-valuenow');
+      expect(meter).toHaveAttribute('aria-valuemin', '0');
+      expect(meter).toHaveAttribute('aria-valuemax', '100');
+    });
   });
 
   it('has role="list" on the data container', () => {
@@ -352,11 +355,17 @@ describe('Chart Accessibility - General ARIA Patterns', () => {
     u4();
   });
 
-  it('toggle buttons use aria-pressed for state indication', () => {
+  it('meter elements use proper ARIA attributes', () => {
     const { unmount: u1 } = render(<AgentComparisonChart data={mockStatsData} theme={mockTheme} />);
-    const buttons = screen.getAllByRole('button');
-    const toggleButtons = buttons.filter(btn => btn.getAttribute('aria-pressed') !== null);
-    expect(toggleButtons.length).toBeGreaterThanOrEqual(2);
+    // Component now shows unified view with meter elements for each agent bar
+    const meters = screen.getAllByRole('meter');
+    expect(meters.length).toBeGreaterThanOrEqual(1);
+    // Each meter should have aria-valuenow, aria-valuemin, aria-valuemax
+    meters.forEach(meter => {
+      expect(meter).toHaveAttribute('aria-valuenow');
+      expect(meter).toHaveAttribute('aria-valuemin');
+      expect(meter).toHaveAttribute('aria-valuemax');
+    });
     u1();
   });
 
@@ -392,15 +401,15 @@ describe('Chart Accessibility - General ARIA Patterns', () => {
 });
 
 describe('Chart Accessibility - Screen Reader Announcements', () => {
-  it('AgentComparisonChart aria-label includes metric mode', () => {
-    const { rerender } = render(<AgentComparisonChart data={mockStatsData} theme={mockTheme} />);
-    let figure = screen.getByRole('figure');
+  it('AgentComparisonChart aria-label describes displayed data', () => {
+    render(<AgentComparisonChart data={mockStatsData} theme={mockTheme} />);
+    const figure = screen.getByRole('figure');
 
-    // Default is duration
-    expect(figure.getAttribute('aria-label')).toContain('total duration');
-
-    // After clicking count button, re-check (simulate state change)
-    // Note: This tests the dynamic label - actual click would require userEvent
+    // Should describe what the chart shows (now unified count and duration)
+    const ariaLabel = figure.getAttribute('aria-label') || '';
+    expect(ariaLabel).toContain('query counts');
+    expect(ariaLabel).toContain('duration');
+    expect(ariaLabel).toContain('agents displayed');
   });
 
   it('SourceDistributionChart provides percentage summary in SVG', () => {

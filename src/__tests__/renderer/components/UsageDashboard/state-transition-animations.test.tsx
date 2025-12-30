@@ -369,9 +369,15 @@ describe('Usage Dashboard State Transition Animations', () => {
       fireEvent.click(agentsTab);
 
       await waitFor(() => {
+        // Session stats is now the first section in agents view
+        const sessionStatsSection = screen.getByTestId('section-session-stats');
+        expect(sessionStatsSection).toHaveClass('dashboard-section-enter');
+        expect(sessionStatsSection).toHaveStyle({ animationDelay: '0ms' });
+
+        // Agent comparison is now second with 100ms delay
         const agentSection = screen.getByTestId('section-agent-comparison');
         expect(agentSection).toHaveClass('dashboard-section-enter');
-        expect(agentSection).toHaveStyle({ animationDelay: '0ms' });
+        expect(agentSection).toHaveStyle({ animationDelay: '100ms' });
       });
     });
 

@@ -88,11 +88,14 @@ describe('AgentComparisonChart', () => {
       expect(screen.getByText('Agent Comparison')).toBeInTheDocument();
     });
 
-    it('renders metric toggle buttons', () => {
+    it('renders count and duration labels for each agent', () => {
       render(<AgentComparisonChart data={mockData} theme={theme} />);
 
-      expect(screen.getByText('Count')).toBeInTheDocument();
-      expect(screen.getByText('Duration')).toBeInTheDocument();
+      // Component now shows both count and duration for each agent (no toggle)
+      // Check that query count labels are present
+      expect(screen.getAllByText(/queries/).length).toBeGreaterThan(0);
+      // Check that duration is displayed (e.g., "33m 20s" for claude-code)
+      expect(screen.getByText('33m 20s')).toBeInTheDocument();
     });
 
     it('renders agent names', () => {
@@ -120,42 +123,37 @@ describe('AgentComparisonChart', () => {
     });
   });
 
-  describe('Metric Mode Toggle', () => {
-    it('defaults to duration mode', () => {
+  describe('Unified Count and Duration Display', () => {
+    it('shows both count and duration for each agent', () => {
       render(<AgentComparisonChart data={mockData} theme={theme} />);
 
-      const durationButton = screen.getByText('Duration');
-      // Duration button should have accent color when active
-      expect(durationButton).toHaveStyle({
-        color: theme.colors.accent,
-      });
-    });
-
-    it('switches to count mode when clicked', () => {
-      render(<AgentComparisonChart data={mockData} theme={theme} />);
-
-      const countButton = screen.getByText('Count');
-      fireEvent.click(countButton);
-
-      // Count button should now be active with accent color
-      expect(countButton).toHaveStyle({
-        color: theme.colors.accent,
-      });
-    });
-
-    it('updates displayed values when switching modes', () => {
-      render(<AgentComparisonChart data={mockData} theme={theme} />);
-
-      // In duration mode, should show formatted duration
-      // Duration for claude-code is 2000000ms = 33m 20s
+      // Should show duration for claude-code: 2000000ms = 33m 20s
       expect(screen.getByText('33m 20s')).toBeInTheDocument();
 
-      // Switch to count mode
-      const countButton = screen.getByText('Count');
-      fireEvent.click(countButton);
+      // Should show count values - multiple "queries" labels will be present for multiple agents
+      expect(screen.getAllByText(/queries/).length).toBeGreaterThan(0);
+    });
 
-      // Now should show count values
-      expect(screen.getByText('30')).toBeInTheDocument();
+    it('shows query count label for single query', () => {
+      const singleQueryData: StatsAggregation = {
+        ...singleAgentData,
+        byAgent: {
+          'claude-code': { count: 1, duration: 1000000 },
+        },
+      };
+      render(<AgentComparisonChart data={singleQueryData} theme={theme} />);
+
+      // Should show "query" for count of 1 (singular form)
+      expect(screen.getByText(/1 query$/)).toBeInTheDocument();
+    });
+
+    it('shows formatted count with queries label', () => {
+      render(<AgentComparisonChart data={mockData} theme={theme} />);
+
+      // claude-code has 30 queries - should be displayed with "queries" suffix
+      // Multiple agents have "queries" label, so use getAllByText
+      const queryLabels = screen.getAllByText(/\d+ queries/);
+      expect(queryLabels.length).toBeGreaterThan(0);
     });
   });
 
@@ -323,9 +321,9 @@ describe('AgentComparisonChart', () => {
         <AgentComparisonChart data={mockData} theme={theme} />
       );
 
-      // Toggle buttons should have border
-      const toggleContainer = container.querySelector('.flex.rounded.overflow-hidden.border');
-      expect(toggleContainer).toHaveStyle({
+      // Legend container should have border-top
+      const legendContainer = container.querySelector('.flex.flex-wrap.gap-3.mt-4.pt-3.border-t');
+      expect(legendContainer).toHaveStyle({
         borderColor: theme.colors.border,
       });
     });
@@ -349,11 +347,8 @@ describe('AgentComparisonChart', () => {
 
       render(<AgentComparisonChart data={largeCountData} theme={theme} />);
 
-      // Switch to count mode
-      fireEvent.click(screen.getByText('Count'));
-
-      // 1500 should be formatted as 1.5K
-      expect(screen.getByText('1.5K')).toBeInTheDocument();
+      // 1500 should be formatted as 1.5K (now shown alongside duration, no toggle needed)
+      expect(screen.getByText(/1\.5K/)).toBeInTheDocument();
     });
 
     it('formats hours correctly', () => {

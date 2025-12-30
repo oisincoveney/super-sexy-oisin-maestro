@@ -85,12 +85,17 @@ vi.mock('../../../../main/constants', () => ({
     LAST_TIMESTAMP_SCAN_LINES: 5,
     OLDEST_TIMESTAMP_SCAN_LINES: 10,
   },
-  CLAUDE_PRICING: {
-    INPUT_PER_MILLION: 3,
-    OUTPUT_PER_MILLION: 15,
-    CACHE_READ_PER_MILLION: 0.3,
-    CACHE_CREATION_PER_MILLION: 3.75,
-  },
+}));
+
+// Mock pricing utility
+vi.mock('../../../../main/utils/pricing', () => ({
+  calculateClaudeCost: vi.fn((input: number, output: number, cacheRead: number, cacheCreation: number) => {
+    const inputCost = (input / 1_000_000) * 3;
+    const outputCost = (output / 1_000_000) * 15;
+    const cacheReadCost = (cacheRead / 1_000_000) * 0.3;
+    const cacheCreationCost = (cacheCreation / 1_000_000) * 3.75;
+    return inputCost + outputCost + cacheReadCost + cacheCreationCost;
+  }),
 }));
 
 describe('Claude IPC handlers', () => {

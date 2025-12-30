@@ -112,7 +112,7 @@ describe('ImageDiffViewer', () => {
 
       // Verify API calls
       expect(mockShowFile).toHaveBeenCalledWith('/project', 'HEAD', 'images/logo.png');
-      expect(mockReadFile).toHaveBeenCalledWith('/project/images/logo.png');
+      expect(mockReadFile).toHaveBeenCalledWith('/project/images/logo.png', undefined);
     });
 
     it('displays Before and After labels', async () => {
@@ -735,7 +735,7 @@ describe('ImageDiffViewer', () => {
 
       await waitFor(() => {
         expect(mockShowFile).toHaveBeenCalledWith('/proj', 'HEAD', 'b.png');
-        expect(mockReadFile).toHaveBeenCalledWith('/proj/b.png');
+        expect(mockReadFile).toHaveBeenCalledWith('/proj/b.png', undefined);
       });
     });
 
@@ -888,7 +888,8 @@ describe('ImageDiffViewer', () => {
           'images/my image (1).png'
         );
         expect(mockReadFile).toHaveBeenCalledWith(
-          '/project with spaces/images/my image (1).png'
+          '/project with spaces/images/my image (1).png',
+          undefined
         );
       });
     });
@@ -959,7 +960,7 @@ describe('ImageDiffViewer', () => {
       });
 
       expect(mockShowFile).toHaveBeenCalledWith('/proj', 'HEAD', 'assets/old-logo.png');
-      expect(mockReadFile).toHaveBeenCalledWith('/proj/assets/new-logo.png');
+      expect(mockReadFile).toHaveBeenCalledWith('/proj/assets/new-logo.png', undefined);
     });
   });
 
