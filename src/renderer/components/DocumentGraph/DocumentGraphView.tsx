@@ -97,6 +97,8 @@ export interface DocumentGraphViewProps {
   onLayoutModeChange?: (mode: 'force' | 'hierarchical') => void;
   /** Default setting for showing external links (from settings) */
   defaultShowExternalLinks?: boolean;
+  /** Callback to persist external links toggle changes */
+  onExternalLinksChange?: (show: boolean) => void;
   /** Default maximum number of nodes to load (from settings) */
   defaultMaxNodes?: number;
 }
@@ -129,6 +131,7 @@ function DocumentGraphViewInner({
   savedLayoutMode = 'force',
   onLayoutModeChange,
   defaultShowExternalLinks = false,
+  onExternalLinksChange,
   defaultMaxNodes = DEFAULT_MAX_NODES,
 }: DocumentGraphViewProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -639,22 +642,19 @@ function DocumentGraphViewInner({
     };
   }, [cancelDebouncedLoad]);
 
-  // Reset initial mount ref and animation state when modal closes
+  // Clear focus file and pending focus when modal closes (preserve other state for persistence)
   useEffect(() => {
     if (!isOpen) {
-      isInitialMountRef.current = true;
-      isInitialLoadRef.current = true;
-      previousNodesRef.current = [];
       pendingFocusRef.current = null;
-      setSearchQuery('');
-      setSelectedNodeId(null);
-      setSelectedNodeData(null);
+      // Keep nodes, edges, positions, settings, and viewport state intact for persistence
     }
   }, [isOpen]);
 
-  // Reset to settings defaults when modal opens
+  // Initialize state on first open only (not on subsequent opens)
+  const hasInitializedRef = useRef(false);
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !hasInitializedRef.current) {
+      hasInitializedRef.current = true;
       setIncludeExternalLinks(defaultShowExternalLinks);
       setMaxNodes(defaultMaxNodes);
     }
@@ -1106,6 +1106,51 @@ function DocumentGraphViewInner({
   }, [edges, theme.colors, selectedNodeId]);
 
   /**
+   * Dynamic CSS styles for React Flow Controls to match theme
+   */
+  const controlsStyleId = 'document-graph-controls-styles';
+  useEffect(() => {
+    // Remove existing style element if any
+    const existingStyle = document.getElementById(controlsStyleId);
+    if (existingStyle) {
+      existingStyle.remove();
+    }
+
+    // Create new style element with themed styles
+    const style = document.createElement('style');
+    style.id = controlsStyleId;
+    style.textContent = `
+      .document-graph-controls button {
+        background-color: ${theme.colors.bgActivity} !important;
+        border-color: ${theme.colors.border} !important;
+        color: ${theme.colors.textMain} !important;
+        border-width: 0 !important;
+        border-bottom: 1px solid ${theme.colors.border} !important;
+      }
+      .document-graph-controls button:last-child {
+        border-bottom: none !important;
+      }
+      .document-graph-controls button:hover {
+        background-color: ${theme.colors.bgSidebar} !important;
+      }
+      .document-graph-controls button svg {
+        fill: ${theme.colors.textMain} !important;
+      }
+      .document-graph-controls button:hover svg {
+        fill: ${theme.colors.accent} !important;
+      }
+    `;
+    document.head.appendChild(style);
+
+    return () => {
+      const styleToRemove = document.getElementById(controlsStyleId);
+      if (styleToRemove) {
+        styleToRemove.remove();
+      }
+    };
+  }, [theme.colors]);
+
+  /**
    * Handle layout toggle with animated transition
    */
   const handleLayoutToggle = useCallback(() => {
@@ -1159,8 +1204,13 @@ function DocumentGraphViewInner({
    * Handle external links toggle
    */
   const handleExternalLinksToggle = useCallback(() => {
-    setIncludeExternalLinks((prev) => !prev);
-  }, []);
+    setIncludeExternalLinks((prev) => {
+      const newValue = !prev;
+      // Persist the change to settings
+      onExternalLinksChange?.(newValue);
+      return newValue;
+    });
+  }, [onExternalLinksChange]);
 
   /**
    * Handle node drag end - save positions
@@ -1306,10 +1356,8 @@ function DocumentGraphViewInner({
         style={{
           backgroundColor: theme.colors.bgActivity,
           borderColor: theme.colors.border,
-          width: '85vw',
-          maxWidth: '1600px',
-          height: '85vh',
-          maxHeight: '950px',
+          width: 'calc(100vw - 48px)',
+          height: 'calc(100vh - 48px)',
         }}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
@@ -1574,15 +1622,18 @@ function DocumentGraphViewInner({
                 color={theme.colors.border}
               />
 
-              {/* Controls */}
+              {/* Controls - styled to match theme */}
               <Controls
                 showZoom={true}
                 showFitView={true}
                 showInteractive={false}
+                className="document-graph-controls"
                 style={{
                   backgroundColor: theme.colors.bgActivity,
                   borderColor: theme.colors.border,
                   borderRadius: 8,
+                  border: `1px solid ${theme.colors.border}`,
+                  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.15)',
                 }}
               />
 

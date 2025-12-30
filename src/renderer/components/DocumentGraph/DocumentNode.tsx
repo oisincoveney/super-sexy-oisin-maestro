@@ -170,11 +170,12 @@ export const DocumentNode = memo(function DocumentNode({
       style={containerStyle}
       title={tooltipText}
     >
-      {/* Input handle (for incoming edges) */}
+      {/* Input handle (for incoming edges) - not connectable by user drag */}
       <Handle
         type="target"
         position={Position.Top}
         style={handleStyle}
+        isConnectable={false}
       />
 
       {/* Title with document icon and optional warning icon */}
@@ -230,11 +231,12 @@ export const DocumentNode = memo(function DocumentNode({
         </div>
       )}
 
-      {/* Output handle (for outgoing edges) */}
+      {/* Output handle (for outgoing edges) - not connectable by user drag */}
       <Handle
         type="source"
         position={Position.Bottom}
         style={handleStyle}
+        isConnectable={false}
       />
     </div>
   );

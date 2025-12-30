@@ -121,11 +121,12 @@ export const ExternalLinkNode = memo(function ExternalLinkNode({
       style={containerStyle}
       title={tooltipText}
     >
-      {/* Input handle (for incoming edges from documents) */}
+      {/* Input handle (for incoming edges from documents) - not connectable by user drag */}
       <Handle
         type="target"
         position={Position.Top}
         style={handleStyle}
+        isConnectable={false}
       />
 
       {/* Globe icon */}

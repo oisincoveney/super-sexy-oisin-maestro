@@ -1609,6 +1609,8 @@ contextBridge.exposeInMainWorld('maestro', {
     }) => ipcRenderer.invoke('leaderboard:submit', data),
     pollAuthStatus: (clientToken: string) =>
       ipcRenderer.invoke('leaderboard:pollAuthStatus', clientToken),
+    resendConfirmation: (data: { email: string; clientToken: string }) =>
+      ipcRenderer.invoke('leaderboard:resendConfirmation', data),
     get: (options?: { limit?: number }) =>
       ipcRenderer.invoke('leaderboard:get', options),
     getLongestRuns: (options?: { limit?: number }) =>
@@ -2764,6 +2766,11 @@ export interface MaestroAPI {
     pollAuthStatus: (clientToken: string) => Promise<{
       status: 'pending' | 'confirmed' | 'expired' | 'error';
       authToken?: string;
+      message?: string;
+      error?: string;
+    }>;
+    resendConfirmation: (data: { email: string; clientToken: string }) => Promise<{
+      success: boolean;
       message?: string;
       error?: string;
     }>;

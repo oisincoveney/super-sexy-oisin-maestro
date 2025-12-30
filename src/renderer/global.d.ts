@@ -1342,6 +1342,11 @@ interface MaestroAPI {
       message?: string;
       error?: string;
     }>;
+    resendConfirmation: (data: { email: string; clientToken: string }) => Promise<{
+      success: boolean;
+      message?: string;
+      error?: string;
+    }>;
     get: (options?: { limit?: number }) => Promise<{
       success: boolean;
       entries?: Array<{

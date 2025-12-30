@@ -139,16 +139,21 @@ export function applyForceLayout(
       'charge',
       forceManyBody<ForceNodeDatum>()
         .strength((d) => {
-          // External nodes have less repulsion
-          return d.isExternal ? -150 : -400;
+          // External nodes need stronger repulsion to prevent overlap
+          return d.isExternal ? -300 : -400;
         })
-        .distanceMax(500)
+        .distanceMax(600)
     )
     .force(
       'collide',
       forceCollide<ForceNodeDatum>()
-        .radius((d) => Math.max(d.width, d.height) / 2 + 20)
-        .strength(0.8)
+        .radius((d) => {
+          // External nodes need more collision space to prevent overlap
+          const baseRadius = Math.max(d.width, d.height) / 2;
+          return d.isExternal ? baseRadius + 40 : baseRadius + 20;
+        })
+        .strength(1.0)
+        .iterations(3)
     )
     .force('center', forceCenter(opts.centerX, opts.centerY))
     .force(
@@ -218,8 +223,9 @@ export function applyHierarchicalLayout(
     const height = node.type === 'externalLinkNode' ? 60 : opts.nodeHeight;
 
     g.setNode(node.id, {
-      width,
-      height,
+      // Add padding to external nodes to prevent overlap in hierarchical layout
+      width: node.type === 'externalLinkNode' ? width + 40 : width,
+      height: node.type === 'externalLinkNode' ? height + 20 : height,
       label: node.id,
     });
   }

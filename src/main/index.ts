@@ -1944,6 +1944,65 @@ function setupIpcHandlers() {
     }
   );
 
+  // Resend confirmation email (self-service auth token recovery)
+  ipcMain.handle(
+    'leaderboard:resendConfirmation',
+    async (
+      _event,
+      data: {
+        email: string;
+        clientToken: string;
+      }
+    ): Promise<{
+      success: boolean;
+      message?: string;
+      error?: string;
+    }> => {
+      try {
+        logger.info('Requesting leaderboard confirmation resend', 'Leaderboard', {
+          email: data.email.substring(0, 3) + '***',
+        });
+
+        const response = await fetch('https://runmaestro.ai/api/m4estr0/resend-confirmation', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': `Maestro/${app.getVersion()}`,
+          },
+          body: JSON.stringify({
+            email: data.email,
+            clientToken: data.clientToken,
+          }),
+        });
+
+        const result = await response.json() as {
+          success?: boolean;
+          message?: string;
+          error?: string;
+        };
+
+        if (response.ok && result.success) {
+          logger.info('Leaderboard confirmation email resent', 'Leaderboard');
+          return {
+            success: true,
+            message: result.message || 'Confirmation email sent. Please check your inbox.',
+          };
+        } else {
+          return {
+            success: false,
+            error: result.error || result.message || `Server error: ${response.status}`,
+          };
+        }
+      } catch (error) {
+        logger.error('Error resending leaderboard confirmation', 'Leaderboard', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        };
+      }
+    }
+  );
+
   // Get leaderboard entries
   ipcMain.handle(
     'leaderboard:get',

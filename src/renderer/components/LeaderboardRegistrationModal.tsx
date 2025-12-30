@@ -7,7 +7,7 @@
  */
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { X, Trophy, Mail, User, Loader2, Check, AlertCircle, ExternalLink, UserX, Key, RefreshCw } from 'lucide-react';
+import { X, Trophy, Mail, User, Loader2, Check, AlertCircle, ExternalLink, UserX, Key, RefreshCw, Send } from 'lucide-react';
 import type { Theme, AutoRunStats, LeaderboardRegistration, KeyboardMasteryStats } from '../types';
 import { useLayerStack } from '../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../constants/modalPriorities';
@@ -62,7 +62,7 @@ function generateClientToken(): string {
 }
 
 // Error message for lost auth token
-const AUTH_TOKEN_LOST_MESSAGE = 'Your email is confirmed but we seem to have lost your auth token. Please contact pedram@runmaestro.ai to resolve this issue or ping him on Discord.';
+const AUTH_TOKEN_LOST_MESSAGE = 'Your email is confirmed but we seem to have lost your auth token. Click "Resend Confirmation" below to receive a new confirmation email with your auth token.';
 
 export function LeaderboardRegistrationModal({
   theme,
@@ -103,6 +103,10 @@ export function LeaderboardRegistrationModal({
   const [manualToken, setManualToken] = useState('');
   const [recoveryAttempted, setRecoveryAttempted] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
+
+  // Resend confirmation state
+  const [isResending, setIsResending] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
 
   // Get current badge info
   const currentBadge = getBadgeForTime(autoRunStats.cumulativeTimeMs);
@@ -402,6 +406,37 @@ export function LeaderboardRegistrationModal({
       setErrorMessage(error instanceof Error ? error.message : 'An unexpected error occurred');
     }
   }, [manualToken, email, displayName, twitterHandle, githubUsername, linkedinHandle, discordUsername, existingRegistration, clientToken, onSave, autoRunStats, badgeLevel, badgeName, theme.id, keyboardMasteryLevel, keyboardMasteryTitle, keyboardCoveragePercent, keyboardKeysUnlocked, keyboardTotalKeys]);
+
+  // Handle resend confirmation email
+  const handleResendConfirmation = useCallback(async () => {
+    if (!email.trim() || !clientToken) return;
+
+    setIsResending(true);
+    setResendSuccess(false);
+    setErrorMessage('');
+
+    try {
+      const result = await window.maestro.leaderboard.resendConfirmation({
+        email: email.trim(),
+        clientToken,
+      });
+
+      if (result.success) {
+        setResendSuccess(true);
+        setErrorMessage('');
+        // Start polling for the new confirmation
+        startPolling(clientToken);
+        setSubmitState('awaiting_confirmation');
+        setSuccessMessage(result.message || 'Confirmation email sent! Please check your inbox and click the link to get your auth token.');
+      } else {
+        setErrorMessage(result.error || 'Failed to resend confirmation email. Please try again.');
+      }
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to resend confirmation email');
+    } finally {
+      setIsResending(false);
+    }
+  }, [email, clientToken, startPolling]);
 
   // Cleanup polling on unmount
   useEffect(() => {
@@ -725,8 +760,8 @@ export function LeaderboardRegistrationModal({
             </div>
           )}
 
-          {/* Manual token entry */}
-          {showManualTokenEntry && (
+          {/* Manual token entry / Resend confirmation */}
+          {showManualTokenEntry && !resendSuccess && (
             <>
               {/* Error/info message above token entry */}
               {errorMessage && (
@@ -738,12 +773,53 @@ export function LeaderboardRegistrationModal({
                   <p className="text-xs" style={{ color: theme.colors.error }}>{errorMessage}</p>
                 </div>
               )}
+
+              {/* Resend confirmation button - primary action */}
               <div
                 className="p-3 rounded-lg space-y-3"
                 style={{ backgroundColor: `${theme.colors.accent}10`, border: `1px solid ${theme.colors.accent}30` }}
               >
                 <div className="flex items-start gap-2">
-                  <Key className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: theme.colors.accent }} />
+                  <Send className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: theme.colors.accent }} />
+                  <div className="flex-1">
+                    <p className="text-xs font-medium" style={{ color: theme.colors.textMain }}>
+                      Resend Confirmation Email
+                    </p>
+                    <p className="text-xs mt-1" style={{ color: theme.colors.textDim }}>
+                      We'll send a new confirmation email to <span className="font-medium">{email}</span>. Click the link to get your auth token.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleResendConfirmation}
+                  disabled={isResending || !email.trim()}
+                  className="w-full px-3 py-2 text-xs font-medium rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                  style={{
+                    backgroundColor: theme.colors.accent,
+                    color: '#fff',
+                  }}
+                >
+                  {isResending ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-3.5 h-3.5" />
+                      Resend Confirmation Email
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Manual token entry - secondary/fallback option */}
+              <div
+                className="p-3 rounded-lg space-y-3"
+                style={{ backgroundColor: theme.colors.bgActivity, border: `1px solid ${theme.colors.border}` }}
+              >
+                <div className="flex items-start gap-2">
+                  <Key className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: theme.colors.textDim }} />
                   <div>
                     <p className="text-xs font-medium" style={{ color: theme.colors.textMain }}>
                       Enter Auth Token

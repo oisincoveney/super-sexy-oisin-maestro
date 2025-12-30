@@ -29,6 +29,7 @@ import {
   createUserMessage,
   createAssistantMessage,
 } from '../services/conversationManager';
+import type { WizardError } from '../services/wizardErrorDetection';
 import { AUTO_RUN_FOLDER_NAME } from '../services/phaseGenerator';
 import { getNextFillerPhrase } from '../services/fillerPhrases';
 import { ScreenReaderAnnouncement } from '../ScreenReaderAnnouncement';
@@ -380,6 +381,8 @@ export function ConversationScreen({ theme }: ConversationScreenProps): JSX.Elem
   const [autoSentInitialMessage, setAutoSentInitialMessage] = useState(false);
   const [streamingText, setStreamingText] = useState('');
   const [fillerPhrase, setFillerPhrase] = useState('');
+  // Track detected provider error for showing recovery hints
+  const [detectedError, setDetectedError] = useState<WizardError | null>(null);
 
   // Screen reader announcement state
   const [announcement, setAnnouncement] = useState('');
@@ -545,6 +548,7 @@ export function ConversationScreen({ theme }: ConversationScreenProps): JSX.Elem
       inputRef.current.style.height = 'auto';
     }
     setConversationError(null);
+    setDetectedError(null);
     setStreamingText('');
     setFillerPhrase(getNextFillerPhrase());
 
@@ -688,6 +692,9 @@ export function ConversationScreen({ theme }: ConversationScreenProps): JSX.Elem
       // Handle non-callback completion path
       if (!result.success && result.error) {
         setConversationError(result.error);
+        if (result.detectedError) {
+          setDetectedError(result.detectedError);
+        }
         setErrorRetryCount((prev) => prev + 1);
       }
     } catch (error) {
@@ -729,6 +736,7 @@ export function ConversationScreen({ theme }: ConversationScreenProps): JSX.Elem
     isSendingRef.current = true;
 
     setConversationError(null);
+    setDetectedError(null);
     setStreamingText('');
     setFillerPhrase(getNextFillerPhrase());
 
@@ -849,6 +857,9 @@ export function ConversationScreen({ theme }: ConversationScreenProps): JSX.Elem
 
       if (!result.success && result.error) {
         setConversationError(result.error);
+        if (result.detectedError) {
+          setDetectedError(result.detectedError);
+        }
         setErrorRetryCount((prev) => prev + 1);
       }
     } catch (error) {
@@ -894,6 +905,7 @@ export function ConversationScreen({ theme }: ConversationScreenProps): JSX.Elem
    */
   const handleRetry = useCallback(() => {
     setConversationError(null);
+    setDetectedError(null);
     inputRef.current?.focus();
   }, [setConversationError]);
 
@@ -1027,25 +1039,68 @@ export function ConversationScreen({ theme }: ConversationScreenProps): JSX.Elem
         {/* Error Message */}
         {state.conversationError && (
           <div
-            className="mx-auto max-w-md mb-4 p-4 rounded-lg text-center"
+            className="mx-auto max-w-md mb-4 p-4 rounded-lg"
             style={{
-              backgroundColor: `${theme.colors.error}20`,
-              borderColor: theme.colors.error,
+              backgroundColor: `${theme.colors.error}15`,
+              border: `1px solid ${theme.colors.error}40`,
             }}
           >
-            <p className="text-sm mb-2" style={{ color: theme.colors.error }}>
-              {state.conversationError}
-            </p>
-            <button
-              onClick={handleRetry}
-              className="px-4 py-1.5 rounded text-sm font-medium transition-colors"
-              style={{
-                backgroundColor: theme.colors.error,
-                color: 'white',
-              }}
+            {/* Error Title */}
+            {detectedError && (
+              <p
+                className="text-sm font-semibold mb-1"
+                style={{ color: theme.colors.error }}
+              >
+                {detectedError.title}
+              </p>
+            )}
+            {/* Error Message */}
+            <p
+              className="text-sm mb-2"
+              style={{ color: detectedError ? theme.colors.textMain : theme.colors.error }}
             >
-              {errorRetryCount > 2 ? 'Try Again' : 'Dismiss'}
-            </button>
+              {detectedError ? detectedError.message : state.conversationError}
+            </p>
+            {/* Recovery Hint */}
+            {detectedError && (
+              <p
+                className="text-xs mb-3 opacity-80"
+                style={{ color: theme.colors.textDim }}
+              >
+                {detectedError.recoveryHint}
+              </p>
+            )}
+            {/* Action Button */}
+            <div className="flex justify-center gap-2">
+              <button
+                onClick={handleRetry}
+                className="px-4 py-1.5 rounded text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: theme.colors.error,
+                  color: 'white',
+                }}
+              >
+                {detectedError && !detectedError.canRetry
+                  ? 'Dismiss'
+                  : errorRetryCount > 2
+                    ? 'Try Again'
+                    : 'Dismiss'}
+              </button>
+              {/* Go Back button for non-recoverable errors */}
+              {detectedError && !detectedError.canRetry && (
+                <button
+                  onClick={previousStep}
+                  className="px-4 py-1.5 rounded text-sm font-medium transition-colors"
+                  style={{
+                    backgroundColor: theme.colors.bgSidebar,
+                    color: theme.colors.textMain,
+                    border: `1px solid ${theme.colors.border}`,
+                  }}
+                >
+                  Go Back
+                </button>
+              )}
+            </div>
           </div>
         )}
 

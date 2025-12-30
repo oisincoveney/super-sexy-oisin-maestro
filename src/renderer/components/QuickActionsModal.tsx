@@ -109,6 +109,8 @@ interface QuickActionsModalProps {
   onInjectOpenSpecPrompt?: (prompt: string) => void;
   // Playbook Exchange
   onOpenPlaybookExchange?: () => void;
+  // Document Graph
+  onOpenDocumentGraph?: () => void;
 }
 
 export function QuickActionsModal(props: QuickActionsModalProps) {
@@ -131,7 +133,8 @@ export function QuickActionsModal(props: QuickActionsModalProps) {
     onCloseAllTabs, onCloseOtherTabs, onCloseTabsLeft, onCloseTabsRight,
     isFilePreviewOpen, ghCliAvailable, onPublishGist,
     onInjectOpenSpecPrompt,
-    onOpenPlaybookExchange
+    onOpenPlaybookExchange,
+    onOpenDocumentGraph
   } = props;
 
   const [search, setSearch] = useState('');
@@ -399,6 +402,8 @@ export function QuickActionsModal(props: QuickActionsModalProps) {
     { id: 'goToFiles', label: 'Go to Files Tab', shortcut: shortcuts.goToFiles, action: () => { setRightPanelOpen(true); setActiveRightTab('files'); setQuickActionOpen(false); } },
     { id: 'goToHistory', label: 'Go to History Tab', shortcut: shortcuts.goToHistory, action: () => { setRightPanelOpen(true); setActiveRightTab('history'); setQuickActionOpen(false); } },
     { id: 'goToAutoRun', label: 'Go to Auto Run Tab', shortcut: shortcuts.goToAutoRun, action: () => { setRightPanelOpen(true); setActiveRightTab('autorun'); setQuickActionOpen(false); } },
+    // Document Graph
+    ...(onOpenDocumentGraph ? [{ id: 'documentGraph', label: 'Document Graph', shortcut: shortcuts.documentGraph, subtext: 'Visualize markdown file relationships', action: () => { onOpenDocumentGraph(); setQuickActionOpen(false); } }] : []),
     // Playbook Exchange - browse and import community playbooks
     ...(onOpenPlaybookExchange ? [{
       id: 'openPlaybookExchange',

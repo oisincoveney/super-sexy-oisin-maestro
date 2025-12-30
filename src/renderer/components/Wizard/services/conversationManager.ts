@@ -18,6 +18,11 @@ import {
   type ExistingDocument,
   READY_CONFIDENCE_THRESHOLD,
 } from './wizardPrompts';
+import {
+  detectWizardError,
+  createGenericErrorMessage,
+  type WizardError,
+} from './wizardErrorDetection';
 
 /**
  * Configuration for starting a conversation
@@ -45,6 +50,8 @@ export interface SendMessageResult {
   error?: string;
   /** The raw output data (for debugging) */
   rawOutput?: string;
+  /** Detected provider error (auth, rate limit, etc.) */
+  detectedError?: WizardError;
 }
 
 /**
@@ -320,11 +327,27 @@ class ConversationManager {
                 rawOutput: this.session?.outputBuffer,
               });
             } else {
-              resolve({
-                success: false,
-                error: `Agent exited with code ${code}`,
-                rawOutput: this.session?.outputBuffer,
-              });
+              // Check for provider errors in the output
+              const rawOutput = this.session?.outputBuffer || '';
+              const detectedError = detectWizardError(rawOutput);
+
+              if (detectedError) {
+                console.log('[Wizard] Detected provider error:', detectedError);
+                resolve({
+                  success: false,
+                  error: `${detectedError.title}: ${detectedError.message}`,
+                  rawOutput,
+                  detectedError,
+                });
+              } else {
+                // No specific error detected, create generic message
+                const errorMessage = createGenericErrorMessage(rawOutput, code);
+                resolve({
+                  success: false,
+                  error: errorMessage,
+                  rawOutput,
+                });
+              }
             }
           } else {
             console.log('[Wizard] Session ID mismatch, ignoring exit event');

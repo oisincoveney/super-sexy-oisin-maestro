@@ -189,12 +189,15 @@ export const GraphLegend = memo(function GraphLegend({
 
   return (
     <div
-      className="graph-legend absolute bottom-4 left-4 rounded-lg overflow-hidden shadow-lg"
+      className="graph-legend absolute rounded-lg overflow-hidden shadow-lg"
       style={{
         backgroundColor: theme.colors.bgActivity,
         border: `1px solid ${theme.colors.border}`,
         maxWidth: 280,
         zIndex: 10,
+        // Position above the React Flow Controls (which are ~90px tall at bottom-left)
+        bottom: 100,
+        left: 16,
       }}
       role="region"
       aria-label="Graph legend"
