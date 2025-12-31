@@ -28,6 +28,7 @@ The command palette is your gateway to nearly every action in Maestro. Press `Cm
 | Open Settings | `Cmd+,` | `Ctrl+,` |
 | Open Agent Settings | `Opt+Cmd+,` | `Alt+Ctrl+,` |
 | View All Agent Sessions | `Cmd+Shift+L` | `Ctrl+Shift+L` |
+| Usage Dashboard | `Opt+Cmd+U` | `Alt+Ctrl+U` |
 | Jump to Bottom | `Cmd+Shift+J` | `Ctrl+Shift+J` |
 | Cycle Focus Areas | `Tab` | `Tab` |
 | Cycle Focus Backwards | `Shift+Tab` | `Shift+Tab` |

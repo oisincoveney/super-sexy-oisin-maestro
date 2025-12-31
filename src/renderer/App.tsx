@@ -7596,12 +7596,18 @@ function MaestroConsoleInner() {
     const worktreePath = `${basePath}/${branchName}`;
     console.log('[WorktreeConfig] Create worktree:', branchName, 'at', worktreePath);
 
+    // Get SSH remote ID for remote worktree operations
+    // Note: sshRemoteId is only set after AI agent spawns. For terminal-only SSH sessions,
+    // we must fall back to sessionSshRemoteConfig.remoteId. See CLAUDE.md "SSH Remote Sessions".
+    const sshRemoteId = activeSession.sshRemoteId || activeSession.sessionSshRemoteConfig?.remoteId || undefined;
+
     try {
-      // Create the worktree via git
+      // Create the worktree via git (pass SSH remote ID for remote sessions)
       const result = await window.maestro.git.worktreeSetup(
         activeSession.cwd,
         worktreePath,
-        branchName
+        branchName,
+        sshRemoteId
       );
 
       if (!result.success) {
@@ -7624,15 +7630,15 @@ function MaestroConsoleInner() {
         saveToHistory: defaultSaveToHistory
       };
 
-      // Fetch git info for the worktree
+      // Fetch git info for the worktree (pass SSH remote ID for remote sessions)
       let gitBranches: string[] | undefined;
       let gitTags: string[] | undefined;
       let gitRefsCacheTime: number | undefined;
 
       try {
         [gitBranches, gitTags] = await Promise.all([
-          gitService.getBranches(worktreePath),
-          gitService.getTags(worktreePath)
+          gitService.getBranches(worktreePath, sshRemoteId),
+          gitService.getTags(worktreePath, sshRemoteId)
         ]);
         gitRefsCacheTime = Date.now();
       } catch {
@@ -7682,7 +7688,9 @@ function MaestroConsoleInner() {
         customModel: activeSession.customModel,
         customContextWindow: activeSession.customContextWindow,
         nudgeMessage: activeSession.nudgeMessage,
-        autoRunFolderPath: activeSession.autoRunFolderPath
+        autoRunFolderPath: activeSession.autoRunFolderPath,
+        // Inherit SSH configuration from parent session
+        sessionSshRemoteConfig: activeSession.sessionSshRemoteConfig,
       };
 
       setSessions(prev => [...prev, worktreeSession]);
@@ -7723,11 +7731,17 @@ function MaestroConsoleInner() {
     const worktreePath = `${basePath}/${branchName}`;
     console.log('[CreateWorktree] Create worktree:', branchName, 'at', worktreePath);
 
-    // Create the worktree via git
+    // Get SSH remote ID for remote worktree operations
+    // Note: sshRemoteId is only set after AI agent spawns. For terminal-only SSH sessions,
+    // we must fall back to sessionSshRemoteConfig.remoteId. See CLAUDE.md "SSH Remote Sessions".
+    const sshRemoteId = createWorktreeSession.sshRemoteId || createWorktreeSession.sessionSshRemoteConfig?.remoteId || undefined;
+
+    // Create the worktree via git (pass SSH remote ID for remote sessions)
     const result = await window.maestro.git.worktreeSetup(
       createWorktreeSession.cwd,
       worktreePath,
-      branchName
+      branchName,
+      sshRemoteId
     );
 
     if (!result.success) {
@@ -7750,15 +7764,15 @@ function MaestroConsoleInner() {
       saveToHistory: defaultSaveToHistory
     };
 
-    // Fetch git info for the worktree
+    // Fetch git info for the worktree (pass SSH remote ID for remote sessions)
     let gitBranches: string[] | undefined;
     let gitTags: string[] | undefined;
     let gitRefsCacheTime: number | undefined;
 
     try {
       [gitBranches, gitTags] = await Promise.all([
-        gitService.getBranches(worktreePath),
-        gitService.getTags(worktreePath)
+        gitService.getBranches(worktreePath, sshRemoteId),
+        gitService.getTags(worktreePath, sshRemoteId)
       ]);
       gitRefsCacheTime = Date.now();
     } catch {
@@ -7808,7 +7822,9 @@ function MaestroConsoleInner() {
       customModel: createWorktreeSession.customModel,
       customContextWindow: createWorktreeSession.customContextWindow,
       nudgeMessage: createWorktreeSession.nudgeMessage,
-      autoRunFolderPath: createWorktreeSession.autoRunFolderPath
+      autoRunFolderPath: createWorktreeSession.autoRunFolderPath,
+      // Inherit SSH configuration from parent session
+      sessionSshRemoteConfig: createWorktreeSession.sessionSshRemoteConfig,
     };
 
     setSessions(prev => [...prev, worktreeSession]);

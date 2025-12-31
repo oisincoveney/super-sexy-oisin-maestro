@@ -62,6 +62,7 @@
               "history",
               "context-management",
               "document-graph",
+              "usage-dashboard",
               "autorun-playbooks",
               "playbook-exchange",
               "git-worktrees",
