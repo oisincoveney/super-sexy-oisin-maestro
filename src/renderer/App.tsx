@@ -7499,14 +7499,34 @@ function MaestroConsoleInner() {
     setCreateGroupModalOpen,
   } = groupModalState;
 
+  // State to track session that should be moved to newly created group
+  const [pendingMoveToGroupSessionId, setPendingMoveToGroupSessionId] = useState<string | null>(null);
+
   // Group Modal Handlers (stable callbacks for AppGroupModals)
   // Must be defined after groupModalState destructure since setCreateGroupModalOpen comes from there
   const handleCloseCreateGroupModal = useCallback(() => {
     setCreateGroupModalOpen(false);
+    setPendingMoveToGroupSessionId(null); // Clear pending move on close
   }, [setCreateGroupModalOpen]);
   const handleCloseRenameGroupModal = useCallback(() => {
     setRenameGroupModalOpen(false);
   }, []);
+
+  // Handler for when a new group is created - move pending session to it
+  const handleGroupCreated = useCallback((groupId: string) => {
+    if (pendingMoveToGroupSessionId) {
+      setSessions(prev => prev.map(s =>
+        s.id === pendingMoveToGroupSessionId ? { ...s, groupId } : s
+      ));
+      setPendingMoveToGroupSessionId(null);
+    }
+  }, [pendingMoveToGroupSessionId, setSessions]);
+
+  // Handler for "Create New Group" from context menu - sets pending session and opens modal
+  const handleCreateGroupAndMove = useCallback((sessionId: string) => {
+    setPendingMoveToGroupSessionId(sessionId);
+    setCreateGroupModalOpen(true);
+  }, [setCreateGroupModalOpen]);
 
   // Worktree Modal Handlers (stable callbacks for AppWorktreeModals)
   const handleCloseWorktreeConfigModal = useCallback(() => {
@@ -8640,6 +8660,7 @@ function MaestroConsoleInner() {
         // AppGroupModals props
         createGroupModalOpen={createGroupModalOpen}
         onCloseCreateGroupModal={handleCloseCreateGroupModal}
+        onGroupCreated={handleGroupCreated}
         renameGroupModalOpen={renameGroupModalOpen}
         renameGroupId={renameGroupId}
         renameGroupValue={renameGroupValue}
@@ -9024,6 +9045,7 @@ function MaestroConsoleInner() {
             setGroups={setGroups}
             setSessions={setSessions}
             createNewGroup={createNewGroup}
+            onCreateGroupAndMove={handleCreateGroupAndMove}
             addNewSession={addNewSession}
             onDeleteSession={deleteSession}
             onDeleteWorktreeGroup={deleteWorktreeGroup}

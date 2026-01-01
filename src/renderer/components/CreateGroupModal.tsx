@@ -9,11 +9,12 @@ interface CreateGroupModalProps {
   onClose: () => void;
   groups: Group[];
   setGroups: React.Dispatch<React.SetStateAction<Group[]>>;
+  onGroupCreated?: (groupId: string) => void; // Optional callback when group is created
 }
 
 export function CreateGroupModal(props: CreateGroupModalProps) {
   const {
-    theme, onClose, groups, setGroups,
+    theme, onClose, groups, setGroups, onGroupCreated,
   } = props;
 
   const [groupName, setGroupName] = useState('');
@@ -23,13 +24,19 @@ export function CreateGroupModal(props: CreateGroupModalProps) {
 
   const handleCreate = () => {
     if (groupName.trim()) {
+      const newGroupId = `group-${generateId()}`;
       const newGroup: Group = {
-        id: `group-${generateId()}`,
+        id: newGroupId,
         name: groupName.trim().toUpperCase(),
         emoji: groupEmoji,
         collapsed: false
       };
       setGroups([...groups, newGroup]);
+
+      // Call callback with new group ID if provided
+      if (onGroupCreated) {
+        onGroupCreated(newGroupId);
+      }
 
       setGroupName('');
       setGroupEmoji('📂');

@@ -700,9 +700,14 @@ export class ProcessManager extends EventEmitter {
         // - OpenCode: --format json
         // - Codex: --json
         // Also triggered when images are present (forces stream-json mode)
-        const isStreamJsonMode = finalArgs.includes('stream-json') ||
-          finalArgs.includes('--json') ||
-          (finalArgs.includes('--format') && finalArgs.includes('json')) ||
+        //
+        // IMPORTANT: When running via SSH, the agent command and args are wrapped into
+        // a single shell command string (e.g., '$SHELL -lc "cd ... && claude --output-format stream-json ..."').
+        // We must check if any arg CONTAINS these patterns, not just exact matches.
+        const argsContain = (pattern: string) => finalArgs.some(arg => arg.includes(pattern));
+        const isStreamJsonMode = argsContain('stream-json') ||
+          argsContain('--json') ||
+          (argsContain('--format') && argsContain('json')) ||
           (hasImages && !!prompt);
 
         // Get the output parser for this agent type (if available)
@@ -714,7 +719,9 @@ export class ProcessManager extends EventEmitter {
           hasParser: !!outputParser,
           parserId: outputParser?.agentId,
           isStreamJsonMode,
-          isBatchMode
+          isBatchMode,
+          // Include args preview for SSH debugging (last arg often contains wrapped command)
+          argsPreview: finalArgs.length > 0 ? finalArgs[finalArgs.length - 1]?.substring(0, 200) : undefined,
         });
 
         const managedProcess: ManagedProcess = {

@@ -505,6 +505,7 @@ export interface AppGroupModalsProps {
   // CreateGroupModal
   createGroupModalOpen: boolean;
   onCloseCreateGroupModal: () => void;
+  onGroupCreated?: (groupId: string) => void;
 
   // RenameGroupModal
   renameGroupModalOpen: boolean;
@@ -530,6 +531,7 @@ export function AppGroupModals({
   // CreateGroupModal
   createGroupModalOpen,
   onCloseCreateGroupModal,
+  onGroupCreated,
   // RenameGroupModal
   renameGroupModalOpen,
   renameGroupId,
@@ -548,6 +550,7 @@ export function AppGroupModals({
           onClose={onCloseCreateGroupModal}
           groups={groups}
           setGroups={setGroups}
+          onGroupCreated={onGroupCreated}
         />
       )}
 
@@ -1722,6 +1725,7 @@ export interface AppModalsProps {
   // --- AppGroupModals props ---
   createGroupModalOpen: boolean;
   onCloseCreateGroupModal: () => void;
+  onGroupCreated?: (groupId: string) => void;
   renameGroupModalOpen: boolean;
   renameGroupId: string | null;
   renameGroupValue: string;
@@ -2010,6 +2014,7 @@ export function AppModals(props: AppModalsProps) {
     // Group modals
     createGroupModalOpen,
     onCloseCreateGroupModal,
+    onGroupCreated,
     renameGroupModalOpen,
     renameGroupId,
     renameGroupValue,
@@ -2290,6 +2295,7 @@ export function AppModals(props: AppModalsProps) {
         setGroups={setGroups}
         createGroupModalOpen={createGroupModalOpen}
         onCloseCreateGroupModal={onCloseCreateGroupModal}
+        onGroupCreated={onGroupCreated}
         renameGroupModalOpen={renameGroupModalOpen}
         renameGroupId={renameGroupId}
         renameGroupValue={renameGroupValue}

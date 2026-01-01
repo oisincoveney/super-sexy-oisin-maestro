@@ -748,6 +748,7 @@ interface SessionListProps {
   setGroups: React.Dispatch<React.SetStateAction<Group[]>>;
   setSessions: React.Dispatch<React.SetStateAction<Session[]>>;
   createNewGroup: () => void;
+  onCreateGroupAndMove?: (sessionId: string) => void; // Create new group and move session to it
   addNewSession: () => void;
   onDeleteSession?: (id: string) => void;
   onDeleteWorktreeGroup?: (groupId: string) => void;
@@ -827,7 +828,7 @@ function SessionListInner(props: SessionListProps) {
     setShortcutsHelpOpen, setSettingsModalOpen, setSettingsTab, setAboutModalOpen, setUpdateCheckModalOpen, setLogViewerOpen, setProcessMonitorOpen, setUsageDashboardOpen, toggleGroup,
     handleDragStart, handleDragOver, handleDropOnGroup, handleDropOnUngrouped,
     finishRenamingGroup, finishRenamingSession, startRenamingGroup,
-    startRenamingSession, showConfirmation, setGroups, setSessions, createNewGroup, addNewSession,
+    startRenamingSession, showConfirmation, setGroups, setSessions, createNewGroup, onCreateGroupAndMove, addNewSession,
     onDeleteSession, onDeleteWorktreeGroup,
     setRenameInstanceModalOpen, setRenameInstanceValue, setRenameInstanceSessionId,
     onEditAgent,
@@ -2232,7 +2233,7 @@ function SessionListInner(props: SessionListProps) {
           onQuickCreateWorktree={onQuickCreateWorktree && !contextMenuSession.parentSessionId ? () => onQuickCreateWorktree(contextMenuSession) : undefined}
           onConfigureWorktrees={onOpenWorktreeConfig && !contextMenuSession.parentSessionId ? () => onOpenWorktreeConfig(contextMenuSession) : undefined}
           onDeleteWorktree={onDeleteWorktree && contextMenuSession.parentSessionId ? () => onDeleteWorktree(contextMenuSession) : undefined}
-          onCreateGroup={createNewGroup}
+          onCreateGroup={onCreateGroupAndMove ? () => onCreateGroupAndMove(contextMenuSession.id) : createNewGroup}
         />
       )}
     </div>

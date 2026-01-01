@@ -892,45 +892,43 @@ export function ActivityHeatmap({ data, timeRange, theme, colorBlindMode = false
 
       {/* Tooltip - positioned at mouse cursor with edge detection */}
       {hoveredCell && tooltipPos && (() => {
-        const tooltipWidth = 200;
-        const tooltipHeight = 60;
+        const tooltipWidth = 220;
+        const tooltipHeight = 56;
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
-        const cursorOffset = 12; // Distance from cursor
+        const margin = 8; // Safety margin from viewport edges
+        const cursorOffset = 12; // Offset from cursor
 
-        // Calculate horizontal position with edge detection
-        // Default: tooltip to the right of cursor
-        let left = tooltipPos.x + cursorOffset;
-        let transformX = '0%';
+        // Start by positioning to top-left of cursor
+        let left = tooltipPos.x - tooltipWidth - cursorOffset;
+        let top = tooltipPos.y - tooltipHeight - cursorOffset;
 
-        // Check right edge overflow - if tooltip would go off right, show to the left of cursor
-        if (left + tooltipWidth > viewportWidth - cursorOffset) {
-          left = tooltipPos.x - cursorOffset;
-          transformX = '-100%';
+        // Check horizontal bounds
+        if (left < margin) {
+          // Would go off left edge, try right of cursor instead
+          left = tooltipPos.x + cursorOffset;
+        }
+        // After potentially flipping to right side, ensure we don't exceed right edge
+        if (left + tooltipWidth > viewportWidth - margin) {
+          left = viewportWidth - tooltipWidth - margin;
+        }
+        // Final safety: never go negative
+        if (left < margin) {
+          left = margin;
         }
 
-        // Check left edge overflow after adjustment
-        if (transformX === '-100%' && left - tooltipWidth < cursorOffset) {
-          // Can't fit on either side, clamp to left edge
-          left = cursorOffset;
-          transformX = '0%';
-        }
-
-        // Calculate vertical position - default above cursor
-        let top = tooltipPos.y - cursorOffset;
-        let transformY = '-100%';
-
-        // Check top edge overflow - if would overflow top, show below cursor
-        if (top - tooltipHeight < cursorOffset) {
+        // Check vertical bounds
+        if (top < margin) {
+          // Would go off top edge, try below cursor instead
           top = tooltipPos.y + cursorOffset;
-          transformY = '0%';
         }
-
-        // Check bottom edge overflow
-        if (transformY === '0%' && top + tooltipHeight > viewportHeight - cursorOffset) {
-          // Clamp to bottom edge
-          top = viewportHeight - tooltipHeight - cursorOffset;
-          transformY = '0%';
+        // After potentially flipping below, ensure we don't exceed bottom edge
+        if (top + tooltipHeight > viewportHeight - margin) {
+          top = viewportHeight - tooltipHeight - margin;
+        }
+        // Final safety: never go negative
+        if (top < margin) {
+          top = margin;
         }
 
         // Determine cell type for time display
@@ -939,15 +937,14 @@ export function ActivityHeatmap({ data, timeRange, theme, colorBlindMode = false
 
         return (
           <div
-            className="fixed z-50 px-3 py-2 rounded text-xs whitespace-nowrap pointer-events-none"
+            className="fixed z-[99999] px-3 py-2 rounded text-xs whitespace-nowrap pointer-events-none"
             style={{
-              left,
-              top,
-              transform: `translate(${transformX}, ${transformY})`,
+              left: `${left}px`,
+              top: `${top}px`,
               backgroundColor: theme.colors.bgActivity,
               color: theme.colors.textMain,
               border: `1px solid ${theme.colors.border}`,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
             }}
           >
             <div className="font-medium mb-0.5">
