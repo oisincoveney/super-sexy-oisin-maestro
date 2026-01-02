@@ -3298,33 +3298,76 @@ function MaestroConsoleInner() {
       return { success: false, error: 'Source tab not found' };
     }
 
+    // Format the context as text to be sent to the agent
+    // Only include user messages and AI responses, not system messages
+    const formattedContext = sourceTab.logs
+      .filter(log => log.text && log.text.trim() && (log.source === 'user' || log.source === 'ai' || log.source === 'stdout'))
+      .map(log => {
+        const role = log.source === 'user' ? 'User' : 'Assistant';
+        return `${role}: ${log.text}`;
+      })
+      .join('\n\n');
+
+    const sourceName = activeSession!.name || activeSession!.projectRoot.split('/').pop() || 'Unknown';
+    const sourceAgentName = activeSession!.toolType;
+
+    // Create the context message to be sent directly to the agent
+    const contextMessage = formattedContext
+      ? `# Context from Previous Session
+
+The following is a conversation from another session ("${sourceName}" using ${sourceAgentName}). Review this context to understand the prior work and decisions made.
+
+---
+
+${formattedContext}
+
+---
+
+# Your Task
+
+You are taking over this conversation. Based on the context above, provide a brief summary of where things left off and ask what the user would like to focus on next.`
+      : 'No context available from the previous session.';
+
     // Transfer context to the target session's active tab
-    // Create a new tab in the target session with the transferred context
+    // Create a new tab in the target session and immediately send context to agent
     const newTabId = `tab-${Date.now()}`;
     const transferNotice: LogEntry = {
       id: `transfer-notice-${Date.now()}`,
       timestamp: Date.now(),
       source: 'system',
-      text: `Context transferred from "${activeSession!.name}" (${activeSession!.toolType})${options.groomContext ? ' - cleaned to reduce size' : ''}`,
+      text: `Context transferred from "${sourceName}" (${sourceAgentName})${options.groomContext ? ' - cleaned to reduce size' : ''}`,
+    };
+
+    // Create user message entry for the context being sent
+    const userContextMessage: LogEntry = {
+      id: `user-context-${Date.now()}`,
+      timestamp: Date.now(),
+      source: 'user',
+      text: contextMessage,
     };
 
     const newTab: AITab = {
       id: newTabId,
-      name: `From: ${activeSession!.name}`,
-      logs: [transferNotice, ...sourceTab.logs],
+      name: `From: ${sourceName}`,
+      logs: [transferNotice, userContextMessage],
       agentSessionId: null,
       starred: false,
       inputValue: '',
       stagedImages: [],
       createdAt: Date.now(),
-      state: 'idle',
+      state: 'busy', // Start in busy state since we're spawning immediately
+      thinkingStartTime: Date.now(),
+      awaitingSessionId: true, // Mark as awaiting session ID
     };
 
-    // Add the new tab to the target session
+    // Add the new tab to the target session and set it as active
     setSessions(prev => prev.map(s => {
       if (s.id === targetSessionId) {
         return {
           ...s,
+          state: 'busy',
+          busySource: 'ai',
+          thinkingStartTime: Date.now(),
           aiTabs: [...s.aiTabs, newTab],
           activeTabId: newTabId,
         };
@@ -3335,7 +3378,7 @@ function MaestroConsoleInner() {
     // Navigate to the target session
     setActiveSessionId(targetSessionId);
 
-    // Calculate estimated tokens for the message
+    // Calculate estimated tokens for the toast
     const estimatedTokens = sourceTab.logs
       .filter(log => log.text && log.source !== 'system')
       .reduce((sum, log) => sum + Math.round((log.text?.length || 0) / 4), 0);
@@ -3343,11 +3386,11 @@ function MaestroConsoleInner() {
       ? ` (~${estimatedTokens.toLocaleString()} tokens)`
       : '';
 
-    // Show success toast with detailed info
+    // Show success toast
     addToast({
       type: 'success',
-      title: 'Context Transferred',
-      message: `"${activeSession!.name}" → "${targetSession.name}"${tokenInfo}. Ready in new tab.`,
+      title: 'Context Sent',
+      message: `"${sourceName}" → "${targetSession.name}"${tokenInfo}`,
       sessionId: targetSessionId,
       tabId: newTabId,
     });
@@ -3356,6 +3399,81 @@ function MaestroConsoleInner() {
     resetTransfer();
     setTransferSourceAgent(null);
     setTransferTargetAgent(null);
+
+    // Spawn the agent with the context - do this after state updates
+    (async () => {
+      try {
+        // Get agent configuration
+        const agent = await window.maestro.agents.get(targetSession.toolType);
+        if (!agent) throw new Error(`${targetSession.toolType} agent not found`);
+
+        const baseArgs = agent.args ?? [];
+        const commandToUse = agent.path || agent.command;
+
+        // Build the full prompt with Maestro system prompt for new sessions
+        let effectivePrompt = contextMessage;
+
+        // Get git branch for template substitution
+        let gitBranch: string | undefined;
+        if (targetSession.isGitRepo) {
+          try {
+            const status = await gitService.getStatus(targetSession.cwd);
+            gitBranch = status.branch;
+          } catch {
+            // Ignore git errors
+          }
+        }
+
+        // Prepend Maestro system prompt since this is a new session
+        if (maestroSystemPrompt) {
+          const substitutedSystemPrompt = substituteTemplateVariables(maestroSystemPrompt, {
+            session: targetSession,
+            gitBranch,
+          });
+          effectivePrompt = `${substitutedSystemPrompt}\n\n---\n\n# User Request\n\n${effectivePrompt}`;
+        }
+
+        // Spawn agent
+        const spawnSessionId = `${targetSessionId}-ai-${newTabId}`;
+        await window.maestro.process.spawn({
+          sessionId: spawnSessionId,
+          toolType: targetSession.toolType,
+          cwd: targetSession.cwd,
+          command: commandToUse,
+          args: [...baseArgs],
+          prompt: effectivePrompt,
+          // Per-session config overrides (if set)
+          sessionCustomPath: targetSession.customPath,
+          sessionCustomArgs: targetSession.customArgs,
+          sessionCustomEnvVars: targetSession.customEnvVars,
+          sessionCustomModel: targetSession.customModel,
+          sessionCustomContextWindow: targetSession.customContextWindow,
+          sessionSshRemoteConfig: targetSession.sessionSshRemoteConfig,
+        });
+      } catch (error) {
+        console.error('Failed to spawn agent for context transfer:', error);
+        const errorLog: LogEntry = {
+          id: `error-${Date.now()}`,
+          timestamp: Date.now(),
+          source: 'system',
+          text: `Error: Failed to spawn agent - ${(error as Error).message}`,
+        };
+        setSessions(prev => prev.map(s => {
+          if (s.id !== targetSessionId) return s;
+          return {
+            ...s,
+            state: 'idle',
+            busySource: undefined,
+            thinkingStartTime: undefined,
+            aiTabs: s.aiTabs.map(tab =>
+              tab.id === newTabId
+                ? { ...tab, state: 'idle' as const, thinkingStartTime: undefined, logs: [...tab.logs, errorLog] }
+                : tab
+            ),
+          };
+        }));
+      }
+    })();
 
     return { success: true, newSessionId: targetSessionId, newTabId };
   }, [activeSession, sessions, setSessions, setActiveSessionId, addToast, resetTransfer]);

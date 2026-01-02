@@ -36,7 +36,7 @@ import { useLayerStack } from '../../contexts/LayerStackContext';
 import { MODAL_PRIORITIES } from '../../constants/modalPriorities';
 import { Modal, ModalFooter } from '../ui/Modal';
 import { useDebouncedCallback } from '../../hooks/utils';
-import { buildGraphData, ProgressData, GraphNodeData, CachedExternalData } from './graphDataBuilder';
+import { buildGraphData, ProgressData, GraphNodeData, CachedExternalData, invalidateCacheForFiles } from './graphDataBuilder';
 import { MindMap, MindMapNode, MindMapLink, convertToMindMapData, NodePositionOverride } from './MindMap';
 import { NodeContextMenu } from './NodeContextMenu';
 import { GraphLegend } from './GraphLegend';
@@ -501,6 +501,9 @@ export function DocumentGraphView({
 
     const unsubscribe = window.maestro.documentGraph.onFilesChanged((data) => {
       if (data.rootPath === rootPath) {
+        // Invalidate cache for changed files before rebuilding graph
+        const changedPaths = data.changes.map((c: { filePath: string }) => c.filePath);
+        invalidateCacheForFiles(changedPaths);
         debouncedLoadGraphData();
       }
     });

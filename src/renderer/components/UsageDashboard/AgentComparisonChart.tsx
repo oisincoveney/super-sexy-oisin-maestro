@@ -262,7 +262,7 @@ export function AgentComparisonChart({ data, theme, colorBlindMode = false }: Ag
                     className="flex items-center gap-3 flex-shrink-0"
                     style={{ color: theme.colors.textDim }}
                   >
-                    <div className="w-16 text-xs text-right" title="Query count">
+                    <div className="text-xs text-right whitespace-nowrap" title="Query count">
                       {formatNumber(agent.count)} {agent.count === 1 ? 'query' : 'queries'}
                     </div>
                     <div className="w-14 text-xs text-right font-medium" title="Total duration" style={{ color: theme.colors.textMain }}>

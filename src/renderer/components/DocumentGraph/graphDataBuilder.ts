@@ -15,6 +15,77 @@ import { PERFORMANCE_THRESHOLDS } from '../../../shared/performance-metrics';
 // Performance metrics instance for graph data building
 const perfMetrics = getRendererPerfMetrics('DocumentGraph');
 
+// ============================================================================
+// Parsed File Cache
+// ============================================================================
+
+/**
+ * Cached parsed file entry with modification time for invalidation
+ */
+interface CachedParsedFile {
+  /** The parsed file data */
+  data: ParsedFile;
+  /** File modification time (ms since epoch) when cached */
+  mtime: number;
+}
+
+/**
+ * Module-level cache for parsed files.
+ * Key: full file path, Value: cached data with mtime
+ *
+ * This cache persists across graph rebuilds, significantly speeding up
+ * incremental updates when only a few files change.
+ */
+const parsedFileCache = new Map<string, CachedParsedFile>();
+
+/**
+ * Cache for the reverse link index (which files link to which).
+ * Invalidated when any file changes.
+ */
+interface CachedReverseLinkIndex {
+  /** The reverse index map */
+  reverseIndex: Map<string, Set<string>>;
+  /** Set of existing files */
+  existingFiles: Set<string>;
+  /** Map of file path to mtime when index was built */
+  fileMtimes: Map<string, number>;
+  /** Root path this index was built for */
+  rootPath: string;
+}
+
+let reverseLinkIndexCache: CachedReverseLinkIndex | null = null;
+
+/**
+ * Clear the parsed file cache (e.g., when switching projects)
+ */
+export function clearGraphDataCache(): void {
+  parsedFileCache.clear();
+  reverseLinkIndexCache = null;
+  console.log('[DocumentGraph] Cache cleared');
+}
+
+/**
+ * Invalidate cache entries for specific files (e.g., after file changes)
+ */
+export function invalidateCacheForFiles(filePaths: string[]): void {
+  for (const filePath of filePaths) {
+    parsedFileCache.delete(filePath);
+  }
+  // Invalidate reverse index since links may have changed
+  reverseLinkIndexCache = null;
+  console.log(`[DocumentGraph] Invalidated cache for ${filePaths.length} file(s)`);
+}
+
+/**
+ * Get cache statistics for debugging
+ */
+export function getGraphCacheStats(): { parsedFileCount: number; hasReverseIndex: boolean } {
+  return {
+    parsedFileCount: parsedFileCache.size,
+    hasReverseIndex: reverseLinkIndexCache !== null,
+  };
+}
+
 /**
  * Size threshold for "large" files that need special handling.
  * Files larger than this will have their content truncated for parsing
@@ -280,6 +351,8 @@ async function scanMarkdownFiles(
  * Parse a single markdown file and extract its data.
  * For large files (>1MB), content is truncated to prevent UI blocking.
  *
+ * Uses caching with mtime-based invalidation to avoid re-parsing unchanged files.
+ *
  * @param rootPath - Root directory path
  * @param relativePath - Path relative to root
  * @returns Parsed file data or null if reading fails
@@ -288,10 +361,21 @@ async function parseFile(rootPath: string, relativePath: string): Promise<Parsed
   const fullPath = `${rootPath}/${relativePath}`;
 
   try {
-    // Get file stats first to check size
+    // Get file stats first to check size and mtime
     const stat = await window.maestro.fs.stat(fullPath);
-    const fileSize = stat?.size ?? 0;
+    if (!stat) {
+      return null;
+    }
+    const fileSize = stat.size ?? 0;
+    // Parse modifiedAt ISO string to timestamp for cache comparison
+    const fileMtime = stat.modifiedAt ? new Date(stat.modifiedAt).getTime() : 0;
     const isLargeFile = fileSize > LARGE_FILE_THRESHOLD;
+
+    // Check cache - if we have a cached version with matching mtime, use it
+    const cached = parsedFileCache.get(fullPath);
+    if (cached && cached.mtime === fileMtime) {
+      return cached.data;
+    }
 
     // Read file content
     const content = await window.maestro.fs.readFile(fullPath);
@@ -327,7 +411,7 @@ async function parseFile(rootPath: string, relativePath: string): Promise<Parsed
     // Note: We intentionally do NOT store 'content' in the returned object.
     // The content has been parsed for links and stats, and is no longer needed.
     // This "lazy load" approach minimizes memory usage by discarding content immediately.
-    return {
+    const parsed: ParsedFile = {
       relativePath,
       fullPath,
       fileSize,
@@ -336,6 +420,11 @@ async function parseFile(rootPath: string, relativePath: string): Promise<Parsed
       stats,
       allInternalLinkPaths: internalLinks, // Store all links to identify broken ones later
     };
+
+    // Cache the result with mtime
+    parsedFileCache.set(fullPath, { data: parsed, mtime: fileMtime });
+
+    return parsed;
   } catch (error) {
     console.warn(`Failed to parse file ${fullPath}:`, error);
     return null;
@@ -346,6 +435,9 @@ async function parseFile(rootPath: string, relativePath: string): Promise<Parsed
  * Quickly extract just the internal links from a file (no stats computation).
  * Used for building the reverse link index efficiently.
  *
+ * Uses caching with mtime-based invalidation - if we have a cached full parse,
+ * we can extract links from it without re-reading the file.
+ *
  * @param rootPath - Root directory path
  * @param relativePath - Path relative to root
  * @returns LinkIndexEntry or null if reading fails
@@ -354,10 +446,24 @@ async function parseFileLinksOnly(rootPath: string, relativePath: string): Promi
   const fullPath = `${rootPath}/${relativePath}`;
 
   try {
-    // Get file stats first to check size
+    // Get file stats first to check size and mtime
     const stat = await window.maestro.fs.stat(fullPath);
-    const fileSize = stat?.size ?? 0;
+    if (!stat) {
+      return null;
+    }
+    const fileSize = stat.size ?? 0;
+    // Parse modifiedAt ISO string to timestamp for cache comparison
+    const fileMtime = stat.modifiedAt ? new Date(stat.modifiedAt).getTime() : 0;
     const isLargeFile = fileSize > LARGE_FILE_THRESHOLD;
+
+    // Check cache - if we have a cached full parse with matching mtime, extract links from it
+    const cached = parsedFileCache.get(fullPath);
+    if (cached && cached.mtime === fileMtime) {
+      return {
+        relativePath,
+        outgoingLinks: cached.data.internalLinks,
+      };
+    }
 
     // Read file content
     const content = await window.maestro.fs.readFile(fullPath);

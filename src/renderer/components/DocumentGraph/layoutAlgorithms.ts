@@ -21,7 +21,7 @@ import {
   SimulationLinkDatum,
 } from 'd3-force';
 import dagre from '@dagrejs/dagre';
-import type { GraphNodeData } from './graphDataBuilder';
+import type { GraphNodeData, DocumentNodeData } from './graphDataBuilder';
 
 /**
  * Layout configuration options
@@ -47,14 +47,78 @@ export interface LayoutOptions {
  * Default layout options
  */
 const DEFAULT_OPTIONS: Required<LayoutOptions> = {
-  nodeWidth: 280,
-  nodeHeight: 120,
+  nodeWidth: 220,
+  nodeHeight: 80,
   rankDirection: 'TB',
-  nodeSeparation: 100,
-  rankSeparation: 180,
+  nodeSeparation: 80,
+  rankSeparation: 150,
   centerX: 0,
   centerY: 0,
 };
+
+/**
+ * Cache for node dimension estimates.
+ * Key format: `${titleLength}:${previewLength}` - uses lengths as proxy for content
+ */
+const nodeDimensionCache = new Map<string, { width: number; height: number }>();
+
+/**
+ * Estimate node dimensions based on content (with caching).
+ * This provides more accurate sizing for layout calculations.
+ * Only works with document nodes (not external link nodes).
+ */
+function estimateNodeDimensions(node: Node<DocumentNodeData>): { width: number; height: number } {
+  const data = node.data;
+  const titleText = data.title || '';
+  const previewText = data.description || data.contentPreview || '';
+
+  // Use content lengths as cache key
+  const cacheKey = `${Math.min(titleText.length, 40)}:${Math.min(previewText.length, 100)}`;
+  const cached = nodeDimensionCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  // Base dimensions (padding + minimum content)
+  const padding = 24; // 12px padding on each side
+  const minWidth = 160;
+  const maxWidth = 280;
+
+  // Estimate title width (roughly 8px per character at 14px font)
+  const truncatedTitle = titleText.length > 40 ? titleText.slice(0, 40) + '...' : titleText;
+  const titleWidth = Math.min(truncatedTitle.length * 7.5 + 20, maxWidth - padding); // +20 for icon
+
+  // Stats row is fixed width (roughly 100px for the three stats)
+  const statsWidth = 120;
+
+  // Description width if present
+  let descriptionWidth = 0;
+  let descriptionHeight = 0;
+
+  if (previewText) {
+    const truncatedPreview = previewText.length > 100 ? previewText.slice(0, 100) + '...' : previewText;
+    // Description wraps, estimate based on max width
+    descriptionWidth = Math.min(truncatedPreview.length * 6, maxWidth - padding);
+    // Estimate line count for height (roughly 17px per line at 12px font with 1.4 line height)
+    const charsPerLine = Math.floor((maxWidth - padding) / 6);
+    const lineCount = Math.ceil(truncatedPreview.length / charsPerLine);
+    descriptionHeight = lineCount * 17;
+  }
+
+  // Calculate final dimensions
+  const contentWidth = Math.max(titleWidth, statsWidth, descriptionWidth);
+  const width = Math.max(minWidth, Math.min(contentWidth + padding, maxWidth));
+
+  // Height: title (20px) + margin (8px) + stats (16px) + margin (8px if desc) + description
+  let height = padding + 20 + 8 + 16; // Base: padding + title + margin + stats
+  if (descriptionHeight > 0) {
+    height += 8 + descriptionHeight; // margin + description
+  }
+
+  const result = { width, height };
+  nodeDimensionCache.set(cacheKey, result);
+  return result;
+}
 
 /**
  * Extended node datum for d3-force simulation
@@ -109,14 +173,17 @@ export function applyForceLayout(
   // PHASE 1: Layout document nodes only (internal links)
   const internalEdges = edges.filter((e) => e.type !== 'external');
 
-  const simNodes: ForceNodeDatum[] = documentNodes.map((node) => ({
-    id: node.id,
-    x: node.position.x || Math.random() * 400 - 200,
-    y: node.position.y || Math.random() * 400 - 200,
-    width: opts.nodeWidth,
-    height: opts.nodeHeight,
-    isExternal: false,
-  }));
+  const simNodes: ForceNodeDatum[] = documentNodes.map((node) => {
+    const dims = estimateNodeDimensions(node as Node<DocumentNodeData>);
+    return {
+      id: node.id,
+      x: node.position.x || Math.random() * 400 - 200,
+      y: node.position.y || Math.random() * 400 - 200,
+      width: dims.width,
+      height: dims.height,
+      isExternal: false,
+    };
+  });
 
   const nodeMap = new Map(simNodes.map((n) => [n.id, n]));
 
@@ -148,7 +215,7 @@ export function applyForceLayout(
     .force(
       'collide',
       forceCollide<ForceNodeDatum>()
-        .radius((d) => Math.max(d.width, d.height) / 2 + opts.nodeSeparation / 2)
+        .radius((d) => Math.max(d.width, d.height) / 2 + opts.nodeSeparation / 2 + 20)
         .strength(1.0)
         .iterations(3)
     )
@@ -276,11 +343,16 @@ export function applyHierarchicalLayout(
 
   g.setDefaultEdgeLabel(() => ({}));
 
-  // Add document nodes
+  // Store node dimensions for later use
+  const nodeDimensions = new Map<string, { width: number; height: number }>();
+
+  // Add document nodes with estimated dimensions plus padding for spacing
   for (const node of documentNodes) {
+    const dims = estimateNodeDimensions(node as Node<DocumentNodeData>);
+    nodeDimensions.set(node.id, dims);
     g.setNode(node.id, {
-      width: opts.nodeWidth + 20,
-      height: opts.nodeHeight + 10,
+      width: dims.width + 20,
+      height: dims.height + 20,
       label: node.id,
     });
   }
@@ -300,15 +372,16 @@ export function applyHierarchicalLayout(
 
   for (const node of documentNodes) {
     const dagreNode = g.node(node.id);
+    const dims = nodeDimensions.get(node.id) || { width: opts.nodeWidth, height: opts.nodeHeight };
     if (dagreNode) {
-      const x = dagreNode.x - opts.nodeWidth / 2;
-      const y = dagreNode.y - opts.nodeHeight / 2;
+      const x = dagreNode.x - dims.width / 2;
+      const y = dagreNode.y - dims.height / 2;
       positionMap.set(node.id, { x, y });
 
       minX = Math.min(minX, x);
-      maxX = Math.max(maxX, x + opts.nodeWidth);
+      maxX = Math.max(maxX, x + dims.width);
       minY = Math.min(minY, y);
-      maxY = Math.max(maxY, y + opts.nodeHeight);
+      maxY = Math.max(maxY, y + dims.height);
     }
   }
 

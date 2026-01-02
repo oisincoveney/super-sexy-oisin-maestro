@@ -1655,36 +1655,35 @@ export const SettingsModal = memo(function SettingsModal(props: SettingsModalPro
               </div>
 
               {/* Settings Storage Location */}
-              <div
-                className="flex items-start gap-3 p-4 rounded-xl border relative"
-                style={{ backgroundColor: theme.colors.bgMain, borderColor: theme.colors.border }}
-              >
-                {/* BETA Badge */}
+              <div>
+                <label className="block text-xs font-bold opacity-70 uppercase mb-2 flex items-center gap-2">
+                  <FolderSync className="w-3 h-3" />
+                  Storage Location
+                  <span
+                    className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase"
+                    style={{ backgroundColor: theme.colors.warning + '30', color: theme.colors.warning }}
+                  >
+                    Beta
+                  </span>
+                </label>
                 <div
-                  className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase"
-                  style={{ backgroundColor: theme.colors.warning + '30', color: theme.colors.warning }}
+                  className="p-3 rounded border space-y-3"
+                  style={{ borderColor: theme.colors.border, backgroundColor: theme.colors.bgMain }}
                 >
-                  Beta
-                </div>
-                <div
-                  className="p-2 rounded-lg flex-shrink-0"
-                  style={{ backgroundColor: theme.colors.accent + '20' }}
-                >
-                  <FolderSync className="w-5 h-5" style={{ color: theme.colors.accent }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] uppercase font-bold opacity-50 mb-1">Storage Location</p>
-                  <p className="font-semibold mb-1">Settings folder</p>
-                  <p className="text-xs opacity-60 mb-2">
-                    Choose where Maestro stores settings, sessions, and groups. Use a synced folder (iCloud Drive, Dropbox, OneDrive) to share across devices.
-                  </p>
-                  <p className="text-xs opacity-50 mb-4 italic">
-                    Note: Only run Maestro on one device at a time to avoid sync conflicts.
-                  </p>
+                  {/* Settings folder header */}
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: theme.colors.textMain }}>Settings folder</p>
+                    <p className="text-xs opacity-60 mt-0.5">
+                      Choose where Maestro stores settings, sessions, and groups. Use a synced folder (iCloud Drive, Dropbox, OneDrive) to share across devices.
+                    </p>
+                    <p className="text-xs opacity-50 mt-1 italic">
+                      Note: Only run Maestro on one device at a time to avoid sync conflicts.
+                    </p>
+                  </div>
 
                   {/* Default Location */}
-                  <div className="mb-3">
-                    <p className="text-[10px] uppercase font-bold opacity-40 mb-1">Default Location</p>
+                  <div>
+                    <label className="block text-xs opacity-60 mb-1">Default Location</label>
                     <div
                       className="text-xs p-2 rounded font-mono truncate"
                       style={{ backgroundColor: theme.colors.bgActivity }}
@@ -1696,8 +1695,8 @@ export const SettingsModal = memo(function SettingsModal(props: SettingsModalPro
 
                   {/* Current Location (if different) */}
                   {customSyncPath && (
-                    <div className="mb-3">
-                      <p className="text-[10px] uppercase font-bold opacity-40 mb-1">Current Location (Custom)</p>
+                    <div>
+                      <label className="block text-xs opacity-60 mb-1">Current Location (Custom)</label>
                       <div
                         className="text-xs p-2 rounded font-mono truncate flex items-center gap-2"
                         style={{ backgroundColor: theme.colors.accent + '15', border: `1px solid ${theme.colors.accent}40` }}
@@ -1788,7 +1787,7 @@ export const SettingsModal = memo(function SettingsModal(props: SettingsModalPro
                   {/* Success Message */}
                   {syncMigratedCount !== null && syncMigratedCount > 0 && !syncError && (
                     <div
-                      className="mt-3 p-2 rounded text-xs flex items-center gap-2"
+                      className="p-2 rounded text-xs flex items-center gap-2"
                       style={{
                         backgroundColor: theme.colors.success + '20',
                         color: theme.colors.success,
@@ -1802,7 +1801,7 @@ export const SettingsModal = memo(function SettingsModal(props: SettingsModalPro
                   {/* Error Message */}
                   {syncError && (
                     <div
-                      className="mt-3 p-2 rounded text-xs flex items-start gap-2"
+                      className="p-2 rounded text-xs flex items-start gap-2"
                       style={{
                         backgroundColor: theme.colors.error + '20',
                         color: theme.colors.error,
@@ -1816,7 +1815,7 @@ export const SettingsModal = memo(function SettingsModal(props: SettingsModalPro
                   {/* Restart Required Warning */}
                   {syncRestartRequired && !syncError && (
                     <div
-                      className="mt-3 p-2 rounded text-xs flex items-center gap-2"
+                      className="p-2 rounded text-xs flex items-center gap-2"
                       style={{
                         backgroundColor: theme.colors.warning + '20',
                         color: theme.colors.warning,

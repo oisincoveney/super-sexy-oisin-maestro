@@ -10,6 +10,9 @@ import {
   buildGraphData,
   isDocumentNode,
   isExternalLinkNode,
+  clearGraphDataCache,
+  invalidateCacheForFiles,
+  getGraphCacheStats,
   type DocumentNodeData,
   type ProgressData,
   BATCH_SIZE_BEFORE_YIELD,
@@ -107,18 +110,25 @@ describe('graphDataBuilder', () => {
     return Promise.resolve(null);
   }
 
-  function mockStatImpl(filePath: string): Promise<{ size: number } | null> {
+  function mockStatImpl(filePath: string): Promise<{ size: number; modifiedAt: string } | null> {
     const relativePath = filePath.replace('/test/', '');
     const entry = getEntry(relativePath);
 
     if (entry && 'size' in entry) {
-      return Promise.resolve({ size: entry.size });
+      // Return a consistent modifiedAt timestamp for cache testing
+      return Promise.resolve({
+        size: entry.size,
+        modifiedAt: '2024-01-01T00:00:00.000Z',
+      });
     }
 
     return Promise.resolve(null);
   }
 
   beforeEach(() => {
+    // Clear the cache before each test to ensure isolation
+    clearGraphDataCache();
+
     mockReadDir = vi.fn().mockImplementation(mockReadDirImpl);
     mockReadFile = vi.fn().mockImplementation(mockReadFileImpl);
     mockStat = vi.fn().mockImplementation(mockStatImpl);
@@ -446,6 +456,119 @@ describe('graphDataBuilder', () => {
       // There are more files to load (getting-started.md is linked)
       // hasMore depends on whether queue still has items when we hit maxNodes
       expect(typeof result.hasMore).toBe('boolean');
+    });
+  });
+
+  describe('caching', () => {
+    it('should cache parsed files and reuse on subsequent builds', async () => {
+      // First build - should read all files
+      await buildGraphData({
+        rootPath: '/test',
+        focusFile: 'readme.md',
+        maxDepth: 1,
+      });
+
+      const firstReadFileCallCount = mockReadFile.mock.calls.length;
+
+      // Second build - should use cache for unchanged files
+      await buildGraphData({
+        rootPath: '/test',
+        focusFile: 'readme.md',
+        maxDepth: 1,
+      });
+
+      const secondReadFileCallCount = mockReadFile.mock.calls.length;
+
+      // Cache should reduce file reads (stat is still called to check mtime)
+      // The second build should call readFile fewer times because of cache hits
+      expect(secondReadFileCallCount).toBeLessThan(firstReadFileCallCount * 2);
+    });
+
+    it('should report cache stats', async () => {
+      // Initially empty
+      clearGraphDataCache();
+      let stats = getGraphCacheStats();
+      expect(stats.parsedFileCount).toBe(0);
+
+      // Build graph to populate cache
+      await buildGraphData({
+        rootPath: '/test',
+        focusFile: 'readme.md',
+        maxDepth: 1,
+      });
+
+      stats = getGraphCacheStats();
+      expect(stats.parsedFileCount).toBeGreaterThan(0);
+    });
+
+    it('should invalidate cache for specific files', async () => {
+      // Build to populate cache
+      await buildGraphData({
+        rootPath: '/test',
+        focusFile: 'readme.md',
+      });
+
+      const statsBefore = getGraphCacheStats();
+      expect(statsBefore.parsedFileCount).toBeGreaterThan(0);
+
+      // Invalidate specific file
+      invalidateCacheForFiles(['/test/readme.md']);
+
+      // Cache should still have other files but not the invalidated one
+      const statsAfter = getGraphCacheStats();
+      expect(statsAfter.parsedFileCount).toBeLessThan(statsBefore.parsedFileCount);
+    });
+
+    it('should clear entire cache', async () => {
+      // Build to populate cache
+      await buildGraphData({
+        rootPath: '/test',
+        focusFile: 'readme.md',
+        maxDepth: 2,
+      });
+
+      expect(getGraphCacheStats().parsedFileCount).toBeGreaterThan(0);
+
+      // Clear cache
+      clearGraphDataCache();
+
+      expect(getGraphCacheStats().parsedFileCount).toBe(0);
+    });
+
+    it('should re-parse file when mtime changes', async () => {
+      // First build
+      await buildGraphData({
+        rootPath: '/test',
+        focusFile: 'readme.md',
+      });
+
+      const initialCallCount = mockReadFile.mock.calls.length;
+
+      // Change the mtime for readme.md
+      mockStat.mockImplementation((filePath: string) => {
+        const relativePath = filePath.replace('/test/', '');
+        const entry = getEntry(relativePath);
+
+        if (entry && 'size' in entry) {
+          return Promise.resolve({
+            size: entry.size,
+            // Different mtime for readme.md
+            modifiedAt: filePath.includes('readme')
+              ? '2024-06-01T00:00:00.000Z'
+              : '2024-01-01T00:00:00.000Z',
+          });
+        }
+        return Promise.resolve(null);
+      });
+
+      // Second build - should re-read readme.md due to mtime change
+      await buildGraphData({
+        rootPath: '/test',
+        focusFile: 'readme.md',
+      });
+
+      // Should have additional readFile calls for the changed file
+      expect(mockReadFile.mock.calls.length).toBeGreaterThan(initialCallCount);
     });
   });
 });

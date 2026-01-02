@@ -116,8 +116,8 @@ export interface MindMapProps {
 
 /** Horizontal spacing between depth levels */
 const HORIZONTAL_SPACING = 340;
-/** Minimum vertical spacing between nodes */
-const VERTICAL_SPACING = 120;
+/** Minimum vertical gap between nodes (added to node heights) */
+const VERTICAL_GAP = 30;
 /** Document node width */
 const NODE_WIDTH = 260;
 /** Header height for node title bar */
@@ -134,17 +134,36 @@ const CHARS_PER_LINE = 35;
 const DESC_PADDING = 20; // 10px top + 10px bottom
 
 /**
- * Calculate node height based on preview character limit
+ * Cache for node height calculations.
+ * Key format: `${textLength}:${previewCharLimit}` - uses text length as proxy for content
  */
-function calculateNodeHeight(hasPreview: boolean, previewCharLimit: number): number {
-  if (!hasPreview) {
+const nodeHeightCache = new Map<string, number>();
+
+/**
+ * Calculate node height based on actual content length (with caching)
+ */
+function calculateNodeHeight(previewText: string | undefined, previewCharLimit: number): number {
+  if (!previewText) {
     return NODE_HEIGHT_BASE;
   }
-  // Estimate number of lines based on character limit
-  const estimatedLines = Math.ceil(previewCharLimit / CHARS_PER_LINE);
-  // Minimum 2 lines, cap at reasonable max
-  const lines = Math.max(2, Math.min(estimatedLines, 15));
-  return NODE_HEIGHT_BASE + (lines * DESC_LINE_HEIGHT) + DESC_PADDING;
+
+  // Use text length as cache key (exact content not needed, just length matters for height)
+  const cacheKey = `${Math.min(previewText.length, previewCharLimit)}:${previewCharLimit}`;
+  const cached = nodeHeightCache.get(cacheKey);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  // Truncate to the limit, then calculate actual lines needed
+  const truncatedLength = Math.min(previewText.length, previewCharLimit);
+  const actualLines = Math.ceil(truncatedLength / CHARS_PER_LINE);
+  // Minimum 1 line, cap at reasonable max
+  const lines = Math.max(1, Math.min(actualLines, 15));
+  const height = NODE_HEIGHT_BASE + (lines * DESC_LINE_HEIGHT) + DESC_PADDING;
+
+  // Cache the result
+  nodeHeightCache.set(cacheKey, height);
+  return height;
 }
 /** Scale factor for center node */
 const CENTER_NODE_SCALE = 1.15;
@@ -502,8 +521,8 @@ function calculateMindMapLayout(
   const centerX = canvasWidth / 2;
   const centerY = canvasHeight / 2 - (showExternalLinks && externalNodes.length > 0 ? 50 : 0);
   const centerWidth = NODE_WIDTH * CENTER_NODE_SCALE;
-  const centerHasPreview = !!(centerNode.description || centerNode.contentPreview);
-  const centerHeight = calculateNodeHeight(centerHasPreview, previewCharLimit) * CENTER_NODE_SCALE;
+  const centerPreviewText = centerNode.description || centerNode.contentPreview;
+  const centerHeight = calculateNodeHeight(centerPreviewText, previewCharLimit) * CENTER_NODE_SCALE;
 
   const positionedNodes: MindMapNode[] = [];
   const usedLinks: MindMapLink[] = [];
@@ -542,42 +561,74 @@ function calculateMindMapLayout(
     const leftNodes = nodesAtDepth.slice(0, midpoint);
     const rightNodes = nodesAtDepth.slice(midpoint);
 
-    // Calculate positions for left column
+    // Calculate positions for left column - use actual node heights
     const leftX = centerX - (HORIZONTAL_SPACING * depth);
-    const leftTotalHeight = leftNodes.length * VERTICAL_SPACING;
-    const leftStartY = centerY - leftTotalHeight / 2 + VERTICAL_SPACING / 2;
+
+    // First pass: calculate heights for all left nodes
+    const leftNodeHeights = leftNodes.map(node => {
+      const previewText = node.description || node.contentPreview;
+      return calculateNodeHeight(previewText, previewCharLimit);
+    });
+
+    // Calculate total height needed (sum of heights + gaps between nodes)
+    const leftTotalHeight = leftNodeHeights.reduce((sum, h) => sum + h, 0) +
+      Math.max(0, leftNodes.length - 1) * VERTICAL_GAP;
+
+    // Start position: center the column vertically
+    let leftCurrentY = centerY - leftTotalHeight / 2;
 
     leftNodes.forEach((node, index) => {
-      const hasPreview = !!(node.description || node.contentPreview);
-      const height = calculateNodeHeight(hasPreview, previewCharLimit);
+      const height = leftNodeHeights[index];
+      // Position at center of this node's space
+      const nodeY = leftCurrentY + height / 2;
+
       positionedNodes.push({
         ...node,
         x: leftX,
-        y: leftStartY + index * VERTICAL_SPACING,
+        y: nodeY,
         width: NODE_WIDTH,
         height,
         depth,
         side: 'left',
       });
+
+      // Move to next position: current node's height + gap
+      leftCurrentY += height + VERTICAL_GAP;
     });
 
-    // Calculate positions for right column
+    // Calculate positions for right column - use actual node heights
     const rightX = centerX + (HORIZONTAL_SPACING * depth);
-    const rightTotalHeight = rightNodes.length * VERTICAL_SPACING;
-    const rightStartY = centerY - rightTotalHeight / 2 + VERTICAL_SPACING / 2;
+
+    // First pass: calculate heights for all right nodes
+    const rightNodeHeights = rightNodes.map(node => {
+      const previewText = node.description || node.contentPreview;
+      return calculateNodeHeight(previewText, previewCharLimit);
+    });
+
+    // Calculate total height needed (sum of heights + gaps between nodes)
+    const rightTotalHeight = rightNodeHeights.reduce((sum, h) => sum + h, 0) +
+      Math.max(0, rightNodes.length - 1) * VERTICAL_GAP;
+
+    // Start position: center the column vertically
+    let rightCurrentY = centerY - rightTotalHeight / 2;
 
     rightNodes.forEach((node, index) => {
-      const hasPreview = !!(node.description || node.contentPreview);
-      const height = calculateNodeHeight(hasPreview, previewCharLimit);
+      const height = rightNodeHeights[index];
+      // Position at center of this node's space
+      const nodeY = rightCurrentY + height / 2;
+
       positionedNodes.push({
         ...node,
         x: rightX,
-        y: rightStartY + index * VERTICAL_SPACING,
+        y: nodeY,
         width: NODE_WIDTH,
         height,
         depth,
         side: 'right',
       });
+
+      // Move to next position: current node's height + gap
+      rightCurrentY += height + VERTICAL_GAP;
     });
   }
 
@@ -636,8 +687,8 @@ function calculateMindMapLayout(
     }
   });
 
-  // Calculate bounds - use max node height for padding
-  const maxNodeHeight = calculateNodeHeight(true, previewCharLimit);
+  // Calculate bounds - use max node height for padding (simulate full preview text)
+  const maxNodeHeight = calculateNodeHeight('x'.repeat(previewCharLimit), previewCharLimit);
   const xs = positionedNodes.map(n => n.x);
   const ys = positionedNodes.map(n => n.y);
   const bounds = {
@@ -1524,13 +1575,13 @@ export function convertToMindMapData(
     if (node.data.nodeType === 'document') {
       const docData = node.data as DocumentNodeData;
       // Use description (frontmatter) or contentPreview (plaintext) for display
-      const hasPreviewText = !!(docData.description || docData.contentPreview);
+      const previewText = docData.description || docData.contentPreview;
       mindMapNode = {
         id: node.id,
         x: 0,
         y: 0,
         width: NODE_WIDTH,
-        height: calculateNodeHeight(hasPreviewText, previewCharLimit),
+        height: calculateNodeHeight(previewText, previewCharLimit),
         depth: 0,
         side: 'center' as const,
         nodeType: 'document' as const,
