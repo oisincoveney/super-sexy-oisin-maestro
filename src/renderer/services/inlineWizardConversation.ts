@@ -436,6 +436,10 @@ function buildArgsForAgent(agent: any): string[] {
   switch (agentId) {
     case 'claude-code': {
       const args = [...(agent.args || [])];
+      // Ensure stream-json output format for proper parsing and thinking-chunk events
+      if (!args.includes('--output-format')) {
+        args.push('--output-format', 'stream-json');
+      }
       if (!args.includes('--include-partial-messages')) {
         args.push('--include-partial-messages');
       }
