@@ -4583,9 +4583,6 @@ You are taking over this conversation. Based on the context above, provide a bri
     setSessions,
   ]);
 
-  // Track previous isGeneratingDocs state to detect completion (used in auto-complete effect below)
-  const prevIsGeneratingDocsRef = useRef<boolean>(false);
-
   // Handler for the built-in /history command
   // Requests a synopsis from the current agent session and saves to history
   const handleHistoryCommand = useCallback(async () => {
@@ -5390,100 +5387,6 @@ You are taking over this conversation. Based on the context above, provide a bri
     autoRunDocumentList,
     startBatchRun,
   });
-
-  // Auto-complete the inline wizard when document generation finishes
-  // This eliminates the document review stage - we go straight back to conversation
-  useEffect(() => {
-    const wasGenerating = prevIsGeneratingDocsRef.current;
-    const isGenerating = inlineWizardIsGeneratingDocs;
-    prevIsGeneratingDocsRef.current = isGenerating;
-
-    // Check if generation just completed (was generating, now not)
-    if (wasGenerating && !isGenerating && inlineWizardGeneratedDocuments.length > 0) {
-      // Get the wizard state for the active tab
-      if (!activeSession) return;
-      const activeTab = getActiveTab(activeSession);
-      const wizardState = activeTab?.wizardState;
-      if (!wizardState) return;
-
-      console.log('[App] Auto-completing wizard after document generation');
-
-      // Convert wizard conversation history to log entries
-      const wizardLogEntries: LogEntry[] = wizardState.conversationHistory.map(msg => ({
-        id: `wizard-${msg.id}`,
-        timestamp: msg.timestamp,
-        source: msg.role === 'user' ? 'user' : 'ai',
-        text: msg.content,
-        delivered: true,
-      }));
-
-      // Create summary message with next steps
-      const generatedDocs = wizardState.generatedDocuments || [];
-      const totalTasks = generatedDocs.reduce((sum, doc) => sum + doc.taskCount, 0);
-      const docNames = generatedDocs.map(d => d.filename).join(', ');
-      const subfolderName = wizardState.subfolderName || '';
-
-      const summaryMessage: LogEntry = {
-        id: `wizard-summary-${Date.now()}`,
-        timestamp: Date.now(),
-        source: 'ai',
-        text: `## Playbook Created!\n\n` +
-          `Created ${generatedDocs.length} document${generatedDocs.length !== 1 ? 's' : ''} with ${totalTasks} task${totalTasks !== 1 ? 's' : ''}` +
-          (subfolderName ? ` in **${subfolderName}/**:\n` : ':\n') +
-          `${docNames}\n\n` +
-          `**Next steps:**\n` +
-          `1. Open the **Auto Run** tab in the right panel to view your playbook\n` +
-          `2. Review and edit tasks as needed\n` +
-          `3. Click **Run** to start executing tasks automatically\n\n` +
-          `You can continue chatting here to iterate on your playbook.`,
-        delivered: true,
-      };
-
-      // Derive tab name from the subfolder
-      const tabName = subfolderName ? `Playbook: ${subfolderName}` : 'Playbook';
-      const wizardAgentSessionId = wizardState.agentSessionId;
-      const activeTabId = activeTab.id;
-
-      // Update tab: add logs, switch agentSessionId, rename, and clear wizard state
-      setSessions(prev => prev.map(s => {
-        if (s.id !== activeSession.id) return s;
-
-        const updatedTabs = s.aiTabs.map(tab => {
-          if (tab.id !== activeTabId) return tab;
-          return {
-            ...tab,
-            logs: [...tab.logs, ...wizardLogEntries, summaryMessage],
-            agentSessionId: wizardAgentSessionId || tab.agentSessionId,
-            name: tabName,
-            wizardState: undefined,
-          };
-        });
-
-        return {
-          ...s,
-          aiTabs: updatedTabs,
-        };
-      }));
-
-      // Reset the useInlineWizard hook state
-      endInlineWizard();
-
-      // Refresh the Auto Run panel
-      handleAutoRunRefresh();
-
-      // Clear any input value
-      setInputValue('');
-    }
-  }, [
-    inlineWizardIsGeneratingDocs,
-    inlineWizardGeneratedDocuments.length,
-    activeSession,
-    getActiveTab,
-    setSessions,
-    endInlineWizard,
-    handleAutoRunRefresh,
-    setInputValue,
-  ]);
 
   // Handler for marketplace import completion - refresh document list
   const handleMarketplaceImportComplete = useCallback(async (folderName: string) => {

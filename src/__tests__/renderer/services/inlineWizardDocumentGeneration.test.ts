@@ -9,7 +9,7 @@ import {
   parseGeneratedDocuments,
   splitIntoPhases,
   sanitizeFilename,
-  sanitizeFolderName,
+  generateWizardFolderBaseName,
   countTasks,
 } from '../../../renderer/services/inlineWizardDocumentGeneration';
 
@@ -359,49 +359,35 @@ CONTENT:
     });
   });
 
-  describe('sanitizeFolderName', () => {
-    it('should replace spaces with hyphens', () => {
-      expect(sanitizeFolderName('My Project Name')).toBe('My-Project-Name');
+  describe('generateWizardFolderBaseName', () => {
+    it('should generate date-based folder name in Wizard-YYYY-MM-DD format', () => {
+      const result = generateWizardFolderBaseName();
+
+      // Should match the pattern Wizard-YYYY-MM-DD
+      expect(result).toMatch(/^Wizard-\d{4}-\d{2}-\d{2}$/);
     });
 
-    it('should collapse multiple hyphens', () => {
-      expect(sanitizeFolderName('My - - Project')).toBe('My-Project');
+    it('should use current date', () => {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const expected = `Wizard-${year}-${month}-${day}`;
+
+      expect(generateWizardFolderBaseName()).toBe(expected);
     });
 
-    it('should remove path separators', () => {
-      expect(sanitizeFolderName('path/to/project')).toBe('path-to-project');
-      expect(sanitizeFolderName('path\\to\\project')).toBe('path-to-project');
-    });
+    it('should pad single-digit months and days with zeros', () => {
+      const result = generateWizardFolderBaseName();
 
-    it('should remove special characters', () => {
-      expect(sanitizeFolderName('My:Project<Name>?')).toBe('MyProjectName');
-    });
+      // Extract month and day parts
+      const parts = result.split('-');
+      const month = parts[2];
+      const day = parts[3];
 
-    it('should remove directory traversal sequences', () => {
-      // '..' is removed, '/' becomes '-', then hyphens collapse and leading/trailing stripped
-      expect(sanitizeFolderName('../parent/../other')).toBe('parent-other');
-    });
-
-    it('should remove leading dots', () => {
-      expect(sanitizeFolderName('.hidden-folder')).toBe('hidden-folder');
-    });
-
-    it('should remove leading/trailing hyphens', () => {
-      expect(sanitizeFolderName('-project-')).toBe('project');
-    });
-
-    it('should trim whitespace', () => {
-      expect(sanitizeFolderName('  My Project  ')).toBe('My-Project');
-    });
-
-    it('should return wizard-project for empty result', () => {
-      expect(sanitizeFolderName('')).toBe('wizard-project');
-      expect(sanitizeFolderName('...')).toBe('wizard-project');
-    });
-
-    it('should handle real project names', () => {
-      expect(sanitizeFolderName('Maestro Marketing')).toBe('Maestro-Marketing');
-      expect(sanitizeFolderName('AI Todo App v2.0')).toBe('AI-Todo-App-v2.0');
+      // Should be exactly 2 digits
+      expect(month).toHaveLength(2);
+      expect(day).toHaveLength(2);
     });
   });
 });

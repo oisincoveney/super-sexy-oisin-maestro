@@ -67,6 +67,8 @@ export interface DocumentGenerationViewProps {
   totalDocuments?: number;
   /** Called when user wants to cancel generation */
   onCancel?: () => void;
+  /** Subfolder name where documents are saved (for completion message) */
+  subfolderName?: string;
 }
 
 /**
@@ -1043,6 +1045,7 @@ export function DocumentGenerationView({
   currentGeneratingIndex: _currentGeneratingIndex,
   totalDocuments: _totalDocuments,
   onCancel,
+  subfolderName,
 }: DocumentGenerationViewProps): JSX.Element {
   // Calculate total tasks
   const totalTasks = documents.reduce(
@@ -1139,11 +1142,18 @@ export function DocumentGenerationView({
           className="text-lg font-semibold mb-1 text-center"
           style={{ color: theme.colors.textMain }}
         >
-          {isComplete ? 'Playbook Ready!' : 'Generating Auto Run Documents...'}
+          {isComplete ? 'Documentation generation complete.' : 'Generating Auto Run Documents...'}
         </h3>
 
-        {/* Subtitle with elapsed time (only during generation) */}
-        {!isComplete && (
+        {/* Subtitle: location message when complete, elapsed time during generation */}
+        {isComplete ? (
+          <p
+            className="text-sm text-center max-w-md"
+            style={{ color: theme.colors.textDim }}
+          >
+            Available under <span style={{ color: theme.colors.accent, fontWeight: 500 }}>{subfolderName || 'Auto Run Docs'}/</span>
+          </p>
+        ) : (
           <>
             <p
               className="text-sm text-center max-w-md"
@@ -1196,7 +1206,7 @@ export function DocumentGenerationView({
         {/* Created files list */}
         <CreatedFilesList documents={documents} theme={theme} />
 
-        {/* Bottom section: Austin Facts during generation, Completion button when done */}
+        {/* Bottom section: Austin Facts during generation, Exit Wizard button when done */}
         {isComplete ? (
           <button
             onClick={onComplete}
@@ -1206,7 +1216,7 @@ export function DocumentGenerationView({
               color: 'white',
             }}
           >
-            Continue
+            Exit Wizard
           </button>
         ) : (
           <>

@@ -192,34 +192,17 @@ export function sanitizeFilename(filename: string): string {
 }
 
 /**
- * Sanitize a project name for use as a subfolder name.
- * More restrictive than filename sanitization to ensure valid directory names.
+ * Generate the base folder name for wizard output.
+ * Uses date-based naming: "Wizard-YYYY-MM-DD"
  *
- * @param projectName - The project name from wizard
- * @returns A safe folder name
+ * @returns A date-based folder name
  */
-export function sanitizeFolderName(projectName: string): string {
-  return projectName
-    // Replace spaces with hyphens
-    .replace(/\s+/g, '-')
-    // Remove path separators
-    .replace(/[\/\\]/g, '-')
-    // Remove special characters that are problematic in folder names
-    .replace(/[<>:"|?*]/g, '')
-    // Remove directory traversal sequences
-    .replace(/\.\./g, '')
-    // Remove null bytes and control characters
-    .replace(/[\x00-\x1f\x7f]/g, '')
-    // Remove leading dots
-    .replace(/^\.+/, '')
-    // Collapse multiple hyphens
-    .replace(/-+/g, '-')
-    // Remove leading/trailing hyphens
-    .replace(/^-+|-+$/g, '')
-    // Trim whitespace
-    .trim()
-    // Ensure we have something left
-    || 'wizard-project';
+export function generateWizardFolderBaseName(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `Wizard-${year}-${month}-${day}`;
 }
 
 /**
@@ -653,9 +636,8 @@ export async function generateInlineDocuments(
   callbacks?.onStart?.();
   callbacks?.onProgress?.('Preparing to generate your Playbook...');
 
-  // Create a sanitized subfolder name from the project name
-  // Use unique name generation to avoid conflicts with existing folders
-  const baseFolderName = sanitizeFolderName(projectName);
+  // Create a date-based subfolder name: "Wizard-YYYY-MM-DD" (with -1, -2, etc. if needed)
+  const baseFolderName = generateWizardFolderBaseName();
   const subfolderName = await generateUniqueSubfolderName(autoRunFolderPath, baseFolderName);
   const subfolderPath = `${autoRunFolderPath}/${subfolderName}`;
 
