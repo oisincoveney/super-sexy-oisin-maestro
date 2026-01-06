@@ -174,7 +174,23 @@ const store = new Store<MaestroSettings>({
     fontFamily: 'Roboto Mono, Menlo, "Courier New", monospace',
     customFonts: [],
     logLevel: 'info',
-    defaultShell: 'zsh',
+    defaultShell: (() => {
+      // Windows: $SHELL doesn't exist; default to PowerShell
+      if (process.platform === 'win32') {
+        return 'powershell';
+      }
+      // Unix: Respect user's configured login shell from $SHELL
+      const shellPath = process.env.SHELL;
+      if (shellPath) {
+        const shellName = path.basename(shellPath);
+        // Valid Unix shell IDs from shellDetector.ts (lines 27-34)
+        if (['bash', 'zsh', 'fish', 'sh', 'tcsh'].includes(shellName)) {
+          return shellName;
+        }
+      }
+      // Fallback to bash (more portable than zsh on older Unix systems)
+      return 'bash';
+    })(),
     webAuthEnabled: false,
     webAuthToken: null,
     webInterfaceUseCustomPort: false,
