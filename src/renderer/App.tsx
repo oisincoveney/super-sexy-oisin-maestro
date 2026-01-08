@@ -18,7 +18,7 @@ import { AppOverlays } from './components/AppOverlays';
 import { PlaygroundPanel } from './components/PlaygroundPanel';
 import { DebugWizardModal } from './components/DebugWizardModal';
 import { DebugPackageModal } from './components/DebugPackageModal';
-import { GistPublishModal } from './components/GistPublishModal';
+import { GistPublishModal, type GistInfo } from './components/GistPublishModal';
 import { MaestroWizard, useWizard, WizardResumeModal, AUTO_RUN_FOLDER_NAME } from './components/Wizard';
 import { TourOverlay } from './components/Wizard/tour';
 import { CONDUCTOR_BADGES, getBadgeForTime } from './constants/conductorBadges';
@@ -468,6 +468,8 @@ function MaestroConsoleInner() {
   const [gistPublishModalOpen, setGistPublishModalOpen] = useState(false);
   // Tab context gist publishing - stores { filename, content } when publishing tab context
   const [tabGistContent, setTabGistContent] = useState<{ filename: string; content: string } | null>(null);
+  // File gist URL storage - maps file paths to their published gist info
+  const [fileGistUrls, setFileGistUrls] = useState<Record<string, GistInfo>>({});
 
   // Note: Git Diff State, Tour Overlay State, and Git Log Viewer State are now from ModalContext
 
@@ -984,6 +986,27 @@ function MaestroConsoleInner() {
       setGhCliAvailable(status.installed && status.authenticated);
     }).catch(() => {
       setGhCliAvailable(false);
+    });
+  }, []);
+
+  // Load file gist URLs from settings on startup
+  useEffect(() => {
+    window.maestro.settings.get('fileGistUrls').then((savedUrls) => {
+      if (savedUrls && typeof savedUrls === 'object') {
+        setFileGistUrls(savedUrls as Record<string, GistInfo>);
+      }
+    }).catch(() => {
+      // Ignore errors loading gist URLs
+    });
+  }, []);
+
+  // Helper to save a gist URL for a file path
+  const saveFileGistUrl = useCallback((filePath: string, gistInfo: GistInfo) => {
+    setFileGistUrls(prev => {
+      const updated = { ...prev, [filePath]: gistInfo };
+      // Persist to settings
+      window.maestro.settings.set('fileGistUrls', updated);
+      return updated;
     });
   }, []);
 
@@ -9755,6 +9778,14 @@ You are taking over this conversation. Based on the context above, provide a bri
             setTabGistContent(null);
           }}
           onSuccess={(gistUrl, isPublic) => {
+            // Save gist URL for the file if it's from file preview (not tab context)
+            if (previewFile && !tabGistContent) {
+              saveFileGistUrl(previewFile.path, {
+                gistUrl,
+                isPublic,
+                publishedAt: Date.now(),
+              });
+            }
             // Copy the gist URL to clipboard
             navigator.clipboard.writeText(gistUrl);
             // Show a toast notification
@@ -9769,6 +9800,7 @@ You are taking over this conversation. Based on the context above, provide a bri
             // Clear tab gist content after success
             setTabGistContent(null);
           }}
+          existingGist={previewFile && !tabGistContent ? fileGistUrls[previewFile.path] : undefined}
         />
       )}
 
@@ -10666,6 +10698,7 @@ You are taking over this conversation. Based on the context above, provide a bri
         }}
         ghCliAvailable={ghCliAvailable}
         onPublishGist={() => setGistPublishModalOpen(true)}
+        hasGist={previewFile ? !!fileGistUrls[previewFile.path] : false}
         onOpenInGraph={() => {
           if (previewFile && activeSession) {
             // Use the same rootPath that DocumentGraphView will use

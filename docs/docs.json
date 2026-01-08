@@ -103,7 +103,7 @@
     "links": [
       {
         "label": "Discord",
-        "href": "https://discord.gg/Up2BeZFZxT"
+        "href": "https://runmaestro.ai/discord"
       },
       {
         "label": "GitHub",
@@ -122,7 +122,7 @@
   },
   "footer": {
     "socials": {
-      "discord": "https://discord.gg/Up2BeZFZxT",
+      "discord": "https://runmaestro.ai/discord",
       "github": "https://github.com/pedramamini/Maestro"
     }
   }

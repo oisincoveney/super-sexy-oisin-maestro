@@ -22,17 +22,31 @@ import type { Theme } from '../../../renderer/types';
 vi.mock('lucide-react', () => ({
   Share2: () => <svg data-testid="share-icon" />,
   X: () => <svg data-testid="x-icon" />,
+  Copy: () => <svg data-testid="copy-icon" />,
+  Check: () => <svg data-testid="check-icon" />,
+  ExternalLink: () => <svg data-testid="external-link-icon" />,
 }));
 
 // Mock window.maestro.git.createGist
 const mockCreateGist = vi.fn();
+const mockOpenExternal = vi.fn();
+const mockClipboardWriteText = vi.fn();
 
 beforeEach(() => {
   (window as any).maestro = {
     git: {
       createGist: mockCreateGist,
     },
+    shell: {
+      openExternal: mockOpenExternal,
+    },
   };
+  // Mock navigator.clipboard
+  Object.assign(navigator, {
+    clipboard: {
+      writeText: mockClipboardWriteText,
+    },
+  });
 });
 
 // Create a test theme
@@ -423,6 +437,205 @@ describe('GistPublishModal', () => {
       );
 
       expect(screen.getByText('Publish as GitHub Gist')).toBeInTheDocument();
+    });
+  });
+
+  describe('existing gist view', () => {
+    const existingGist = {
+      gistUrl: 'https://gist.github.com/existing123',
+      isPublic: false,
+      publishedAt: Date.now() - 86400000, // 1 day ago
+    };
+
+    it('shows existing gist view when existingGist is provided', () => {
+      renderWithLayerStack(
+        <GistPublishModal
+          theme={testTheme}
+          filename="test.js"
+          content="const x = 1;"
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+          existingGist={existingGist}
+        />
+      );
+
+      // Should show "Published Gist" title instead of "Publish as GitHub Gist"
+      expect(screen.getByText('Published Gist')).toBeInTheDocument();
+      expect(screen.queryByText('Publish as GitHub Gist')).not.toBeInTheDocument();
+    });
+
+    it('displays the existing gist URL', () => {
+      renderWithLayerStack(
+        <GistPublishModal
+          theme={testTheme}
+          filename="test.js"
+          content="const x = 1;"
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+          existingGist={existingGist}
+        />
+      );
+
+      expect(screen.getByDisplayValue('https://gist.github.com/existing123')).toBeInTheDocument();
+    });
+
+    it('shows visibility status (secret/public)', () => {
+      renderWithLayerStack(
+        <GistPublishModal
+          theme={testTheme}
+          filename="test.js"
+          content="const x = 1;"
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+          existingGist={existingGist}
+        />
+      );
+
+      expect(screen.getByText(/is published as a secret gist/)).toBeInTheDocument();
+    });
+
+    it('shows public status for public gists', () => {
+      renderWithLayerStack(
+        <GistPublishModal
+          theme={testTheme}
+          filename="test.js"
+          content="const x = 1;"
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+          existingGist={{ ...existingGist, isPublic: true }}
+        />
+      );
+
+      expect(screen.getByText(/is published as a public gist/)).toBeInTheDocument();
+    });
+
+    it('shows Close and Re-publish buttons', () => {
+      renderWithLayerStack(
+        <GistPublishModal
+          theme={testTheme}
+          filename="test.js"
+          content="const x = 1;"
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+          existingGist={existingGist}
+        />
+      );
+
+      expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Re-publish' })).toBeInTheDocument();
+      // There are multiple copy buttons, so check that at least one exists with "Copy URL" text
+      const copyButtons = screen.getAllByRole('button').filter(btn =>
+        btn.textContent?.includes('Copy URL')
+      );
+      expect(copyButtons.length).toBeGreaterThan(0);
+    });
+
+    it('copies URL to clipboard when Copy URL button is clicked', async () => {
+      renderWithLayerStack(
+        <GistPublishModal
+          theme={testTheme}
+          filename="test.js"
+          content="const x = 1;"
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+          existingGist={existingGist}
+        />
+      );
+
+      // Get the main Copy URL button in the footer (has text "Copy URL")
+      const copyButtons = screen.getAllByRole('button').filter(btn =>
+        btn.textContent?.includes('Copy URL')
+      );
+      fireEvent.click(copyButtons[0]);
+
+      await waitFor(() => {
+        expect(mockClipboardWriteText).toHaveBeenCalledWith('https://gist.github.com/existing123');
+      });
+    });
+
+    it('switches to re-publish view when Re-publish is clicked', async () => {
+      renderWithLayerStack(
+        <GistPublishModal
+          theme={testTheme}
+          filename="test.js"
+          content="const x = 1;"
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+          existingGist={existingGist}
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Re-publish' }));
+
+      await waitFor(() => {
+        // Should now show the publish view
+        expect(screen.getByText('Re-publish as GitHub Gist')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Publish Secret' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Publish Public' })).toBeInTheDocument();
+      });
+    });
+
+    it('shows warning message in re-publish view', async () => {
+      renderWithLayerStack(
+        <GistPublishModal
+          theme={testTheme}
+          filename="test.js"
+          content="const x = 1;"
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+          existingGist={existingGist}
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Re-publish' }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/This will create a new gist/)).toBeInTheDocument();
+      });
+    });
+
+    it('can go back from re-publish view to existing gist view', async () => {
+      renderWithLayerStack(
+        <GistPublishModal
+          theme={testTheme}
+          filename="test.js"
+          content="const x = 1;"
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+          existingGist={existingGist}
+        />
+      );
+
+      // Go to re-publish view
+      fireEvent.click(screen.getByRole('button', { name: 'Re-publish' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Re-publish as GitHub Gist')).toBeInTheDocument();
+      });
+
+      // Click Back
+      fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Published Gist')).toBeInTheDocument();
+      });
+    });
+
+    it('calls onClose when Close is clicked in existing gist view', () => {
+      const onClose = vi.fn();
+      renderWithLayerStack(
+        <GistPublishModal
+          theme={testTheme}
+          filename="test.js"
+          content="const x = 1;"
+          onClose={onClose}
+          onSuccess={vi.fn()}
+          existingGist={existingGist}
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+      expect(onClose).toHaveBeenCalledTimes(1);
     });
   });
 });

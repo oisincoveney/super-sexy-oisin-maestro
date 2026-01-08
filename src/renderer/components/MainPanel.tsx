@@ -233,6 +233,8 @@ interface MainPanelProps {
   // Gist publishing
   ghCliAvailable?: boolean;
   onPublishGist?: () => void;
+  /** Whether the current preview file has been published as a gist */
+  hasGist?: boolean;
 
   // Document Graph
   onOpenInGraph?: () => void;
@@ -1128,6 +1130,7 @@ export const MainPanel = React.memo(forwardRef<MainPanelHandle, MainPanelProps>(
                 onShortcutUsed={props.onShortcutUsed}
                 ghCliAvailable={props.ghCliAvailable}
                 onPublishGist={props.onPublishGist}
+                hasGist={props.hasGist}
                 onOpenInGraph={props.onOpenInGraph}
                 sshRemoteId={activeSession?.sshRemoteId || activeSession?.sessionSshRemoteConfig?.remoteId || undefined}
               />

@@ -63,6 +63,8 @@ interface FilePreviewProps {
   ghCliAvailable?: boolean;
   /** Callback to open gist publish modal */
   onPublishGist?: () => void;
+  /** Whether this file has been published as a gist */
+  hasGist?: boolean;
   /** Callback to open Document Graph focused on this file */
   onOpenInGraph?: () => void;
   /** SSH remote ID for remote file operations */
@@ -406,7 +408,7 @@ function remarkHighlight() {
   };
 }
 
-export const FilePreview = forwardRef<FilePreviewHandle, FilePreviewProps>(function FilePreview({ file, onClose, theme, markdownEditMode, setMarkdownEditMode, onSave, shortcuts, fileTree, cwd, onFileClick, canGoBack, canGoForward, onNavigateBack, onNavigateForward, backHistory, forwardHistory, onNavigateToIndex, currentHistoryIndex, onOpenFuzzySearch, onShortcutUsed, ghCliAvailable, onPublishGist, onOpenInGraph, sshRemoteId }, ref) {
+export const FilePreview = forwardRef<FilePreviewHandle, FilePreviewProps>(function FilePreview({ file, onClose, theme, markdownEditMode, setMarkdownEditMode, onSave, shortcuts, fileTree, cwd, onFileClick, canGoBack, canGoForward, onNavigateBack, onNavigateForward, backHistory, forwardHistory, onNavigateToIndex, currentHistoryIndex, onOpenFuzzySearch, onShortcutUsed, ghCliAvailable, onPublishGist, hasGist, onOpenInGraph, sshRemoteId }, ref) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [showCopyNotification, setShowCopyNotification] = useState(false);
@@ -1322,8 +1324,8 @@ export const FilePreview = forwardRef<FilePreviewHandle, FilePreviewProps>(funct
               <button
                 onClick={onPublishGist}
                 className="p-2 rounded hover:bg-white/10 transition-colors"
-                style={{ color: theme.colors.textDim }}
-                title="Publish as GitHub Gist"
+                style={{ color: hasGist ? theme.colors.accent : theme.colors.textDim }}
+                title={hasGist ? "View published gist" : "Publish as GitHub Gist"}
               >
                 <Share2 className="w-4 h-4" />
               </button>
