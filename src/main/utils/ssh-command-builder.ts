@@ -240,9 +240,18 @@ export async function buildSshCommand(
   });
 
   // Wrap the command to execute via the user's login shell.
-  // $SHELL -lc ensures the user's full PATH (including homebrew, nvm, etc.) is available.
-  // -l loads login profile for PATH, -c executes the command non-interactively.
+  // $SHELL -ilc ensures the user's full PATH (including homebrew, nvm, etc.) is available.
+  // -i forces interactive mode (critical for .bashrc to not bail out)
+  // -l loads login profile for PATH
+  // -c executes the command
   // Using $SHELL respects the user's configured shell (bash, zsh, etc.)
+  //
+  // WHY -i IS CRITICAL:
+  // On Ubuntu (and many Linux distros), .bashrc has a guard at the top:
+  //   case $- in *i*) ;; *) return;; esac
+  // This checks if the shell is interactive before running. Without -i,
+  // .bashrc exits early and user PATH additions (like ~/.local/bin) never load.
+  // The -i flag sets 'i' in $-, allowing .bashrc to run fully.
   //
   // CRITICAL: When Node.js spawn() passes this to SSH without shell:true, SSH runs
   // the command through the remote's default shell. The key is escaping:
@@ -254,12 +263,12 @@ export async function buildSshCommand(
   // Example transformation for spawn():
   //   Input:  cd '/path' && MYVAR='value' claude --print
   //   After escaping: cd '/path' && MYVAR='value' claude --print (no $ to escape here)
-  //   Wrapped: $SHELL -lc "cd '/path' && MYVAR='value' claude --print"
+  //   Wrapped: $SHELL -ilc "cd '/path' && MYVAR='value' claude --print"
   //   SSH receives this as one argument, passes to remote shell
-  //   Remote shell expands $SHELL, executes: /bin/zsh -lc "cd '/path' ..."
-  //   The login shell runs with full PATH from ~/.zprofile
+  //   Remote shell expands $SHELL, executes: /bin/zsh -ilc "cd '/path' ..."
+  //   The login shell runs with full PATH from ~/.zprofile AND ~/.bashrc
   const escapedCommand = shellEscapeForDoubleQuotes(remoteCommand);
-  const wrappedCommand = `$SHELL -lc "${escapedCommand}"`;
+  const wrappedCommand = `$SHELL -ilc "${escapedCommand}"`;
   args.push(wrappedCommand);
 
   // Debug logging to trace the exact command being built

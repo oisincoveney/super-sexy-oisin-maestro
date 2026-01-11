@@ -188,8 +188,8 @@ describe('ssh-command-builder', () => {
        * DO NOT CHANGE THESE TO `-T` or `RequestTTY=no` - it will break SSH agent execution!
        *
        * Test commands that verified this behavior:
-       * - HANGS:  ssh -T user@host 'zsh -lc "claude --print -- hi"'
-       * - WORKS:  ssh -tt user@host 'zsh -lc "claude --print -- hi"'
+       * - HANGS:  ssh -T user@host 'zsh -ilc "claude --print -- hi"'
+       * - WORKS:  ssh -tt user@host 'zsh -ilc "claude --print -- hi"'
        */
 
       it('uses -tt flag for forced TTY allocation (first argument)', async () => {
@@ -325,8 +325,8 @@ describe('ssh-command-builder', () => {
       });
 
       const wrappedCommand = result.args[result.args.length - 1];
-      // The command is wrapped in $SHELL -lc "..."
-      expect(wrappedCommand).toBe('$SHELL -lc "claude \'--print\' \'hello\'"');
+      // The command is wrapped in $SHELL -ilc "..." (-i ensures .bashrc runs fully)
+      expect(wrappedCommand).toBe('$SHELL -ilc "claude \'--print\' \'hello\'"');
       expect(wrappedCommand).not.toContain('cd');
     });
 
@@ -383,7 +383,7 @@ describe('ssh-command-builder', () => {
       });
 
       const wrappedCommand = result.args[result.args.length - 1];
-      // The command is wrapped in $SHELL -lc "..." with double-quote escaping
+      // The command is wrapped in $SHELL -ilc "..." with double-quote escaping
       // The inner single quotes become escaped for double-quote context
       // Original: git 'commit' '-m' 'fix: it'\''s a bug with $VARIABLES'
       // In double quotes: \' becomes \\' and $ becomes \$
