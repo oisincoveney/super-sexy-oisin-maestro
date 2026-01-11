@@ -267,6 +267,8 @@ File naming convention:
 
 **IMPORTANT**: Write files one at a time, IN ORDER (Phase-01 first, then Phase-02, etc.). Do NOT wait until you've finished all documents to write them - save each one as soon as it's complete.
 
+**DO NOT create any additional files** such as summary documents, README files, recap files, or "what I did" files. Only create the Phase-XX-[Description].md documents. The user can see your generated documents in real-time and does not need a summary.
+
 ## Project Discovery Conversation
 
 {{CONVERSATION_SUMMARY}}

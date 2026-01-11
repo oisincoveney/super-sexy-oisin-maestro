@@ -11,6 +11,8 @@ import {
   sanitizeFilename,
   generateWizardFolderBaseName,
   countTasks,
+  generateDocumentPrompt,
+  type DocumentGenerationConfig,
 } from '../../../renderer/services/inlineWizardDocumentGeneration';
 
 describe('inlineWizardDocumentGeneration', () => {
@@ -388,6 +390,140 @@ CONTENT:
       // Should be exactly 2 digits
       expect(month).toHaveLength(2);
       expect(day).toHaveLength(2);
+    });
+  });
+
+  describe('generateDocumentPrompt', () => {
+    // Helper to create a minimal config for testing
+    const createTestConfig = (overrides: Partial<DocumentGenerationConfig> = {}): DocumentGenerationConfig => ({
+      agentType: 'claude-code',
+      directoryPath: '/project/root',
+      projectName: 'Test Project',
+      conversationHistory: [
+        { id: '1', role: 'user', content: 'Build a web app', timestamp: Date.now() },
+        { id: '2', role: 'assistant', content: 'I can help with that', timestamp: Date.now() },
+      ],
+      mode: 'new',
+      autoRunFolderPath: '/project/root/Auto Run Docs',
+      ...overrides,
+    });
+
+    it('should use the configured autoRunFolderPath in the prompt', () => {
+      const config = createTestConfig({
+        autoRunFolderPath: '/custom/autorun/path',
+      });
+
+      const prompt = generateDocumentPrompt(config);
+
+      // The prompt should contain the custom path, not the default 'Auto Run Docs'
+      expect(prompt).toContain('/custom/autorun/path');
+      // Should NOT contain the hardcoded pattern with directoryPath + default folder
+      expect(prompt).not.toContain('/project/root/Auto Run Docs');
+    });
+
+    it('should use external autoRunFolderPath when different from directoryPath', () => {
+      const config = createTestConfig({
+        directoryPath: '/main/repo',
+        autoRunFolderPath: '/worktrees/autorun/feature-branch',
+      });
+
+      const prompt = generateDocumentPrompt(config);
+
+      // The prompt should instruct writing to the external path
+      expect(prompt).toContain('/worktrees/autorun/feature-branch');
+      // Read access should still reference the project directory
+      expect(prompt).toContain('/main/repo');
+    });
+
+    it('should append subfolder to autoRunFolderPath when provided', () => {
+      const config = createTestConfig({
+        autoRunFolderPath: '/custom/autorun',
+      });
+
+      const prompt = generateDocumentPrompt(config, 'Wizard-2026-01-11');
+
+      // Should contain the full path with subfolder
+      expect(prompt).toContain('/custom/autorun/Wizard-2026-01-11');
+    });
+
+    it('should handle autoRunFolderPath that is inside directoryPath', () => {
+      const config = createTestConfig({
+        directoryPath: '/project/root',
+        autoRunFolderPath: '/project/root/Auto Run Docs',
+      });
+
+      const prompt = generateDocumentPrompt(config);
+
+      // Should still work correctly when path is inside project
+      expect(prompt).toContain('/project/root/Auto Run Docs');
+    });
+
+    it('should include project name in the prompt', () => {
+      const config = createTestConfig({
+        projectName: 'My Awesome Project',
+      });
+
+      const prompt = generateDocumentPrompt(config);
+
+      expect(prompt).toContain('My Awesome Project');
+    });
+
+    it('should include conversation summary in the prompt', () => {
+      const config = createTestConfig({
+        conversationHistory: [
+          { id: '1', role: 'user', content: 'I want to build a dashboard', timestamp: Date.now() },
+          { id: '2', role: 'assistant', content: 'What metrics should it display?', timestamp: Date.now() },
+        ],
+      });
+
+      const prompt = generateDocumentPrompt(config);
+
+      expect(prompt).toContain('User: I want to build a dashboard');
+      expect(prompt).toContain('Assistant: What metrics should it display?');
+    });
+
+    it('should use iterate prompt template when mode is iterate', () => {
+      const config = createTestConfig({
+        mode: 'iterate',
+        goal: 'Add authentication',
+        existingDocuments: [
+          { name: 'Phase-01-Setup', filename: 'Phase-01-Setup.md', path: '/path/Phase-01-Setup.md' },
+        ],
+      });
+
+      const prompt = generateDocumentPrompt(config);
+
+      // Iterate mode has specific markers
+      expect(prompt).toContain('Add authentication');
+      expect(prompt).toContain('Existing Documents');
+    });
+
+    it('should NOT contain hardcoded Auto Run Docs when custom path is configured', () => {
+      const config = createTestConfig({
+        directoryPath: '/my/project',
+        autoRunFolderPath: '/completely/different/path',
+      });
+
+      const prompt = generateDocumentPrompt(config);
+
+      // The combined pattern should be replaced with custom path
+      // Check that we don't have the default path in write instructions
+      expect(prompt).not.toMatch(/\/my\/project\/Auto Run Docs/);
+      expect(prompt).toContain('/completely/different/path');
+    });
+
+    it('should preserve directoryPath for read access instructions', () => {
+      const config = createTestConfig({
+        directoryPath: '/project/source',
+        autoRunFolderPath: '/external/autorun',
+      });
+
+      const prompt = generateDocumentPrompt(config);
+
+      // Read access should reference project directory
+      expect(prompt).toContain('Read any file in: `/project/source`');
+      // Write access should reference autorun path
+      expect(prompt).toContain('/external/autorun');
     });
   });
 });

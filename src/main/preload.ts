@@ -622,6 +622,7 @@ contextBridge.exposeInMainWorld('maestro', {
   // Shell API
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url),
+    trashItem: (itemPath: string) => ipcRenderer.invoke('shell:trashItem', itemPath),
   },
 
   // Tunnel API (Cloudflare tunnel support)
@@ -2004,6 +2005,7 @@ export interface MaestroAPI {
   };
   shell: {
     openExternal: (url: string) => Promise<void>;
+    trashItem: (itemPath: string) => Promise<void>;
   };
   tunnel: {
     isCloudflaredInstalled: () => Promise<boolean>;

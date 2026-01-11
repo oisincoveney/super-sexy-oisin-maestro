@@ -92,20 +92,40 @@ Each active contribution shows:
 
 ### History Tab
 
-Review completed contributions:
-- PR links with merge status (Open or Merged)
-- Completion date
-- Documents processed count
-- Total cost for the contribution
-- Summary statistics at the top (total PRs, merged count, tokens, cost)
+Review completed contributions with aggregate stats at a glance:
+
+![Contribution History](./screenshots/symphony-history.png)
+
+The header shows your totals: PRs created, merged count, tasks completed, tokens used, and dollar value donated. Each contribution card displays:
+- **Issue and repository** — What you worked on
+- **Merge status** — Whether the PR was merged
+- **Completion date** — When you finished
+- **PR link** — Direct link to the pull request
+- **Detailed metrics** — Documents processed, tasks completed, tokens used, and cost
 
 ### Stats Tab
 
-Track your overall impact:
-- **Overview metrics**: Total contributions, merged PRs, tokens donated, estimated cost
-- **Repositories contributed to**: Unique project count
-- **Streak tracking**: Current and longest contribution streaks
-- **Achievement badges**: Unlock achievements like "First Contribution", "Week Warrior", "Token Titan"
+Track your overall impact and unlock achievements:
+
+![Symphony Stats](./screenshots/symphony-stats.png)
+
+**Summary cards** show your cumulative contributions:
+- **Tokens Donated** — Total tokens contributed with dollar value
+- **Time Contributed** — Hours spent and repositories helped
+- **Streak** — Current and best contribution streaks
+
+**Achievements** reward milestones in your Symphony journey:
+
+| Achievement | Requirement |
+|-------------|-------------|
+| **First Steps** | Complete your first Symphony contribution |
+| **Merged Melody** | Have a contribution merged |
+| **Weekly Rhythm** | Maintain a 7-day contribution streak |
+| **Harmony Seeker** | Complete 10 contributions |
+| **Ensemble Player** | Contribute to 5 different repositories |
+| **Virtuoso** | Complete 1000 tasks across all contributions |
+| **Token Millionaire** | Donate over 10 million tokens |
+| **Early Adopter** | Join Symphony in its first month |
 
 ## Session Integration
 
@@ -191,6 +211,14 @@ Your project entry should include:
 | `other` | Other | 📦 |
 
 Once merged, your project will appear in the Symphony Projects tab (registry cached for 2 hours, issues cached for 5 minutes).
+
+## Available Issues
+
+Browse Symphony-ready issues on Maestro itself:
+
+<Card title="Maestro Symphony Issues" icon="github" href="https://github.com/pedramamini/Maestro/issues?q=is%3Aissue%20label%3Arunmaestro.ai">
+  View all issues labeled `runmaestro.ai` — ready for AI-assisted contribution
+</Card>
 
 ---
 

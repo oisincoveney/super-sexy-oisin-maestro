@@ -206,6 +206,7 @@ describe('system IPC handlers', () => {
         // Shell handlers
         'shells:detect',
         'shell:openExternal',
+        'shell:trashItem',
         // Tunnel handlers
         'tunnel:isCloudflaredInstalled',
         'tunnel:start',

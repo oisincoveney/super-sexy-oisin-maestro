@@ -25,6 +25,7 @@ import { CONDUCTOR_BADGES, getBadgeForTime } from './constants/conductorBadges';
 import { EmptyStateView } from './components/EmptyStateView';
 import { MarketplaceModal } from './components/MarketplaceModal';
 import { DocumentGraphView } from './components/DocumentGraph/DocumentGraphView';
+import { DeleteAgentConfirmModal } from './components/DeleteAgentConfirmModal';
 
 // Group Chat Components
 import { GroupChatPanel } from './components/GroupChatPanel';
@@ -472,6 +473,10 @@ function MaestroConsoleInner() {
   // File gist URL storage - maps file paths to their published gist info
   const [fileGistUrls, setFileGistUrls] = useState<Record<string, GistInfo>>({});
 
+  // Delete Agent Modal State
+  const [deleteAgentModalOpen, setDeleteAgentModalOpen] = useState(false);
+  const [deleteAgentSession, setDeleteAgentSession] = useState<Session | null>(null);
+
   // Note: Git Diff State, Tour Overlay State, and Git Log Viewer State are now from ModalContext
 
   // Renaming State
@@ -500,6 +505,12 @@ function MaestroConsoleInner() {
 
   // Confirm modal close handler
   const handleCloseConfirmModal = useCallback(() => setConfirmModalOpen(false), []);
+
+  // Delete agent modal handlers
+  const handleCloseDeleteAgentModal = useCallback(() => {
+    setDeleteAgentModalOpen(false);
+    setDeleteAgentSession(null);
+  }, []);
 
   // Quit confirm modal handlers
   const handleConfirmQuit = useCallback(() => {
@@ -6378,50 +6389,69 @@ You are taking over this conversation. Based on the context above, provide a bri
     const session = sessions.find(s => s.id === id);
     if (!session) return;
 
-    showConfirmation(
-      `Are you sure you want to delete the agent "${session.name}"? This action cannot be undone.`,
-      async () => {
-        // Record session closure for Usage Dashboard (before cleanup)
-        window.maestro.stats.recordSessionClosed(id, Date.now());
-
-        // Kill both processes for this session
-        try {
-          await window.maestro.process.kill(`${id}-ai`);
-        } catch (error) {
-          console.error('Failed to kill AI process:', error);
-        }
-
-        try {
-          await window.maestro.process.kill(`${id}-terminal`);
-        } catch (error) {
-          console.error('Failed to kill terminal process:', error);
-        }
-
-        // Delete associated playbooks
-        try {
-          await window.maestro.playbooks.deleteAll(id);
-        } catch (error) {
-          console.error('Failed to delete playbooks:', error);
-        }
-
-        // If this is a worktree session, track its path to prevent re-discovery
-        if (session.worktreeParentPath && session.cwd) {
-          setRemovedWorktreePaths(prev => new Set([...prev, session.cwd]));
-        }
-
-        const newSessions = sessions.filter(s => s.id !== id);
-        setSessions(newSessions);
-        // Flush immediately for critical operation (session deletion)
-        // Note: flushSessionPersistence will pick up the latest state via ref
-        setTimeout(() => flushSessionPersistence(), 0);
-        if (newSessions.length > 0) {
-          setActiveSessionId(newSessions[0].id);
-        } else {
-          setActiveSessionId('');
-        }
-      }
-    );
+    // Open the delete agent modal
+    setDeleteAgentSession(session);
+    setDeleteAgentModalOpen(true);
   };
+
+  // Internal function to perform the actual session deletion
+  const performDeleteSession = useCallback(async (session: Session, eraseWorkingDirectory: boolean) => {
+    const id = session.id;
+
+    // Record session closure for Usage Dashboard (before cleanup)
+    window.maestro.stats.recordSessionClosed(id, Date.now());
+
+    // Kill both processes for this session
+    try {
+      await window.maestro.process.kill(`${id}-ai`);
+    } catch (error) {
+      console.error('Failed to kill AI process:', error);
+    }
+
+    try {
+      await window.maestro.process.kill(`${id}-terminal`);
+    } catch (error) {
+      console.error('Failed to kill terminal process:', error);
+    }
+
+    // Delete associated playbooks
+    try {
+      await window.maestro.playbooks.deleteAll(id);
+    } catch (error) {
+      console.error('Failed to delete playbooks:', error);
+    }
+
+    // If this is a worktree session, track its path to prevent re-discovery
+    if (session.worktreeParentPath && session.cwd) {
+      setRemovedWorktreePaths(prev => new Set([...prev, session.cwd]));
+    }
+
+    // Optionally erase the working directory (move to trash)
+    if (eraseWorkingDirectory && session.cwd) {
+      try {
+        await window.maestro.shell.trashItem(session.cwd);
+      } catch (error) {
+        console.error('Failed to move working directory to trash:', error);
+        // Show a toast notification about the failure
+        addToast({
+          title: 'Failed to Erase Directory',
+          message: error instanceof Error ? error.message : 'Unknown error',
+          type: 'error',
+        });
+      }
+    }
+
+    const newSessions = sessions.filter(s => s.id !== id);
+    setSessions(newSessions);
+    // Flush immediately for critical operation (session deletion)
+    // Note: flushSessionPersistence will pick up the latest state via ref
+    setTimeout(() => flushSessionPersistence(), 0);
+    if (newSessions.length > 0) {
+      setActiveSessionId(newSessions[0].id);
+    } else {
+      setActiveSessionId('');
+    }
+  }, [sessions, setSessions, setActiveSessionId, flushSessionPersistence, setRemovedWorktreePaths, addToast]);
 
   // Delete an entire worktree group and all its agents
   const deleteWorktreeGroup = (groupId: string) => {
@@ -9930,6 +9960,18 @@ You are taking over this conversation. Based on the context above, provide a bri
       )}
 
       {/* NOTE: All modals are now rendered via the unified <AppModals /> component above */}
+
+      {/* Delete Agent Confirmation Modal */}
+      {deleteAgentModalOpen && deleteAgentSession && (
+        <DeleteAgentConfirmModal
+          theme={theme}
+          agentName={deleteAgentSession.name}
+          workingDirectory={deleteAgentSession.cwd}
+          onConfirm={() => performDeleteSession(deleteAgentSession, false)}
+          onConfirmAndErase={() => performDeleteSession(deleteAgentSession, true)}
+          onClose={handleCloseDeleteAgentModal}
+        />
+      )}
 
       {/* --- EMPTY STATE VIEW (when no sessions) --- */}
       {sessions.length === 0 && !isMobileLandscape ? (

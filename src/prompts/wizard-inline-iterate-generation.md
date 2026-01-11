@@ -194,6 +194,8 @@ File paths for the Auto Run folder:
 - When updating, provide the COMPLETE updated document content, not just the additions
 - New phases should use the next available phase number
 
+**DO NOT create any additional files** such as summary documents, README files, recap files, or "what I did" files. Only create the Phase-XX-[Description].md documents. The user can see your generated documents in real-time and does not need a summary.
+
 ## Project Discovery Conversation
 
 {{CONVERSATION_SUMMARY}}

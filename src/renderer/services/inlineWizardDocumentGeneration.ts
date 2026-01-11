@@ -288,8 +288,8 @@ function formatExistingDocsForPrompt(docs: ExistingDocument[]): string {
  * @param subfolder Optional subfolder name within Auto Run Docs
  * @returns The complete prompt for the agent
  */
-function generateDocumentPrompt(config: DocumentGenerationConfig, subfolder?: string): string {
-  const { projectName, directoryPath, conversationHistory, mode, goal, existingDocuments } = config;
+export function generateDocumentPrompt(config: DocumentGenerationConfig, subfolder?: string): string {
+  const { projectName, directoryPath, conversationHistory, mode, goal, existingDocuments, autoRunFolderPath } = config;
   const projectDisplay = projectName || 'this project';
 
   // Build conversation summary from the wizard conversation
@@ -307,15 +307,22 @@ function generateDocumentPrompt(config: DocumentGenerationConfig, subfolder?: st
     : wizardDocumentGenerationPrompt;
 
   // Build the full Auto Run folder path (including subfolder if specified)
-  const autoRunFolderPath = subfolder
-    ? `${AUTO_RUN_FOLDER_NAME}/${subfolder}`
-    : AUTO_RUN_FOLDER_NAME;
+  // Use the user-configured autoRunFolderPath (which may be external to directoryPath)
+  const fullAutoRunPath = subfolder
+    ? `${autoRunFolderPath}/${subfolder}`
+    : autoRunFolderPath;
 
-  // Handle wizard-specific template variables
+  // The prompt template uses {{DIRECTORY_PATH}}/{{AUTO_RUN_FOLDER_NAME}} as a combined pattern
+  // for specifying where documents should be written. Since the user may have configured
+  // an external Auto Run folder (not inside directoryPath), we replace the combined pattern
+  // with the full absolute path.
   let prompt = basePrompt
     .replace(/\{\{PROJECT_NAME\}\}/gi, projectDisplay)
+    // Replace the combined pattern first (for write access paths)
+    .replace(/\{\{DIRECTORY_PATH\}\}\/\{\{AUTO_RUN_FOLDER_NAME\}\}/gi, fullAutoRunPath)
+    // Then replace remaining individual placeholders (for read access, etc.)
     .replace(/\{\{DIRECTORY_PATH\}\}/gi, directoryPath)
-    .replace(/\{\{AUTO_RUN_FOLDER_NAME\}\}/gi, autoRunFolderPath)
+    .replace(/\{\{AUTO_RUN_FOLDER_NAME\}\}/gi, fullAutoRunPath)
     .replace(/\{\{CONVERSATION_SUMMARY\}\}/gi, conversationSummary);
 
   // Handle iterate-mode specific placeholders
