@@ -60,6 +60,9 @@ export function registerAttachmentsHandlers(deps: AttachmentsHandlerDependencies
 					buffer = Buffer.from(base64Data, 'base64');
 				}
 
+				// Sanitize filename to prevent path traversal attacks
+				finalFilename = path.basename(finalFilename);
+
 				const filePath = path.join(attachmentsDir, finalFilename);
 				await fs.writeFile(filePath, buffer);
 
@@ -80,7 +83,9 @@ export function registerAttachmentsHandlers(deps: AttachmentsHandlerDependencies
 	ipcMain.handle('attachments:load', async (_event, sessionId: string, filename: string) => {
 		try {
 			const userDataPath = app.getPath('userData');
-			const filePath = path.join(userDataPath, 'attachments', sessionId, filename);
+			// Sanitize filename to prevent path traversal attacks
+			const safeFilename = path.basename(filename);
+			const filePath = path.join(userDataPath, 'attachments', sessionId, safeFilename);
 
 			const buffer = await fs.readFile(filePath);
 			const base64 = buffer.toString('base64');
@@ -113,7 +118,9 @@ export function registerAttachmentsHandlers(deps: AttachmentsHandlerDependencies
 	ipcMain.handle('attachments:delete', async (_event, sessionId: string, filename: string) => {
 		try {
 			const userDataPath = app.getPath('userData');
-			const filePath = path.join(userDataPath, 'attachments', sessionId, filename);
+			// Sanitize filename to prevent path traversal attacks
+			const safeFilename = path.basename(filename);
+			const filePath = path.join(userDataPath, 'attachments', sessionId, safeFilename);
 
 			await fs.unlink(filePath);
 			logger.info(`Deleted attachment: ${filePath}`, 'Attachments', { sessionId, filename });

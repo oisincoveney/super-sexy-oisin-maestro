@@ -24,6 +24,17 @@ import { ipcMain } from 'electron';
 
 import { logger } from '../../utils/logger';
 import { WebServer } from '../../web-server';
+import type { AITabData } from '../../web-server/services/broadcastService';
+
+/**
+ * Timeout for waiting for web server to become active (ms)
+ */
+const SERVER_STARTUP_TIMEOUT_MS = 5000;
+
+/**
+ * Polling interval when waiting for server startup (ms)
+ */
+const SERVER_STARTUP_POLL_INTERVAL_MS = 100;
 
 /**
  * Dependencies required for web handlers
@@ -92,7 +103,7 @@ export function registerWebHandlers(deps: WebHandlerDependencies): void {
 	// Broadcast tab changes to web clients
 	ipcMain.handle(
 		'web:broadcastTabsChange',
-		async (_, sessionId: string, aiTabs: any[], activeTabId: string) => {
+		async (_, sessionId: string, aiTabs: AITabData[], activeTabId: string) => {
 			const webServer = getWebServer();
 			if (webServer && webServer.getWebClientCount() > 0) {
 				webServer.broadcastTabsChange(sessionId, aiTabs, activeTabId);
@@ -139,8 +150,8 @@ export function registerWebHandlers(deps: WebHandlerDependencies): void {
 			logger.warn('Web server not yet started, waiting...', 'Live');
 			// Wait for server to start (with timeout)
 			const startTime = Date.now();
-			while (!webServer.isActive() && Date.now() - startTime < 5000) {
-				await new Promise((resolve) => setTimeout(resolve, 100));
+			while (!webServer.isActive() && Date.now() - startTime < SERVER_STARTUP_TIMEOUT_MS) {
+				await new Promise((resolve) => setTimeout(resolve, SERVER_STARTUP_POLL_INTERVAL_MS));
 			}
 			if (!webServer.isActive()) {
 				throw new Error('Web server failed to start');

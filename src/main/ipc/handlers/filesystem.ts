@@ -34,6 +34,11 @@ import {
 import { getSshRemoteById } from '../../stores';
 
 /**
+ * Supported image file extensions for base64 encoding
+ */
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico'];
+
+/**
  * Register all filesystem-related IPC handlers.
  */
 export function registerFilesystemHandlers(): void {
@@ -93,8 +98,7 @@ export function registerFilesystemHandlers(): void {
 				// For images over SSH, we'd need to base64 encode on remote and decode here
 				// For now, return raw content (text files work, binary images may have issues)
 				const ext = filePath.split('.').pop()?.toLowerCase();
-				const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico'];
-				const isImage = imageExtensions.includes(ext || '');
+				const isImage = IMAGE_EXTENSIONS.includes(ext || '');
 				if (isImage) {
 					// The remote readFile returns raw bytes as string - convert to base64 data URL
 					const mimeType = ext === 'svg' ? 'image/svg+xml' : `image/${ext}`;
@@ -107,8 +111,7 @@ export function registerFilesystemHandlers(): void {
 			// Local: use standard fs operations
 			// Check if file is an image
 			const ext = filePath.split('.').pop()?.toLowerCase();
-			const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg', 'ico'];
-			const isImage = imageExtensions.includes(ext || '');
+			const isImage = IMAGE_EXTENSIONS.includes(ext || '');
 
 			if (isImage) {
 				// Read image as buffer and convert to base64 data URL
