@@ -57,6 +57,10 @@ export type { SessionDetailForHandler, MessageHandlerCallbacks } from './handler
 export { BroadcastService } from './services';
 export type { WebClientInfo } from './services';
 
+// ============ Managers ============
+export { LiveSessionManager, CallbackRegistry } from './managers';
+export type { LiveSessionBroadcastCallbacks, WebServerCallbacks } from './managers';
+
 // ============ Routes ============
 export { ApiRoutes, StaticRoutes, WsRoute } from './routes';
 export type { ApiRouteCallbacks, WsRouteCallbacks, WsSessionData } from './routes';
