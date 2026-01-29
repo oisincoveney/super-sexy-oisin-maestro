@@ -12,7 +12,7 @@ import {
 	getVisibleAgentDefinitions,
 	type AgentDefinition,
 	type AgentConfigOption,
-} from '../../main/agent-definitions';
+} from '../../../main/agents';
 
 describe('agent-definitions', () => {
 	describe('AGENT_DEFINITIONS', () => {

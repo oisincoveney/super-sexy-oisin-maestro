@@ -6,30 +6,14 @@
  * - Manages custom paths for agents
  * - Caches detection results for performance
  * - Discovers available models for agents that support model selection
- *
- * Architecture:
- * - Agent definitions are in agent-definitions.ts
- * - Path probing logic is in path-prober.ts
- * - Agent capabilities are in agent-capabilities.ts
  */
 
 import * as path from 'path';
-import { execFileNoThrow } from './utils/execFile';
-import { logger } from './utils/logger';
-import { getAgentCapabilities } from './agent-capabilities';
+import { execFileNoThrow } from '../utils/execFile';
+import { logger } from '../utils/logger';
+import { getAgentCapabilities } from './capabilities';
 import { checkBinaryExists, checkCustomPath, getExpandedEnv } from './path-prober';
-import { AGENT_DEFINITIONS, type AgentConfig } from './agent-definitions';
-
-// ============ Re-exports for API Compatibility ============
-// These exports maintain backwards compatibility with existing code
-
-export { AgentCapabilities } from './agent-capabilities';
-export {
-	AGENT_DEFINITIONS,
-	type AgentConfig,
-	type AgentConfigOption,
-	type AgentDefinition,
-} from './agent-definitions';
+import { AGENT_DEFINITIONS, type AgentConfig } from './definitions';
 
 const LOG_CONTEXT = 'AgentDetector';
 

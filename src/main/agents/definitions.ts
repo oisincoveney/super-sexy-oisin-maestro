@@ -3,11 +3,9 @@
  *
  * Contains the configuration definitions for all supported AI agents.
  * This includes CLI arguments, configuration options, and default settings.
- *
- * Separated from agent-detector.ts for better maintainability.
  */
 
-import type { AgentCapabilities } from './agent-capabilities';
+import type { AgentCapabilities } from './capabilities';
 
 // ============ Configuration Types ============
 

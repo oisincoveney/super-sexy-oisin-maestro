@@ -1,4 +1,4 @@
-import type { AgentConfig } from '../agent-detector';
+import type { AgentConfig } from '../agents';
 
 type BuildAgentArgsOptions = {
 	baseArgs: string[];

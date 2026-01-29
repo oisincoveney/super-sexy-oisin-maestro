@@ -8,11 +8,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 
 // Mock dependencies before importing the module
-vi.mock('../../main/utils/execFile', () => ({
+vi.mock('../../../main/utils/execFile', () => ({
 	execFileNoThrow: vi.fn(),
 }));
 
-vi.mock('../../main/utils/logger', () => ({
+vi.mock('../../../main/utils/logger', () => ({
 	logger: {
 		info: vi.fn(),
 		warn: vi.fn(),
@@ -21,7 +21,7 @@ vi.mock('../../main/utils/logger', () => ({
 	},
 }));
 
-vi.mock('../../shared/pathUtils', () => ({
+vi.mock('../../../shared/pathUtils', () => ({
 	expandTilde: vi.fn((p: string) => p.replace(/^~/, '/Users/testuser')),
 	detectNodeVersionManagerBinPaths: vi.fn(() => []),
 }));
@@ -34,9 +34,9 @@ import {
 	probeWindowsPaths,
 	probeUnixPaths,
 	type BinaryDetectionResult,
-} from '../../main/path-prober';
-import { execFileNoThrow } from '../../main/utils/execFile';
-import { logger } from '../../main/utils/logger';
+} from '../../../main/agents';
+import { execFileNoThrow } from '../../../main/utils/execFile';
+import { logger } from '../../../main/utils/logger';
 
 describe('path-prober', () => {
 	beforeEach(() => {

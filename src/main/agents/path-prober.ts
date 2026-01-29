@@ -4,16 +4,14 @@
  * Handles detection of agent binaries on Windows and Unix-like systems.
  * Packaged Electron apps don't inherit shell environment, so we need to
  * probe known installation paths directly.
- *
- * Separated from agent-detector.ts for better maintainability and testability.
  */
 
 import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
-import { execFileNoThrow } from './utils/execFile';
-import { logger } from './utils/logger';
-import { expandTilde, detectNodeVersionManagerBinPaths } from '../shared/pathUtils';
+import { execFileNoThrow } from '../utils/execFile';
+import { logger } from '../utils/logger';
+import { expandTilde, detectNodeVersionManagerBinPaths } from '../../shared/pathUtils';
 
 const LOG_CONTEXT = 'PathProber';
 

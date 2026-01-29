@@ -4,14 +4,14 @@ import {
 	AgentConfig,
 	AgentConfigOption,
 	AgentCapabilities,
-} from '../../main/agent-detector';
+} from '../../../main/agents';
 
 // Mock dependencies
-vi.mock('../../main/utils/execFile', () => ({
+vi.mock('../../../main/utils/execFile', () => ({
 	execFileNoThrow: vi.fn(),
 }));
 
-vi.mock('../../main/utils/logger', () => ({
+vi.mock('../../../main/utils/logger', () => ({
 	logger: {
 		info: vi.fn(),
 		warn: vi.fn(),
@@ -21,8 +21,8 @@ vi.mock('../../main/utils/logger', () => ({
 }));
 
 // Get mocked modules
-import { execFileNoThrow } from '../../main/utils/execFile';
-import { logger } from '../../main/utils/logger';
+import { execFileNoThrow } from '../../../main/utils/execFile';
+import { logger } from '../../../main/utils/logger';
 import * as fs from 'fs';
 import * as os from 'os';
 
