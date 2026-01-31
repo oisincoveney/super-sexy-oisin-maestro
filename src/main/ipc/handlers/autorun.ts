@@ -896,42 +896,76 @@ export function registerAutorunHandlers(
 	);
 
 	// Create a backup copy of a document (for reset-on-completion)
+	// Supports SSH remote execution via optional sshRemoteId parameter
 	ipcMain.handle(
 		'autorun:createBackup',
-		createIpcHandler(handlerOpts('createBackup'), async (folderPath: string, filename: string) => {
-			// Reject obvious traversal attempts
-			if (filename.includes('..')) {
-				throw new Error('Invalid filename');
+		createIpcHandler(
+			handlerOpts('createBackup'),
+			async (folderPath: string, filename: string, sshRemoteId?: string) => {
+				// Reject obvious traversal attempts
+				if (filename.includes('..')) {
+					throw new Error('Invalid filename');
+				}
+
+				// Ensure filename has .md extension
+				const fullFilename = filename.endsWith('.md') ? filename : `${filename}.md`;
+				const backupFilename = fullFilename.replace(/\.md$/, '.backup.md');
+
+				// SSH remote: dispatch to remote operations
+				if (sshRemoteId) {
+					const sshConfig = getSshRemoteById(settingsStore, sshRemoteId);
+					if (!sshConfig) {
+						throw new Error(`SSH remote not found: ${sshRemoteId}`);
+					}
+
+					// Construct remote paths (use forward slashes)
+					const remoteSourcePath = `${folderPath}/${fullFilename}`;
+					const remoteBackupPath = `${folderPath}/${backupFilename}`;
+
+					logger.debug(`${LOG_CONTEXT} createBackup via SSH: ${remoteSourcePath} -> ${remoteBackupPath}`, LOG_CONTEXT);
+
+					// Read source file from remote
+					const readResult = await readFileRemote(remoteSourcePath, sshConfig);
+					if (!readResult.success || readResult.data === undefined) {
+						throw new Error(readResult.error || 'Source file not found');
+					}
+
+					// Write backup file to remote
+					const writeResult = await writeFileRemote(remoteBackupPath, readResult.data, sshConfig);
+					if (!writeResult.success) {
+						throw new Error(writeResult.error || 'Failed to write backup file');
+					}
+
+					logger.info(`Created remote Auto Run backup: ${backupFilename}`, LOG_CONTEXT);
+					return { backupFilename };
+				}
+
+				// Local: Construct paths
+				const sourcePath = path.join(folderPath, fullFilename);
+				const backupPath = path.join(folderPath, backupFilename);
+
+				// Validate paths are within folder
+				if (
+					!validatePathWithinFolder(sourcePath, folderPath) ||
+					!validatePathWithinFolder(backupPath, folderPath)
+				) {
+					throw new Error('Invalid file path');
+				}
+
+				// Check if source file exists
+				try {
+					await fs.access(sourcePath);
+				} catch {
+					throw new Error('Source file not found');
+				}
+
+				// Copy the file to backup
+				await fs.copyFile(sourcePath, backupPath);
+
+				logger.info(`Created Auto Run backup: ${backupFilename}`, LOG_CONTEXT);
+				return { backupFilename };
 			}
-
-			// Ensure filename has .md extension
-			const fullFilename = filename.endsWith('.md') ? filename : `${filename}.md`;
-			const backupFilename = fullFilename.replace(/\.md$/, '.backup.md');
-
-			const sourcePath = path.join(folderPath, fullFilename);
-			const backupPath = path.join(folderPath, backupFilename);
-
-			// Validate paths are within folder
-			if (
-				!validatePathWithinFolder(sourcePath, folderPath) ||
-				!validatePathWithinFolder(backupPath, folderPath)
-			) {
-				throw new Error('Invalid file path');
-			}
-
-			// Check if source file exists
-			try {
-				await fs.access(sourcePath);
-			} catch {
-				throw new Error('Source file not found');
-			}
-
-			// Copy the file to backup
-			await fs.copyFile(sourcePath, backupPath);
-
-			logger.info(`Created Auto Run backup: ${backupFilename}`, LOG_CONTEXT);
-			return { backupFilename };
-		})
+		)
 	);
 
 	// Restore a document from its backup (for reset-on-completion)
