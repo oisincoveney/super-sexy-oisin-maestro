@@ -1,5 +1,5 @@
 /**
- * tourSteps.ts
+ * tourSteps.tsx
  *
  * Defines the tour step sequence and configuration for the onboarding tour.
  * Each step includes selector information for spotlighting elements,
@@ -11,11 +11,51 @@
  *
  * Descriptions can include shortcut placeholders like {{shortcutId}} which will be
  * replaced with the user's configured keyboard shortcut at runtime.
+ *
+ * Steps can also include descriptionContent/descriptionContentGeneric for JSX
+ * content that renders inline icons matching the actual UI.
  */
 
+import React from 'react';
+import { PenLine, ImageIcon, History, Eye, Brain, Keyboard } from 'lucide-react';
 import type { TourStepConfig } from './useTour';
 import type { Shortcut } from '../../../types';
 import { formatShortcutKeys } from '../../../utils/shortcutFormatter';
+
+/**
+ * Inline icon component for tour descriptions - matches the actual UI icons
+ */
+function TourIcon({
+	icon: Icon,
+	label,
+}: {
+	icon: React.ComponentType<{ className?: string }>;
+	label: string;
+}) {
+	return (
+		<span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/10 text-xs whitespace-nowrap">
+			<Icon className="w-3 h-3" />
+			<span>{label}</span>
+		</span>
+	);
+}
+
+/**
+ * JSX content for the input area tour step showing actual icons
+ */
+const inputAreaIconsContent = (
+	<div className="text-xs leading-relaxed space-y-1.5">
+		<div>
+			Look for these controls: <TourIcon icon={PenLine} label="Pencil" /> opens an expanded prompt
+			editor, <TourIcon icon={ImageIcon} label="Image" /> lets you attach files (or just paste),{' '}
+			<TourIcon icon={History} label="History" /> toggles session history,{' '}
+			<TourIcon icon={Eye} label="Read-only" /> prevents file changes,{' '}
+			<TourIcon icon={Brain} label="Thinking" /> enables extended thinking, and{' '}
+			<TourIcon icon={Keyboard} label="Enter" /> switches the submit hotkey.
+		</div>
+		<div className="opacity-70">Defaults for these toggles can be changed in Settings → General.</div>
+	</div>
+);
 
 /**
  * All tour steps in order
@@ -127,9 +167,11 @@ export const tourSteps: TourStepConfig[] = [
 		id: 'input-area',
 		title: 'Input Area',
 		description:
-			'Type your messages here to communicate with the AI. During Auto Run, this area may be locked while tasks execute. You can queue messages to send after the current task completes.\n\nLook for these icons in the input area:\n• Pencil (✎) - Open expanded prompt editor\n• Image (🖼) - Attach files or paste images\n• History (⏱) - Toggle saving to session history\n• Eye (👁) - Toggle read-only mode\n• Brain (🧠) - Toggle extended thinking\n• Keyboard (⌨) - Switch submit hotkey (Enter/⌘Enter)\n\nDefaults for these toggles can be changed in Settings → General.\n\nPress {{focusInput}} to quickly jump here.',
+			'Type your messages here to communicate with the AI. During Auto Run, this area may be locked while tasks execute. You can queue messages to send after the current task completes. Press {{focusInput}} to quickly jump here.',
 		descriptionGeneric:
-			'Type your messages here to communicate with the AI. You can also use slash commands and @ mentions for files.\n\nLook for these icons in the input area:\n• Pencil (✎) - Open expanded prompt editor\n• Image (🖼) - Attach files or paste images\n• History (⏱) - Toggle saving to session history\n• Eye (👁) - Toggle read-only mode\n• Brain (🧠) - Toggle extended thinking\n• Keyboard (⌨) - Switch submit hotkey (Enter/⌘Enter)\n\nDefaults for these toggles can be changed in Settings → General.\n\nPress {{focusInput}} to quickly jump here.',
+			'Type your messages here to communicate with the AI. You can also use slash commands and @ mentions for files. Press {{focusInput}} to quickly jump here.',
+		descriptionContent: inputAreaIconsContent,
+		descriptionContentGeneric: inputAreaIconsContent,
 		selector: '[data-tour="input-area"]',
 		position: 'top',
 		uiActions: [],
