@@ -8,7 +8,7 @@
  */
 
 import { SshRemoteConfig } from '../../shared/types';
-import { shellEscape, buildShellCommand, shellEscapeForDoubleQuotes } from './shell-escape';
+import { shellEscape, buildShellCommand } from './shell-escape';
 import { expandTilde } from '../../shared/pathUtils';
 import { logger } from './logger';
 import { resolveSshPath } from './cliDetection';
@@ -287,12 +287,16 @@ export async function buildSshCommand(
 	//
 	// This approach avoids all profile sourcing issues while ensuring agent binaries are found.
 	//
-	// IMPORTANT: The pathPrefix is already escaped for embedding in double quotes.
-	// The \" sequences ensure the PATH value's quotes don't break the outer -c "..." wrapper.
-	const pathPrefix =
-		'export PATH=\\"$HOME/.local/bin:$HOME/bin:/usr/local/bin:/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\\"';
-	const escapedCommand = shellEscapeForDoubleQuotes(remoteCommand);
-	const wrappedCommand = `/bin/bash --norc --noprofile -c "${pathPrefix} && ${escapedCommand}"`;
+	// CRITICAL: Use single quotes for the -c argument to prevent the remote shell (often zsh)
+	// from parsing the command content. SSH passes the command to the remote's login shell,
+	// which parses it before executing. Double quotes allow zsh to interpret $, `, \, etc.
+	// Single quotes are parsed literally by zsh - it just passes the content to bash as-is.
+	//
+	// The inner command uses shellEscape() which handles embedded single quotes via '\'' pattern.
+	const pathSetup =
+		'export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:/opt/homebrew/bin:$HOME/.cargo/bin:$PATH"';
+	const fullBashCommand = `${pathSetup} && ${remoteCommand}`;
+	const wrappedCommand = `/bin/bash --norc --noprofile -c ${shellEscape(fullBashCommand)}`;
 	args.push(wrappedCommand);
 
 	// Log the exact command being built - use info level so it appears in system logs
