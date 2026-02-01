@@ -2132,7 +2132,7 @@ interface MaestroAPI {
 		}) => Promise<string>;
 		// Get query events with time range and optional filters
 		getStats: (
-			range: 'day' | 'week' | 'month' | 'year' | 'all',
+			range: 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all',
 			filters?: {
 				agentType?: string;
 				source?: 'user' | 'auto';
@@ -2152,7 +2152,7 @@ interface MaestroAPI {
 			}>
 		>;
 		// Get Auto Run sessions within a time range
-		getAutoRunSessions: (range: 'day' | 'week' | 'month' | 'year' | 'all') => Promise<
+		getAutoRunSessions: (range: 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all') => Promise<
 			Array<{
 				id: string;
 				sessionId: string;
@@ -2180,7 +2180,7 @@ interface MaestroAPI {
 			}>
 		>;
 		// Get aggregated stats for dashboard display
-		getAggregation: (range: 'day' | 'week' | 'month' | 'year' | 'all') => Promise<{
+		getAggregation: (range: 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all') => Promise<{
 			totalQueries: number;
 			totalDuration: number;
 			avgDuration: number;
@@ -2197,7 +2197,7 @@ interface MaestroAPI {
 			bySessionByDay: Record<string, Array<{ date: string; count: number; duration: number }>>;
 		}>;
 		// Export query events to CSV
-		exportCsv: (range: 'day' | 'week' | 'month' | 'year' | 'all') => Promise<string>;
+		exportCsv: (range: 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all') => Promise<string>;
 		// Subscribe to stats updates (for real-time dashboard refresh)
 		onStatsUpdate: (callback: () => void) => () => void;
 		// Clear old stats data (older than specified number of days)
@@ -2224,7 +2224,7 @@ interface MaestroAPI {
 		// Record session closure
 		recordSessionClosed: (sessionId: string, closedAt: number) => Promise<boolean>;
 		// Get session lifecycle events within a time range
-		getSessionLifecycle: (range: 'day' | 'week' | 'month' | 'year' | 'all') => Promise<
+		getSessionLifecycle: (range: 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all') => Promise<
 			Array<{
 				id: string;
 				sessionId: string;

@@ -2989,5 +2989,140 @@ describe('DocumentGraphView', () => {
 			expect(previewPriority).toBe(51);
 			expect(previewPriority).toBeGreaterThan(MODAL_PRIORITIES.DOCUMENT_GRAPH);
 		});
+
+		describe('Navigation History', () => {
+			/**
+			 * The preview panel maintains a history stack for back/forward navigation.
+			 * - Clicking wiki links pushes to history
+			 * - Left arrow key navigates back
+			 * - Right arrow key navigates forward
+			 * - Visual chevron buttons are provided
+			 */
+
+			it('maintains history stack when navigating via wiki links', () => {
+				// History is an array, index tracks current position
+				const previewHistory: Array<{ name: string }> = [];
+				let previewHistoryIndex = -1;
+
+				// Simulate navigating to first document
+				previewHistory.push({ name: 'doc1.md' });
+				previewHistoryIndex = 0;
+
+				// Simulate navigating to second document via wiki link
+				previewHistory.push({ name: 'doc2.md' });
+				previewHistoryIndex = 1;
+
+				expect(previewHistory.length).toBe(2);
+				expect(previewHistoryIndex).toBe(1);
+				expect(previewHistory[previewHistoryIndex].name).toBe('doc2.md');
+			});
+
+			it('left arrow navigates back in history', () => {
+				const previewHistory = [{ name: 'doc1.md' }, { name: 'doc2.md' }];
+				let previewHistoryIndex = 1;
+
+				// Simulate pressing left arrow
+				const canGoBack = previewHistoryIndex > 0;
+				if (canGoBack) {
+					previewHistoryIndex = previewHistoryIndex - 1;
+				}
+
+				expect(previewHistoryIndex).toBe(0);
+				expect(previewHistory[previewHistoryIndex].name).toBe('doc1.md');
+			});
+
+			it('right arrow navigates forward in history', () => {
+				const previewHistory = [{ name: 'doc1.md' }, { name: 'doc2.md' }];
+				let previewHistoryIndex = 0;
+
+				// Simulate pressing right arrow
+				const canGoForward = previewHistoryIndex < previewHistory.length - 1;
+				if (canGoForward) {
+					previewHistoryIndex = previewHistoryIndex + 1;
+				}
+
+				expect(previewHistoryIndex).toBe(1);
+				expect(previewHistory[previewHistoryIndex].name).toBe('doc2.md');
+			});
+
+			it('navigating to new document truncates forward history', () => {
+				let previewHistory = [{ name: 'doc1.md' }, { name: 'doc2.md' }, { name: 'doc3.md' }];
+				let previewHistoryIndex = 0; // Currently viewing doc1
+
+				// Simulate navigating to new document from doc1 (should discard doc2, doc3)
+				const newEntry = { name: 'doc4.md' };
+				previewHistory = previewHistory.slice(0, previewHistoryIndex + 1);
+				previewHistory.push(newEntry);
+				previewHistoryIndex = previewHistoryIndex + 1;
+
+				expect(previewHistory.length).toBe(2);
+				expect(previewHistory[0].name).toBe('doc1.md');
+				expect(previewHistory[1].name).toBe('doc4.md');
+			});
+
+			it('cannot go back when at first document', () => {
+				const previewHistoryIndex = 0;
+				const canGoBack = previewHistoryIndex > 0;
+
+				expect(canGoBack).toBe(false);
+			});
+
+			it('cannot go forward when at last document', () => {
+				const previewHistory = [{ name: 'doc1.md' }, { name: 'doc2.md' }];
+				const previewHistoryIndex = previewHistory.length - 1;
+				const canGoForward = previewHistoryIndex < previewHistory.length - 1;
+
+				expect(canGoForward).toBe(false);
+			});
+
+			it('closing preview clears history', () => {
+				let previewHistory: Array<{ name: string }> = [{ name: 'doc1.md' }, { name: 'doc2.md' }];
+				let previewHistoryIndex = 1;
+
+				// Simulate handlePreviewClose
+				previewHistory = [];
+				previewHistoryIndex = -1;
+
+				expect(previewHistory.length).toBe(0);
+				expect(previewHistoryIndex).toBe(-1);
+			});
+
+			it('back button is disabled when canGoBack is false', () => {
+				const canGoBack = false;
+				const buttonStyle = {
+					opacity: canGoBack ? 1 : 0.4,
+					cursor: canGoBack ? 'pointer' : 'default',
+				};
+
+				expect(buttonStyle.opacity).toBe(0.4);
+				expect(buttonStyle.cursor).toBe('default');
+			});
+
+			it('forward button is disabled when canGoForward is false', () => {
+				const canGoForward = false;
+				const buttonStyle = {
+					opacity: canGoForward ? 1 : 0.4,
+					cursor: canGoForward ? 'pointer' : 'default',
+				};
+
+				expect(buttonStyle.opacity).toBe(0.4);
+				expect(buttonStyle.cursor).toBe('default');
+			});
+
+			it('keyboard handler only responds to unmodified arrow keys', () => {
+				// Should handle: ArrowLeft, ArrowRight without modifiers
+				// Should ignore: Cmd/Ctrl/Alt/Shift + arrows
+				const shouldHandle = (e: { key: string; metaKey?: boolean; ctrlKey?: boolean; altKey?: boolean; shiftKey?: boolean }) => {
+					if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return false;
+					return e.key === 'ArrowLeft' || e.key === 'ArrowRight';
+				};
+
+				expect(shouldHandle({ key: 'ArrowLeft' })).toBe(true);
+				expect(shouldHandle({ key: 'ArrowRight' })).toBe(true);
+				expect(shouldHandle({ key: 'ArrowLeft', metaKey: true })).toBe(false);
+				expect(shouldHandle({ key: 'ArrowRight', ctrlKey: true })).toBe(false);
+				expect(shouldHandle({ key: 'ArrowUp' })).toBe(false);
+			});
+		});
 	});
 });

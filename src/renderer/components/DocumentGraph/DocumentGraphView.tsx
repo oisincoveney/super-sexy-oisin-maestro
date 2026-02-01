@@ -29,6 +29,8 @@ import {
 	Calendar,
 	CheckSquare,
 	Type,
+	ChevronLeft,
+	ChevronRight,
 } from 'lucide-react';
 import type { Theme } from '../../types';
 import { useLayerStack } from '../../contexts/LayerStackContext';
@@ -224,13 +226,20 @@ export function DocumentGraphView({
 	const [previewError, setPreviewError] = useState<string | null>(null);
 	const [previewLoading, setPreviewLoading] = useState(false);
 
-	// Build file tree from graph nodes for wiki-link resolution in preview
+	// Preview navigation history (for back/forward through wiki link clicks)
+	const [previewHistory, setPreviewHistory] = useState<
+		Array<{ path: string; relativePath: string; name: string; content: string }>
+	>([]);
+	const [previewHistoryIndex, setPreviewHistoryIndex] = useState(-1);
+
+	// All markdown files discovered during scanning (for wiki-link resolution)
+	const [allMarkdownFiles, setAllMarkdownFiles] = useState<string[]>([]);
+
+	// Build file tree from ALL markdown files for wiki-link resolution in preview
+	// This enables linking to files that aren't currently loaded in the graph view
 	const previewFileTree = useMemo(() => {
-		const filePaths = nodes
-			.filter((n) => n.nodeType === 'document' && n.filePath)
-			.map((n) => n.filePath!);
-		return buildFileTreeFromPaths(filePaths);
-	}, [nodes]);
+		return buildFileTreeFromPaths(allMarkdownFiles);
+	}, [allMarkdownFiles]);
 
 	// Pagination state
 	const [totalDocuments, setTotalDocuments] = useState(0);
@@ -522,6 +531,9 @@ export function DocumentGraphView({
 				setTotalDocuments(graphData.totalDocuments);
 				setLoadedDocuments(graphData.loadedDocuments);
 				setHasMore(graphData.hasMore);
+
+				// Store all markdown files for wiki-link resolution in preview panel
+				setAllMarkdownFiles(graphData.allMarkdownFiles);
 
 				// Cache external data and link counts for instant toggling
 				setCachedExternalData(graphData.cachedExternalData);
@@ -977,6 +989,7 @@ export function DocumentGraphView({
 
 	/**
 	 * Open a markdown preview panel inside the graph view.
+	 * Pushes to navigation history for back/forward support.
 	 */
 	const handlePreviewFile = useCallback(
 		async (filePath: string) => {
@@ -997,12 +1010,22 @@ export function DocumentGraphView({
 					throw new Error('Unable to read file contents.');
 				}
 
-				setPreviewFile({
+				const newEntry = {
 					path: fullPath,
 					relativePath,
 					name: relativePath.split('/').pop() || relativePath,
 					content,
+				};
+
+				setPreviewFile(newEntry);
+
+				// Push to history, truncating any forward history
+				setPreviewHistory((prev) => {
+					const newHistory = prev.slice(0, previewHistoryIndex + 1);
+					newHistory.push(newEntry);
+					return newHistory;
 				});
+				setPreviewHistoryIndex((prev) => prev + 1);
 			} catch (err) {
 				setPreviewFile(null);
 				setPreviewError(err instanceof Error ? err.message : 'Failed to load preview.');
@@ -1010,17 +1033,64 @@ export function DocumentGraphView({
 				setPreviewLoading(false);
 			}
 		},
-		[rootPath, sshRemoteId]
+		[rootPath, sshRemoteId, previewHistoryIndex]
 	);
 
 	/**
-	 * Close the preview panel
+	 * Close the preview panel and clear navigation history
 	 */
 	const handlePreviewClose = useCallback(() => {
 		setPreviewFile(null);
 		setPreviewLoading(false);
 		setPreviewError(null);
+		setPreviewHistory([]);
+		setPreviewHistoryIndex(-1);
 	}, []);
+
+	/**
+	 * Navigate back in preview history
+	 */
+	const handlePreviewBack = useCallback(() => {
+		if (previewHistoryIndex > 0) {
+			const newIndex = previewHistoryIndex - 1;
+			setPreviewHistoryIndex(newIndex);
+			setPreviewFile(previewHistory[newIndex]);
+		}
+	}, [previewHistoryIndex, previewHistory]);
+
+	/**
+	 * Navigate forward in preview history
+	 */
+	const handlePreviewForward = useCallback(() => {
+		if (previewHistoryIndex < previewHistory.length - 1) {
+			const newIndex = previewHistoryIndex + 1;
+			setPreviewHistoryIndex(newIndex);
+			setPreviewFile(previewHistory[newIndex]);
+		}
+	}, [previewHistoryIndex, previewHistory]);
+
+	// Can navigate back/forward?
+	const canGoBack = previewHistoryIndex > 0;
+	const canGoForward = previewHistoryIndex < previewHistory.length - 1;
+
+	/**
+	 * Handle keyboard navigation in preview panel (left/right arrow keys)
+	 */
+	const handlePreviewKeyDown = useCallback(
+		(e: React.KeyboardEvent) => {
+			// Only handle arrow keys without modifiers
+			if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+
+			if (e.key === 'ArrowLeft' && canGoBack) {
+				e.preventDefault();
+				handlePreviewBack();
+			} else if (e.key === 'ArrowRight' && canGoForward) {
+				e.preventDefault();
+				handlePreviewForward();
+			}
+		},
+		[canGoBack, canGoForward, handlePreviewBack, handlePreviewForward]
+	);
 
 	/**
 	 * Register preview panel with layer stack when open.
@@ -1627,26 +1697,69 @@ export function DocumentGraphView({
 					{/* Markdown Preview Panel */}
 					{(previewFile || previewLoading || previewError) && (
 						<div
-							className="absolute top-4 right-4 bottom-4 rounded-lg shadow-2xl border flex flex-col z-50"
+							className="absolute top-4 right-4 bottom-4 rounded-lg shadow-2xl border flex flex-col z-50 outline-none"
 							style={{
 								backgroundColor: theme.colors.bgActivity,
 								borderColor: theme.colors.border,
 								width: 'min(560px, 42vw)',
 								maxWidth: '90%',
 							}}
+							onKeyDown={handlePreviewKeyDown}
 						>
 							<style>{generateProseStyles({ theme, scopeSelector: '.graph-preview' })}</style>
 							<div
 								className="px-4 py-3 border-b flex items-center justify-between gap-3"
 								style={{ borderColor: theme.colors.border }}
 							>
-								<div className="min-w-0">
-									<p className="text-sm font-semibold truncate" style={{ color: theme.colors.textMain }}>
-										{previewFile?.name || 'Loading preview...'}
-									</p>
-									<p className="text-xs truncate" style={{ color: theme.colors.textDim }}>
-										{previewFile?.relativePath || ''}
-									</p>
+								<div className="flex items-center gap-2 min-w-0">
+									{/* Back/Forward navigation buttons */}
+									<div className="flex items-center gap-0.5">
+										<button
+											onClick={handlePreviewBack}
+											disabled={!canGoBack}
+											className="p-1 rounded transition-colors"
+											style={{
+												color: canGoBack ? theme.colors.textMain : theme.colors.textDim,
+												opacity: canGoBack ? 1 : 0.4,
+												cursor: canGoBack ? 'pointer' : 'default',
+											}}
+											onMouseEnter={(e) =>
+												canGoBack && (e.currentTarget.style.backgroundColor = `${theme.colors.accent}20`)
+											}
+											onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+											title={canGoBack ? 'Go back (←)' : 'No previous document'}
+											aria-label="Go back"
+										>
+											<ChevronLeft className="w-4 h-4" />
+										</button>
+										<button
+											onClick={handlePreviewForward}
+											disabled={!canGoForward}
+											className="p-1 rounded transition-colors"
+											style={{
+												color: canGoForward ? theme.colors.textMain : theme.colors.textDim,
+												opacity: canGoForward ? 1 : 0.4,
+												cursor: canGoForward ? 'pointer' : 'default',
+											}}
+											onMouseEnter={(e) =>
+												canGoForward && (e.currentTarget.style.backgroundColor = `${theme.colors.accent}20`)
+											}
+											onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+											title={canGoForward ? 'Go forward (→)' : 'No next document'}
+											aria-label="Go forward"
+										>
+											<ChevronRight className="w-4 h-4" />
+										</button>
+									</div>
+									{/* Document title and path */}
+									<div className="min-w-0">
+										<p className="text-sm font-semibold truncate" style={{ color: theme.colors.textMain }}>
+											{previewFile?.name || 'Loading preview...'}
+										</p>
+										<p className="text-xs truncate" style={{ color: theme.colors.textDim }}>
+											{previewFile?.relativePath || ''}
+										</p>
+									</div>
 								</div>
 								<div className="flex items-center gap-2">
 									{previewFile && onDocumentOpen && (

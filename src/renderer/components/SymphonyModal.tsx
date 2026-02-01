@@ -319,23 +319,29 @@ function IssueCard({
 					{issue.documentPaths.length} {issue.documentPaths.length === 1 ? 'document' : 'documents'}
 				</span>
 				{isClaimed && issue.claimedByPr && (
-					<a
-						href={issue.claimedByPr.url}
-						target="_blank"
-						rel="noopener noreferrer"
-						className="flex items-center gap-1 cursor-pointer hover:underline"
+					<span
+						role="link"
+						tabIndex={0}
+						className="flex items-center gap-1 cursor-pointer hover:underline pointer-events-auto"
 						style={{ color: theme.colors.accent }}
 						onClick={(e) => {
 							e.preventDefault();
 							e.stopPropagation();
 							window.maestro.shell.openExternal(issue.claimedByPr!.url);
 						}}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								e.stopPropagation();
+								window.maestro.shell.openExternal(issue.claimedByPr!.url);
+							}
+						}}
 					>
 						<GitPullRequest className="w-3 h-3" />
 						{issue.claimedByPr.isDraft ? 'Draft ' : ''}PR #{issue.claimedByPr.number} by @
 						{issue.claimedByPr.author}
 						<ExternalLink className="w-2.5 h-2.5" />
-					</a>
+					</span>
 				)}
 			</div>
 
