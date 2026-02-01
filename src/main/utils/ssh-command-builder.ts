@@ -286,8 +286,11 @@ export async function buildSshCommand(
 	// - ~/.cargo/bin: Rust tools
 	//
 	// This approach avoids all profile sourcing issues while ensuring agent binaries are found.
+	//
+	// IMPORTANT: The pathPrefix is already escaped for embedding in double quotes.
+	// The \" sequences ensure the PATH value's quotes don't break the outer -c "..." wrapper.
 	const pathPrefix =
-		'export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:/opt/homebrew/bin:$HOME/.cargo/bin:$PATH"';
+		'export PATH=\\"$HOME/.local/bin:$HOME/bin:/usr/local/bin:/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\\"';
 	const escapedCommand = shellEscapeForDoubleQuotes(remoteCommand);
 	const wrappedCommand = `/bin/bash --norc --noprofile -c "${pathPrefix} && ${escapedCommand}"`;
 	args.push(wrappedCommand);
