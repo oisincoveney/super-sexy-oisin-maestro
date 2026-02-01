@@ -78,20 +78,18 @@ describe('SshRemoteManager', () => {
 			expect(result.errors).toContain('Host is required');
 		});
 
-		it('requires username field', () => {
+		it('allows empty username (SSH uses config or system defaults)', () => {
 			const config = { ...validConfig, username: '' };
 			const result = manager.validateConfig(config);
 
-			expect(result.valid).toBe(false);
-			expect(result.errors).toContain('Username is required');
+			expect(result.valid).toBe(true);
 		});
 
-		it('requires privateKeyPath field', () => {
+		it('allows empty privateKeyPath (SSH uses config or ssh-agent)', () => {
 			const config = { ...validConfig, privateKeyPath: '' };
 			const result = manager.validateConfig(config);
 
-			expect(result.valid).toBe(false);
-			expect(result.errors).toContain('Private key path is required');
+			expect(result.valid).toBe(true);
 		});
 
 		it('validates port range - too low', () => {

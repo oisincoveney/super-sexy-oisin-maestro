@@ -112,16 +112,11 @@ export class SshRemoteManager {
 			errors.push('Host is required');
 		}
 
-		// Username and privateKeyPath are optional when using SSH config
-		if (!config.useSshConfig) {
-			if (!config.username || config.username.trim() === '') {
-				errors.push('Username is required');
-			}
-
-			if (!config.privateKeyPath || config.privateKeyPath.trim() === '') {
-				errors.push('Private key path is required');
-			}
-		}
+		// Username and privateKeyPath are always optional - SSH will use:
+		// 1. Values from ~/.ssh/config if the host matches a Host pattern
+		// 2. ssh-agent for key authentication
+		// 3. System defaults (current user, default keys)
+		// The connection test will verify if the configuration actually works.
 
 		// Port validation
 		if (typeof config.port !== 'number' || config.port < 1 || config.port > 65535) {
