@@ -655,7 +655,8 @@ export const FilePreview = forwardRef<FilePreviewHandle, FilePreviewProps>(funct
 
 	const scrollMarkdownToBoundary = useCallback(
 		(direction: 'top' | 'bottom') => {
-			const container = markdownContainerRef.current;
+			// Use contentRef which is the actual scrollable container
+			const container = contentRef.current;
 			if (!container) return;
 			const top = direction === 'top' ? 0 : container.scrollHeight;
 			container.scrollTo({ top, behavior: 'smooth' });
