@@ -20,6 +20,17 @@ export interface FilePreviewLoading {
 	path: string;
 }
 
+/**
+ * File info for opening in a file preview tab.
+ */
+export interface FileTabInfo {
+	path: string;
+	name: string;
+	content: string;
+	sshRemoteId?: string;
+	lastModified?: number;
+}
+
 export interface UseAppHandlersDeps {
 	/** Currently active session */
 	activeSession: Session | null;
@@ -29,7 +40,7 @@ export interface UseAppHandlersDeps {
 	setSessions: React.Dispatch<React.SetStateAction<Session[]>>;
 	/** Focus area setter */
 	setActiveFocus: React.Dispatch<React.SetStateAction<FocusArea>>;
-	/** File preview setter */
+	/** File preview setter (legacy overlay mode) */
 	setPreviewFile: (file: FilePreview | null) => void;
 	/** File preview loading state setter (for remote file loading indicator) */
 	setFilePreviewLoading?: (loading: FilePreviewLoading | null) => void;
@@ -47,6 +58,11 @@ export interface UseAppHandlersDeps {
 	setConfirmModalOnConfirm: (callback: () => () => void) => void;
 	/** Confirmation modal open setter */
 	setConfirmModalOpen: (open: boolean) => void;
+	/**
+	 * Callback to open a file in a tab (new tab-based file preview).
+	 * When provided, file clicks will open tabs instead of the overlay.
+	 */
+	onOpenFileTab?: (file: FileTabInfo) => void;
 }
 
 /**
@@ -120,6 +136,7 @@ export function useAppHandlers(deps: UseAppHandlersDeps): UseAppHandlersReturn {
 		setConfirmModalMessage,
 		setConfirmModalOnConfirm,
 		setConfirmModalOpen,
+		onOpenFileTab,
 	} = deps;
 
 	// --- DRAG STATE ---
@@ -223,25 +240,44 @@ export function useAppHandlers(deps: UseAppHandlersDeps): UseAppHandlersReturn {
 
 				try {
 					// Pass SSH remote ID for remote sessions
-					const content = await window.maestro.fs.readFile(fullPath, sshRemoteId);
-					const newFile = {
-						name: node.name,
-						content: content,
-						path: fullPath,
-					};
+					// Fetch both content and stat for lastModified timestamp
+					const [content, stat] = await Promise.all([
+						window.maestro.fs.readFile(fullPath, sshRemoteId),
+						window.maestro.fs.stat(fullPath, sshRemoteId),
+					]);
+					const lastModified = stat?.modifiedAt ? new Date(stat.modifiedAt).getTime() : Date.now();
 
-					// Only add to history if it's a different file than the current one
-					const currentFile = filePreviewHistory[filePreviewHistoryIndex];
-					if (!currentFile || currentFile.path !== fullPath) {
-						// Add to navigation history (truncate forward history if we're not at the end)
-						const newHistory = filePreviewHistory.slice(0, filePreviewHistoryIndex + 1);
-						newHistory.push(newFile);
-						setFilePreviewHistory(newHistory);
-						setFilePreviewHistoryIndex(newHistory.length - 1);
+					// If onOpenFileTab is provided, use tab-based file preview
+					if (onOpenFileTab) {
+						onOpenFileTab({
+							path: fullPath,
+							name: node.name,
+							content,
+							sshRemoteId,
+							lastModified,
+						});
+						setActiveFocus('main');
+					} else {
+						// Legacy overlay mode
+						const newFile = {
+							name: node.name,
+							content: content,
+							path: fullPath,
+						};
+
+						// Only add to history if it's a different file than the current one
+						const currentFile = filePreviewHistory[filePreviewHistoryIndex];
+						if (!currentFile || currentFile.path !== fullPath) {
+							// Add to navigation history (truncate forward history if we're not at the end)
+							const newHistory = filePreviewHistory.slice(0, filePreviewHistoryIndex + 1);
+							newHistory.push(newFile);
+							setFilePreviewHistory(newHistory);
+							setFilePreviewHistoryIndex(newHistory.length - 1);
+						}
+
+						setPreviewFile(newFile);
+						setActiveFocus('main');
 					}
-
-					setPreviewFile(newFile);
-					setActiveFocus('main');
 				} catch (error) {
 					console.error('Failed to read file:', error);
 				} finally {
@@ -264,6 +300,7 @@ export function useAppHandlers(deps: UseAppHandlersDeps): UseAppHandlersReturn {
 			setPreviewFile,
 			setActiveFocus,
 			setFilePreviewLoading,
+			onOpenFileTab,
 		]
 	);
 
