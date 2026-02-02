@@ -470,9 +470,9 @@ describe('HistoryDetailModal', () => {
 				/>
 			);
 
-			// Context = (inputTokens + cacheCreationInputTokens) / contextWindow (cacheRead excluded)
-			// (5000 + 5000) / 100000 = 10%
-			expect(screen.getByText('10%')).toBeInTheDocument();
+			// Context = (inputTokens + cacheReadInputTokens + cacheCreationInputTokens) / contextWindow
+			// (5000 + 2000 + 5000) / 100000 = 12%
+			expect(screen.getByText('12%')).toBeInTheDocument();
 		});
 
 		it('should display token counts', () => {

@@ -544,11 +544,13 @@ export const MainPanel = React.memo(
 		}, [configuredContextWindow, activeTab?.usageStats?.contextWindow]);
 
 		// Compute context tokens using agent-specific calculation
-		// Claude: input + cacheCreation (excludes cacheRead which is cumulative)
+		// Claude: input + cacheRead + cacheCreation (total input for the request)
 		// Codex: input + output (combined limit)
+		// When values are accumulated from multi-tool turns, total may exceed contextWindow.
+		// In that case, derive tokens from session.contextUsage (preserved last valid percentage).
 		const activeTabContextTokens = useMemo(() => {
 			if (!activeTab?.usageStats) return 0;
-			return calculateContextTokens(
+			const raw = calculateContextTokens(
 				{
 					inputTokens: activeTab.usageStats.inputTokens,
 					outputTokens: activeTab.usageStats.outputTokens,
@@ -557,7 +559,20 @@ export const MainPanel = React.memo(
 				},
 				activeSession?.toolType
 			);
-		}, [activeTab?.usageStats, activeSession?.toolType]);
+			// Accumulated from multi-tool turns: derive from session's preserved percentage.
+			// App.tsx skips updating session.contextUsage when accumulated, so it holds
+			// the last valid percentage from estimateContextUsage.
+			if (activeTabContextWindow > 0 && raw > activeTabContextWindow) {
+				const preservedPercentage = activeSession?.contextUsage ?? 0;
+				return Math.round((preservedPercentage / 100) * activeTabContextWindow);
+			}
+			return raw;
+		}, [
+			activeTab?.usageStats,
+			activeSession?.toolType,
+			activeTabContextWindow,
+			activeSession?.contextUsage,
+		]);
 
 		// Compute context usage percentage from context tokens and window size
 		const activeTabContextUsage = useMemo(() => {

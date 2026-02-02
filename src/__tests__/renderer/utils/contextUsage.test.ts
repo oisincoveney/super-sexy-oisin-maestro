@@ -28,30 +28,30 @@ describe('estimateContextUsage', () => {
 			expect(result).toBe(10);
 		});
 
-		it('should exclude cacheReadInputTokens from calculation (cumulative, not per-request)', () => {
+		it('should include cacheReadInputTokens in calculation (part of total input context)', () => {
 			const stats = createStats({
 				inputTokens: 1000,
 				outputTokens: 500,
-				cacheReadInputTokens: 50000, // Should be ignored
+				cacheReadInputTokens: 50000,
 				cacheCreationInputTokens: 5000,
 				contextWindow: 100000,
 			});
 			const result = estimateContextUsage(stats, 'claude-code');
-			// (1000 + 5000) / 100000 = 6% (cacheRead excluded)
-			expect(result).toBe(6);
+			// (1000 + 50000 + 5000) / 100000 = 56%
+			expect(result).toBe(56);
 		});
 
-		it('should cap at 100%', () => {
+		it('should return null when accumulated tokens exceed context window', () => {
 			const stats = createStats({
 				inputTokens: 50000,
 				outputTokens: 50000,
-				cacheReadInputTokens: 150000, // Ignored
+				cacheReadInputTokens: 150000,
 				cacheCreationInputTokens: 200000,
 				contextWindow: 200000,
 			});
 			const result = estimateContextUsage(stats, 'claude-code');
-			// (50000 + 200000) / 200000 = 125% -> capped at 100%
-			expect(result).toBe(100);
+			// (50000 + 150000 + 200000) = 400000 > 200000 -> null (accumulated values)
+			expect(result).toBeNull();
 		});
 
 		it('should round to nearest integer', () => {
@@ -139,19 +139,20 @@ describe('estimateContextUsage', () => {
 			expect(result).toBe(10);
 		});
 
-		it('should ignore large cache read tokens (they are cumulative, not per-request)', () => {
-			// Claude Code reports cacheReadInputTokens as cumulative session totals.
-			// They can exceed the context window, so we exclude them from calculation.
+		it('should return null when accumulated cacheRead tokens cause total to exceed context window', () => {
+			// During multi-tool turns, Claude Code accumulates token values across
+			// internal API calls. When accumulated total exceeds context window,
+			// return null to signal callers should preserve previous valid percentage.
 			const stats = createStats({
-				inputTokens: 500, // small new turn input
-				outputTokens: 1000, // small response
-				cacheReadInputTokens: 758000, // cumulative across session - should be IGNORED
-				cacheCreationInputTokens: 50000, // new cache this turn
+				inputTokens: 500,
+				outputTokens: 1000,
+				cacheReadInputTokens: 758000, // accumulated across multi-tool turn
+				cacheCreationInputTokens: 50000,
 				contextWindow: 200000,
 			});
 			const result = estimateContextUsage(stats, 'claude-code');
-			// (500 + 50000) / 200000 = 25% (cacheRead excluded)
-			expect(result).toBe(25);
+			// (500 + 758000 + 50000) = 808500 > 200000 -> null (accumulated values)
+			expect(result).toBeNull();
 		});
 	});
 
@@ -172,17 +173,17 @@ describe('estimateContextUsage', () => {
 			expect(result).toBe(5);
 		});
 
-		it('should handle very large token counts', () => {
+		it('should return null for very large accumulated token counts', () => {
 			const stats = createStats({
 				inputTokens: 250000,
 				outputTokens: 500000,
-				cacheReadInputTokens: 500000, // Ignored
+				cacheReadInputTokens: 500000,
 				cacheCreationInputTokens: 250000,
 				contextWindow: 0,
 			});
 			const result = estimateContextUsage(stats, 'claude-code');
-			// (250000 + 250000) / 200000 = 250% -> capped at 100%
-			expect(result).toBe(100);
+			// (250000 + 500000 + 250000) = 1000000 > 200000 -> null (accumulated values)
+			expect(result).toBeNull();
 		});
 
 		it('should handle very small percentages', () => {
@@ -213,34 +214,33 @@ describe('calculateContextTokens', () => {
 		...overrides,
 	});
 
-	describe('Claude agents (excludes output and cacheRead tokens)', () => {
-		it('should exclude output and cacheRead tokens for claude-code', () => {
+	describe('Claude agents (input + cacheRead + cacheCreation)', () => {
+		it('should include input, cacheRead, and cacheCreation tokens for claude-code', () => {
 			const stats = createStats();
 			const result = calculateContextTokens(stats, 'claude-code');
-			// 10000 + 1000 = 11000 (no output, no cacheRead)
-			// cacheRead is excluded because Claude Code reports it as cumulative
-			expect(result).toBe(11000);
+			// 10000 + 2000 + 1000 = 13000 (excludes output only)
+			expect(result).toBe(13000);
 		});
 
-		it('should exclude output and cacheRead tokens for claude', () => {
+		it('should include input, cacheRead, and cacheCreation tokens for claude', () => {
 			const stats = createStats();
 			const result = calculateContextTokens(stats, 'claude');
-			expect(result).toBe(11000);
+			expect(result).toBe(13000);
 		});
 
-		it('should exclude output and cacheRead tokens when agent is undefined', () => {
+		it('should include input, cacheRead, and cacheCreation tokens when agent is undefined', () => {
 			const stats = createStats();
 			const result = calculateContextTokens(stats);
 			// Defaults to Claude behavior
-			expect(result).toBe(11000);
+			expect(result).toBe(13000);
 		});
 	});
 
 	describe('OpenAI agents (includes output tokens)', () => {
-		it('should include output tokens for codex', () => {
+		it('should include input, output, and cacheCreation tokens for codex', () => {
 			const stats = createStats();
 			const result = calculateContextTokens(stats, 'codex');
-			// 10000 + 5000 + 1000 = 16000 (includes output, excludes cacheRead)
+			// 10000 + 5000 + 1000 = 16000 (input + output + cacheCreation, excludes cacheRead)
 			expect(result).toBe(16000);
 		});
 	});
@@ -268,18 +268,19 @@ describe('calculateContextTokens', () => {
 			expect(result).toBe(10000);
 		});
 
-		it('should ignore large cacheRead values (cumulative session data)', () => {
-			// This tests the real bug scenario: Claude Code reports cumulative cacheRead
-			// that exceeds context window, which would cause 100%+ display
+		it('should include cacheRead in raw calculation (callers detect accumulated values)', () => {
+			// calculateContextTokens returns the raw total including cacheRead.
+			// Callers (estimateContextUsage) detect when total > contextWindow
+			// and return null to signal accumulated values from multi-tool turns.
 			const stats = createStats({
 				inputTokens: 50000,
 				outputTokens: 9000,
-				cacheReadInputTokens: 758000, // Cumulative - should be IGNORED
+				cacheReadInputTokens: 758000,
 				cacheCreationInputTokens: 75000,
 			});
 			const result = calculateContextTokens(stats, 'claude-code');
-			// 50000 + 75000 = 125000 (cacheRead excluded)
-			expect(result).toBe(125000);
+			// 50000 + 758000 + 75000 = 883000 (raw total, callers check against window)
+			expect(result).toBe(883000);
 		});
 	});
 });

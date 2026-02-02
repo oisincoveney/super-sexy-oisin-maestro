@@ -1955,8 +1955,8 @@ describe('MainPanel', () => {
 				<MainPanel {...defaultProps} activeSession={session} getContextColor={getContextColor} />
 			);
 
-			// Context usage should be 50000 / 200000 * 100 = 25% (cacheRead excluded - cumulative)
-			expect(getContextColor).toHaveBeenCalledWith(25, theme);
+			// Context usage: (50000 + 25000 + 0) / 200000 * 100 = 38% (input + cacheRead + cacheCreation)
+			expect(getContextColor).toHaveBeenCalledWith(38, theme);
 		});
 	});
 
@@ -2373,9 +2373,10 @@ describe('MainPanel', () => {
 			expect(screen.queryByText('Context Window')).not.toBeInTheDocument();
 		});
 
-		it('should cap context usage at 100%', () => {
-			const getContextColor = vi.fn().mockReturnValue('#ef4444');
+		it('should use preserved session.contextUsage when accumulated values exceed window', () => {
+			const getContextColor = vi.fn().mockReturnValue('#22c55e');
 			const session = createSession({
+				contextUsage: 45, // Preserved valid percentage from last non-accumulated update
 				aiTabs: [
 					{
 						id: 'tab-1',
@@ -2386,8 +2387,8 @@ describe('MainPanel', () => {
 						usageStats: {
 							inputTokens: 150000,
 							outputTokens: 100000,
-							cacheReadInputTokens: 100000, // Excluded from calculation (cumulative)
-							cacheCreationInputTokens: 100000, // Included in calculation
+							cacheReadInputTokens: 100000, // Accumulated from multi-tool turn
+							cacheCreationInputTokens: 100000, // Accumulated from multi-tool turn
 							totalCostUsd: 0.05,
 							contextWindow: 200000,
 						},
@@ -2400,8 +2401,9 @@ describe('MainPanel', () => {
 				<MainPanel {...defaultProps} activeSession={session} getContextColor={getContextColor} />
 			);
 
-			// Context usage: (150000 + 100000) / 200000 = 125% -> capped at 100%
-			expect(getContextColor).toHaveBeenCalledWith(100, theme);
+			// raw = 150000 + 100000 + 100000 = 350000 > 200000 (accumulated)
+			// Falls back to session.contextUsage = 45%
+			expect(getContextColor).toHaveBeenCalledWith(45, theme);
 		});
 	});
 

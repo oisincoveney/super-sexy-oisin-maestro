@@ -2714,36 +2714,30 @@ function MaestroConsoleInner() {
 				actualSessionId = sessionId;
 			}
 
-			// Calculate context window usage percentage from CURRENT reported tokens.
-			// IMPORTANT: Claude Code reports cacheReadInputTokens as CUMULATIVE session totals,
-			// not per-request values. Including them causes context % to exceed 100% impossibly.
-			// For Claude: context = inputTokens + cacheCreationInputTokens (new content only)
+			// Calculate context window usage percentage.
+			// For Claude: context = inputTokens + cacheReadInputTokens + cacheCreationInputTokens
+			//   (these three fields partition the total input into uncached, cache-hit, newly-cached)
 			// For Codex: context = inputTokens + outputTokens (combined limit)
+			//
+			// When Claude Code performs complex multi-tool turns, the reported values are
+			// accumulated across internal API calls and can exceed the context window.
+			// estimateContextUsage returns null in that case - we skip the update and
+			// keep the last valid measurement. This means the gauge may stay static
+			// during tool-heavy turns, but it's always accurate when it does update,
+			// keeping the compact warning reliable.
 			const sessionForUsage = sessionsRef.current.find((s) => s.id === actualSessionId);
 			const agentToolType = sessionForUsage?.toolType;
-			const isClaudeUsage = agentToolType === 'claude-code' || agentToolType === 'claude';
-			const currentContextTokens = isClaudeUsage
-				? usageStats.inputTokens + usageStats.cacheCreationInputTokens
-				: usageStats.inputTokens + usageStats.outputTokens;
-
-			// Calculate context percentage, falling back to agent-specific defaults if contextWindow not provided
-			let contextPercentage: number;
-			if (usageStats.contextWindow > 0) {
-				contextPercentage = Math.min(
-					Math.round((currentContextTokens / usageStats.contextWindow) * 100),
-					100
-				);
-			} else {
-				// Use fallback estimation with agent-specific default context window
-				const estimated = estimateContextUsage(usageStats, agentToolType);
-				contextPercentage = estimated ?? 0;
-			}
+			const contextPercentage = estimateContextUsage(usageStats, agentToolType);
 
 			// Batch the usage stats update, context percentage, and cycle tokens
 			// The batched updater handles the accumulation logic internally
 			batchedUpdater.updateUsage(actualSessionId, tabId, usageStats);
 			batchedUpdater.updateUsage(actualSessionId, null, usageStats); // Session-level accumulation
-			batchedUpdater.updateContextUsage(actualSessionId, contextPercentage);
+			if (contextPercentage !== null) {
+				// Valid measurement from a non-accumulated turn - use it directly
+				batchedUpdater.updateContextUsage(actualSessionId, contextPercentage);
+			}
+			// When null (accumulated values), keep the last valid percentage unchanged
 			batchedUpdater.updateCycleTokens(actualSessionId, usageStats.outputTokens);
 
 			// Update persistent global stats (not batched - this is a separate concern)
@@ -3272,7 +3266,17 @@ function MaestroConsoleInner() {
 
 		const unsubModeratorUsage = window.maestro.groupChat.onModeratorUsage?.((id, usage) => {
 			if (id === activeGroupChatId) {
-				setModeratorUsage(usage);
+				// When contextUsage is -1, values are accumulated from multi-tool turns.
+				// Preserve previous context/token values, only update cost.
+				if (usage.contextUsage === -1) {
+					setModeratorUsage((prev) =>
+						prev
+							? { ...prev, totalCost: usage.totalCost }
+							: { contextUsage: 0, totalCost: usage.totalCost, tokenCount: 0 }
+					);
+				} else {
+					setModeratorUsage(usage);
+				}
 			}
 		});
 
