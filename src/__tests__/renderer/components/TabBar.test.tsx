@@ -3545,6 +3545,87 @@ describe('Unified tabs drag and drop', () => {
 
 		expect(mockOnFileTabClose).toHaveBeenCalledWith('file-tab-1');
 	});
+
+	it('left-click does NOT close file tab', () => {
+		render(
+			<TabBar
+				tabs={aiTabs}
+				activeTabId="ai-tab-1"
+				theme={mockTheme}
+				onTabSelect={vi.fn()}
+				onTabClose={vi.fn()}
+				onNewTab={vi.fn()}
+				onUnifiedTabReorder={mockOnUnifiedTabReorder}
+				unifiedTabs={unifiedTabs}
+				activeFileTabId={null}
+				onFileTabSelect={mockOnFileTabSelect}
+				onFileTabClose={mockOnFileTabClose}
+			/>
+		);
+
+		const fileTabElement = screen.getByText('file1').closest('[data-tab-id]')!;
+
+		// Left-click on file tab (button: 0)
+		fireEvent.mouseDown(fileTabElement, { button: 0 });
+
+		// Should NOT close the tab
+		expect(mockOnFileTabClose).not.toHaveBeenCalled();
+	});
+
+	it('right-click does NOT close file tab', () => {
+		render(
+			<TabBar
+				tabs={aiTabs}
+				activeTabId="ai-tab-1"
+				theme={mockTheme}
+				onTabSelect={vi.fn()}
+				onTabClose={vi.fn()}
+				onNewTab={vi.fn()}
+				onUnifiedTabReorder={mockOnUnifiedTabReorder}
+				unifiedTabs={unifiedTabs}
+				activeFileTabId={null}
+				onFileTabSelect={mockOnFileTabSelect}
+				onFileTabClose={mockOnFileTabClose}
+			/>
+		);
+
+		const fileTabElement = screen.getByText('file1').closest('[data-tab-id]')!;
+
+		// Right-click on file tab (button: 2)
+		fireEvent.mouseDown(fileTabElement, { button: 2 });
+
+		// Should NOT close the tab
+		expect(mockOnFileTabClose).not.toHaveBeenCalled();
+	});
+
+	it('middle-click on AI tab still works in unified mode', () => {
+		const mockOnAiTabClose = vi.fn();
+
+		render(
+			<TabBar
+				tabs={aiTabs}
+				activeTabId="ai-tab-1"
+				theme={mockTheme}
+				onTabSelect={vi.fn()}
+				onTabClose={mockOnAiTabClose}
+				onNewTab={vi.fn()}
+				onUnifiedTabReorder={mockOnUnifiedTabReorder}
+				unifiedTabs={unifiedTabs}
+				activeFileTabId={null}
+				onFileTabSelect={mockOnFileTabSelect}
+				onFileTabClose={mockOnFileTabClose}
+			/>
+		);
+
+		const aiTabElement = screen.getByText('AI Tab 1').closest('[data-tab-id]')!;
+
+		// Middle-click on AI tab
+		fireEvent.mouseDown(aiTabElement, { button: 1 });
+
+		// Should call the AI tab close handler, not file tab close handler
+		expect(mockOnAiTabClose).toHaveBeenCalledWith('ai-tab-1');
+		expect(mockOnFileTabClose).not.toHaveBeenCalled();
+	});
 });
 
 describe('Unified active tab styling consistency', () => {
