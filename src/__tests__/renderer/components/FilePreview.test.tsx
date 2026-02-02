@@ -6,7 +6,6 @@ import { FilePreview } from '../../../renderer/components/FilePreview';
 // Mock lucide-react icons
 vi.mock('lucide-react', () => ({
 	FileCode: () => <span data-testid="file-code-icon">FileCode</span>,
-	X: () => <span data-testid="x-icon">X</span>,
 	Eye: () => <span data-testid="eye-icon">Eye</span>,
 	ChevronUp: () => <span data-testid="chevron-up">ChevronUp</span>,
 	ChevronDown: () => <span data-testid="chevron-down">ChevronDown</span>,
@@ -302,21 +301,8 @@ describe('FilePreview', () => {
 			expect(screen.getByText('test.md')).toBeInTheDocument();
 		});
 
-		it('renders close button', () => {
-			render(<FilePreview {...defaultProps} />);
-
-			expect(screen.getByTestId('x-icon')).toBeInTheDocument();
-		});
-
-		it('calls onClose when close button is clicked', () => {
-			const onClose = vi.fn();
-			render(<FilePreview {...defaultProps} onClose={onClose} />);
-
-			const closeButton = screen.getByTestId('x-icon').parentElement;
-			fireEvent.click(closeButton!);
-
-			expect(onClose).toHaveBeenCalledOnce();
-		});
+		// Close button was removed - now handled by file tab's X button
+		// See Phase 8: Cleanup & Polish task for details
 
 		it('renders nothing when file is null', () => {
 			const { container } = render(<FilePreview {...defaultProps} file={null} />);

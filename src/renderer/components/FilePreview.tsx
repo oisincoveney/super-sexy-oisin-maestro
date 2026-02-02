@@ -15,7 +15,6 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import {
 	FileCode,
-	X,
 	Eye,
 	ChevronUp,
 	ChevronDown,
@@ -97,8 +96,6 @@ interface FilePreviewProps {
 	onOpenInGraph?: () => void;
 	/** SSH remote ID for remote file operations */
 	sshRemoteId?: string;
-	/** Whether to show the close button in the header (default: true, set to false when rendered as tab) */
-	showCloseButton?: boolean;
 	/** Current edit content (used for file tab persistence) - if provided, overrides internal state */
 	externalEditContent?: string;
 	/** Callback when edit content changes (used for file tab persistence) */
@@ -569,7 +566,6 @@ export const FilePreview = forwardRef<FilePreviewHandle, FilePreviewProps>(funct
 		hasGist,
 		onOpenInGraph,
 		sshRemoteId,
-		showCloseButton = true, // Default to true for backwards compatibility
 		externalEditContent,
 		onEditContentChange,
 		initialScrollTop,
@@ -1702,16 +1698,6 @@ export const FilePreview = forwardRef<FilePreviewHandle, FilePreviewProps>(funct
 						>
 							<FolderOpen className="w-4 h-4" />
 						</button>
-						{/* Close button - hidden when rendered as tab (tab's X handles closing) */}
-						{showCloseButton && (
-							<button
-								onClick={onClose}
-								className="p-2 rounded hover:bg-white/10 transition-colors"
-								style={{ color: theme.colors.textDim }}
-							>
-								<X className="w-5 h-5" />
-							</button>
-						)}
 					</div>
 				</div>
 				{/* File Stats subbar - hidden on scroll */}

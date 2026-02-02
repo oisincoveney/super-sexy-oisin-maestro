@@ -1597,7 +1597,6 @@ export const MainPanel = React.memo(
 										activeSession?.sessionSshRemoteConfig?.remoteId ||
 										undefined
 									}
-									showCloseButton={false}
 									// Pass external edit content for persistence across tab switches
 									externalEditContent={activeFileTab.editContent}
 									onEditContentChange={(content) => {
