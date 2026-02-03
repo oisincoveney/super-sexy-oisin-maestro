@@ -263,7 +263,11 @@ export function registerProcessHandlers(deps: ProcessHandlerDependencies): void 
 				let useShell = false;
 				let sshRemoteUsed: SshRemoteConfig | null = null;
 				let customEnvVarsToPass: Record<string, string> | undefined = effectiveCustomEnvVars;
-				let useHereDocForOpenCode = false;
+				// NOTE: We previously used heredoc for OpenCode prompts over SSH, but this approach
+				// failed because the heredoc syntax (cat << 'EOF' ... EOF) doesn't survive the
+				// single-quote escaping in buildSshCommand. Now we embed the prompt directly
+				// in the args and let buildRemoteCommand handle escaping.
+				// See: https://github.com/pedramamini/Maestro/issues/XXX
 
 				if (config.sessionCustomPath) {
 					logger.debug(`Using session-level custom path for ${config.toolType}`, LOG_CONTEXT, {
@@ -362,10 +366,17 @@ export function registerProcessHandlers(deps: ProcessHandlerDependencies): void 
 								hasStreamJsonInput,
 							});
 						} else if (config.prompt && !agentSupportsStreamJson) {
-							// Agent doesn't support stream-json - use alternative methods
+							// Agent doesn't support stream-json - embed prompt in command line args
+							// For OpenCode: prompt is a positional argument (no --p flag, no -- separator)
+							// For other agents: send via stdin as raw text (if they support it)
 							if (config.toolType === 'opencode') {
-								// OpenCode: mark for here document processing (will be handled after remoteCommand is set)
-								useHereDocForOpenCode = true;
+								// OpenCode: add prompt as positional argument
+								// buildRemoteCommand will properly escape it with shellEscape()
+								sshArgs = [...sshArgs, config.prompt];
+								logger.info(`Embedding prompt in OpenCode command args for SSH`, LOG_CONTEXT, {
+									sessionId: config.sessionId,
+									promptLength: config.prompt?.length,
+								});
 							} else {
 								// Other agents: send via stdin as raw text
 								shouldSendPromptViaStdinRaw = true;
@@ -377,27 +388,7 @@ export function registerProcessHandlers(deps: ProcessHandlerDependencies): void 
 						// 2. Otherwise, use the agent's binaryName (e.g., 'codex', 'claude') and let
 						//    the remote shell's PATH resolve it. This avoids using local paths like
 						//    '/opt/homebrew/bin/codex' which don't exist on the remote host.
-						let remoteCommand = config.sessionCustomPath || agent?.binaryName || config.command;
-
-						// Handle OpenCode here document for large prompts
-						if (useHereDocForOpenCode && config.prompt) {
-							// OpenCode: use here document to avoid command line limits
-							// Escape single quotes in the prompt for bash here document
-							const escapedPrompt = config.prompt.replace(/'/g, "'\\''");
-							// Construct: cat << 'EOF' | opencode run --format json\nlong prompt here\nEOF
-							const hereDocCommand = `cat << 'EOF' | ${remoteCommand} ${sshArgs.join(' ')}\n${escapedPrompt}\nEOF`;
-							sshArgs = []; // Clear args since they're now in the here doc command
-							remoteCommand = hereDocCommand; // Update to use here document
-							logger.info(
-								`Using here document for large OpenCode prompt to avoid command line limits`,
-								LOG_CONTEXT,
-								{
-									sessionId: config.sessionId,
-									promptLength: config.prompt?.length,
-									commandLength: hereDocCommand.length,
-								}
-							);
-						}
+						const remoteCommand = config.sessionCustomPath || agent?.binaryName || config.command;
 						// Decide whether we'll send input via stdin to the remote command
 						const useStdin = sshArgs.includes('--input-format') && sshArgs.includes('stream-json');
 
