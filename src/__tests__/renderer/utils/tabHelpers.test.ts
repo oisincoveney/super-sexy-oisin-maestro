@@ -305,7 +305,7 @@ describe('tabHelpers', () => {
 			expect(result!.session.aiTabs[0].id).toBe('tab-2');
 		});
 
-		it('selects next tab when active tab is closed', () => {
+		it('selects previous tab (to the left) when active tab is closed', () => {
 			const tab1 = createMockTab({ id: 'tab-1' });
 			const tab2 = createMockTab({ id: 'tab-2' });
 			const tab3 = createMockTab({ id: 'tab-3' });
@@ -316,7 +316,8 @@ describe('tabHelpers', () => {
 
 			const result = closeTab(session, 'tab-2');
 
-			expect(result!.session.activeTabId).toBe('tab-3');
+			// Should select tab-1 (to the left), not tab-3 (to the right)
+			expect(result!.session.activeTabId).toBe('tab-1');
 		});
 
 		it('selects previous tab when closing last tab in list', () => {
@@ -330,6 +331,21 @@ describe('tabHelpers', () => {
 			const result = closeTab(session, 'tab-2');
 
 			expect(result!.session.activeTabId).toBe('tab-1');
+		});
+
+		it('selects new first tab when closing first tab in list', () => {
+			const tab1 = createMockTab({ id: 'tab-1' });
+			const tab2 = createMockTab({ id: 'tab-2' });
+			const tab3 = createMockTab({ id: 'tab-3' });
+			const session = createMockSession({
+				aiTabs: [tab1, tab2, tab3],
+				activeTabId: 'tab-1',
+			});
+
+			const result = closeTab(session, 'tab-1');
+
+			// When closing the first tab, select the new first tab (was previously to the right)
+			expect(result!.session.activeTabId).toBe('tab-2');
 		});
 
 		it('creates fresh tab when closing the only tab', () => {
@@ -1744,7 +1760,7 @@ describe('tabHelpers', () => {
 			expect(result!.session.activeTabId).toBe('ai-1');
 		});
 
-		it('selects next file tab when closing active file tab', () => {
+		it('selects new first tab when closing first file tab', () => {
 			const fileTab1 = createMockFileTab({ id: 'file-1' });
 			const fileTab2 = createMockFileTab({ id: 'file-2' });
 			const aiTab = createMockTab({ id: 'ai-1' });
@@ -1762,8 +1778,34 @@ describe('tabHelpers', () => {
 
 			const result = closeFileTab(session, 'file-1');
 
+			// When closing first tab, select the new first tab (file-2 was previously to the right)
 			expect(result).not.toBeNull();
 			expect(result!.session.activeFileTabId).toBe('file-2');
+		});
+
+		it('selects previous file tab when closing non-first file tab', () => {
+			const fileTab1 = createMockFileTab({ id: 'file-1' });
+			const fileTab2 = createMockFileTab({ id: 'file-2' });
+			const fileTab3 = createMockFileTab({ id: 'file-3' });
+			const aiTab = createMockTab({ id: 'ai-1' });
+			const session = createMockSession({
+				aiTabs: [aiTab],
+				activeTabId: 'ai-1',
+				filePreviewTabs: [fileTab1, fileTab2, fileTab3],
+				activeFileTabId: 'file-2',
+				unifiedTabOrder: [
+					{ type: 'file', id: 'file-1' },
+					{ type: 'file', id: 'file-2' },
+					{ type: 'file', id: 'file-3' },
+					{ type: 'ai', id: 'ai-1' },
+				],
+			});
+
+			const result = closeFileTab(session, 'file-2');
+
+			// Should select file-1 (to the left), not file-3 (to the right)
+			expect(result).not.toBeNull();
+			expect(result!.session.activeFileTabId).toBe('file-1');
 		});
 	});
 

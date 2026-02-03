@@ -286,28 +286,31 @@ export function closeTab(
 		updatedTabs = [freshTab];
 		newActiveTabId = freshTab.id;
 	} else if (session.activeTabId === tabId) {
-		// If we closed the active tab, select the next appropriate tab
+		// If we closed the active tab, select the tab to the left (previous tab)
+		// If closing the first tab, select the new first tab (was previously to the right)
 
 		if (showUnreadOnly) {
-			// When filtering unread tabs, find the next unread tab to switch to
+			// When filtering unread tabs, find the previous unread tab to switch to
 			// Build a temporary session with the updated tabs to use getNavigableTabs
 			const tempSession = { ...session, aiTabs: updatedTabs };
 			const navigableTabs = getNavigableTabs(tempSession, true);
 
 			if (navigableTabs.length > 0) {
 				// Find the position of the closed tab within the navigable tabs (before removal)
-				// Then pick the tab at the same position or the last one if we were at the end
+				// Then pick the tab to the left, or the first tab if we were at position 0
 				const closedTabNavIndex = getNavigableTabs(session, true).findIndex((t) => t.id === tabId);
-				const newNavIndex = Math.min(closedTabNavIndex, navigableTabs.length - 1);
-				newActiveTabId = navigableTabs[Math.max(0, newNavIndex)].id;
+				const newNavIndex = Math.max(0, closedTabNavIndex - 1);
+				newActiveTabId = navigableTabs[Math.min(newNavIndex, navigableTabs.length - 1)].id;
 			} else {
 				// No more unread tabs - fall back to selecting by position in full list
-				const newIndex = Math.min(tabIndex, updatedTabs.length - 1);
+				// Select the tab to the left, or first tab if we were at position 0
+				const newIndex = Math.max(0, tabIndex - 1);
 				newActiveTabId = updatedTabs[newIndex].id;
 			}
 		} else {
-			// Normal mode: select the next tab or the previous one if at end
-			const newIndex = Math.min(tabIndex, updatedTabs.length - 1);
+			// Normal mode: select the tab to the left (previous tab)
+			// If closing the first tab (index 0), select the new first tab
+			const newIndex = Math.max(0, tabIndex - 1);
 			newActiveTabId = updatedTabs[newIndex].id;
 		}
 	}
@@ -496,17 +499,18 @@ export function closeFileTab(session: Session, tabId: string): CloseFileTabResul
 	let newActiveTabId = session.activeTabId;
 
 	if (session.activeFileTabId === tabId) {
-		// This was the active tab - find the next tab in unifiedTabOrder
+		// This was the active tab - select the tab to the left in unifiedTabOrder
+		// If closing the first tab, select the new first tab
 		if (updatedUnifiedTabOrder.length > 0 && unifiedIndex !== -1) {
-			// Try to select the tab at the same position (or previous if at end)
-			const newIndex = Math.min(unifiedIndex, updatedUnifiedTabOrder.length - 1);
+			// Select the tab to the left (previous tab), or first tab if we were at position 0
+			const newIndex = Math.max(0, unifiedIndex - 1);
 			const nextTabRef = updatedUnifiedTabOrder[newIndex];
 
 			if (nextTabRef.type === 'file') {
-				// Next tab is a file tab
+				// Previous tab is a file tab
 				newActiveFileTabId = nextTabRef.id;
 			} else {
-				// Next tab is an AI tab - switch to it
+				// Previous tab is an AI tab - switch to it
 				newActiveTabId = nextTabRef.id;
 				newActiveFileTabId = null;
 			}
