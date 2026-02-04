@@ -264,6 +264,10 @@ export interface ModalContextValue {
 	// Symphony Modal
 	symphonyModalOpen: boolean;
 	setSymphonyModalOpen: (open: boolean) => void;
+
+	// Windows Warning Modal
+	windowsWarningModalOpen: boolean;
+	setWindowsWarningModalOpen: (open: boolean) => void;
 }
 
 // Create context with null as default (will throw if used outside provider)
@@ -445,6 +449,9 @@ export function ModalProvider({ children }: ModalProviderProps) {
 
 	// Symphony Modal
 	const [symphonyModalOpen, setSymphonyModalOpen] = useState(false);
+
+	// Windows Warning Modal
+	const [windowsWarningModalOpen, setWindowsWarningModalOpen] = useState(false);
 
 	// Convenience methods
 	const openSettings = useCallback((tab?: SettingsTab) => {
@@ -696,6 +703,10 @@ export function ModalProvider({ children }: ModalProviderProps) {
 			// Symphony Modal
 			symphonyModalOpen,
 			setSymphonyModalOpen,
+
+			// Windows Warning Modal
+			windowsWarningModalOpen,
+			setWindowsWarningModalOpen,
 		}),
 		[
 			// Settings Modal
@@ -811,6 +822,8 @@ export function ModalProvider({ children }: ModalProviderProps) {
 			tourFromWizard,
 			// Symphony Modal
 			symphonyModalOpen,
+			// Windows Warning Modal
+			windowsWarningModalOpen,
 		]
 	);
 

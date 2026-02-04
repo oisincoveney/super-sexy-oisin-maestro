@@ -29,6 +29,7 @@ import { AppOverlays } from './components/AppOverlays';
 import { PlaygroundPanel } from './components/PlaygroundPanel';
 import { DebugWizardModal } from './components/DebugWizardModal';
 import { DebugPackageModal } from './components/DebugPackageModal';
+import { WindowsWarningModal, exposeWindowsWarningModalDebug } from './components/WindowsWarningModal';
 import { GistPublishModal, type GistInfo } from './components/GistPublishModal';
 import {
 	MaestroWizard,
@@ -312,6 +313,9 @@ function MaestroConsoleInner() {
 		// Debug Package Modal
 		debugPackageModalOpen,
 		setDebugPackageModalOpen,
+		// Windows Warning Modal
+		windowsWarningModalOpen,
+		setWindowsWarningModalOpen,
 		// Confirmation Modal
 		confirmModalOpen,
 		setConfirmModalOpen,
@@ -571,6 +575,10 @@ function MaestroConsoleInner() {
 
 		// File tab refresh settings
 		fileTabAutoRefreshEnabled,
+
+		// Windows warning suppression
+		suppressWindowsWarning,
+		setSuppressWindowsWarning,
 	} = settings;
 
 	// --- KEYBOARD SHORTCUT HELPERS ---
@@ -1391,6 +1399,31 @@ function MaestroConsoleInner() {
 				setGhCliAvailable(false);
 			});
 	}, []);
+
+	// Show Windows warning modal on startup for Windows users (if not suppressed)
+	// Also expose a debug function to trigger the modal from console for testing
+	useEffect(() => {
+		// Expose debug function regardless of platform (for testing)
+		exposeWindowsWarningModalDebug(setWindowsWarningModalOpen);
+
+		// Only check platform when settings have loaded (so we know suppress preference)
+		if (!settingsLoaded) return;
+
+		// Skip if user has suppressed the warning
+		if (suppressWindowsWarning) return;
+
+		// Check if running on Windows using the power API (has platform info)
+		window.maestro.power
+			.getStatus()
+			.then((status) => {
+				if (status.platform === 'win32') {
+					setWindowsWarningModalOpen(true);
+				}
+			})
+			.catch((error) => {
+				console.error('[App] Failed to detect platform for Windows warning:', error);
+			});
+	}, [settingsLoaded, suppressWindowsWarning, setWindowsWarningModalOpen]);
 
 	// Load file gist URLs from settings on startup
 	useEffect(() => {
@@ -13744,6 +13777,17 @@ You are taking over this conversation. Based on the context above, provide a bri
 					theme={theme}
 					isOpen={debugPackageModalOpen}
 					onClose={handleCloseDebugPackage}
+				/>
+
+				{/* --- WINDOWS WARNING MODAL --- */}
+				<WindowsWarningModal
+					theme={theme}
+					isOpen={windowsWarningModalOpen}
+					onClose={() => setWindowsWarningModalOpen(false)}
+					onSuppressFuture={setSuppressWindowsWarning}
+					onOpenDebugPackage={() => setDebugPackageModalOpen(true)}
+					useBetaChannel={enableBetaUpdates}
+					onSetUseBetaChannel={setEnableBetaUpdates}
 				/>
 
 				{/* --- CELEBRATION OVERLAYS --- */}
