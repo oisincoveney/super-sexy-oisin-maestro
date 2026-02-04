@@ -1111,7 +1111,10 @@ export function AgentSelectionScreen({ theme }: AgentSelectionScreenProps): JSX.
 					)}
 				</div>
 
-				{/* Tip about in-tab wizard */}
+			</div>
+
+			{/* Section 2: Note box - centered in available space */}
+			<div className="flex justify-center">
 				<div
 					className="flex items-start gap-2.5 px-4 py-3 rounded-lg max-w-lg text-xs"
 					style={{
@@ -1121,8 +1124,8 @@ export function AgentSelectionScreen({ theme }: AgentSelectionScreenProps): JSX.
 				>
 					<Info className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: theme.colors.accent }} />
 					<span style={{ color: theme.colors.textDim }}>
-						This wizard captures keyboard input until complete. For a lighter touch, skip this
-						and use{' '}
+						<strong style={{ color: theme.colors.textMain }}>Note:</strong> This wizard captures
+						application inputs until complete. For a lighter touch, skip this and use{' '}
 						<code
 							className="px-1 py-0.5 rounded text-[11px]"
 							style={{ backgroundColor: theme.colors.border }}
@@ -1139,7 +1142,7 @@ export function AgentSelectionScreen({ theme }: AgentSelectionScreenProps): JSX.
 				</div>
 			</div>
 
-			{/* Section 2: Agent Grid or Connection Error */}
+			{/* Section 3: Agent Grid or Connection Error */}
 			{sshConnectionError ? (
 				/* SSH Connection Error State */
 				<div className="flex flex-col items-center gap-4">
@@ -1327,7 +1330,7 @@ export function AgentSelectionScreen({ theme }: AgentSelectionScreenProps): JSX.
 				</div>
 			)}
 
-			{/* Section 3: Continue Button + Keyboard hints */}
+			{/* Section 4: Continue Button + Keyboard hints */}
 			<div className="flex flex-col items-center gap-4">
 				<button
 					onClick={handleContinue}

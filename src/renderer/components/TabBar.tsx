@@ -516,7 +516,7 @@ const Tab = memo(function Tab({
 			data-tab-id={tab.id}
 			className={`
         relative flex items-center gap-1.5 px-3 py-1.5 cursor-pointer
-        transition-all duration-150 select-none
+        transition-all duration-150 select-none shrink-0
         ${isDragging ? 'opacity-50' : ''}
         ${isDragOver ? 'ring-2 ring-inset' : ''}
       `}
@@ -1309,7 +1309,7 @@ const FileTab = memo(function FileTab({
 			data-tab-id={tab.id}
 			className={`
         relative flex items-center gap-1.5 px-3 py-1.5 cursor-pointer
-        transition-all duration-150 select-none
+        transition-all duration-150 select-none shrink-0
         ${isDragging ? 'opacity-50' : ''}
         ${isDragOver ? 'ring-2 ring-inset' : ''}
       `}
@@ -1601,19 +1601,23 @@ function TabBarInner({
 
 	// Ensure the active tab is fully visible (including close button) when activeTabId or activeFileTabId changes, or filter is toggled
 	useEffect(() => {
+		// Double requestAnimationFrame ensures the DOM has fully updated after React's state changes
+		// First rAF: React has committed changes but browser hasn't painted yet
+		// Second rAF: Browser has painted, all elements (including close button) are rendered
 		requestAnimationFrame(() => {
-			const container = tabBarRef.current;
-			// When a file tab is active, scroll to it; otherwise scroll to the active AI tab
-			const targetTabId = activeFileTabId || activeTabId;
-			const tabElement = container?.querySelector(
-				`[data-tab-id="${targetTabId}"]`
-			) as HTMLElement | null;
-			if (container && tabElement) {
-				// Use scrollIntoView with 'nearest' to ensure the full tab is visible
-				// This scrolls minimally - only if the tab is partially or fully out of view
-				// The 'end' option ensures the right edge (with close button) is visible
-				tabElement.scrollIntoView({ inline: 'nearest', behavior: 'smooth', block: 'nearest' });
-			}
+			requestAnimationFrame(() => {
+				const container = tabBarRef.current;
+				// When a file tab is active, scroll to it; otherwise scroll to the active AI tab
+				const targetTabId = activeFileTabId || activeTabId;
+				const tabElement = container?.querySelector(
+					`[data-tab-id="${targetTabId}"]`
+				) as HTMLElement | null;
+				if (container && tabElement) {
+					// Use scrollIntoView with 'nearest' to ensure the full tab is visible
+					// This scrolls minimally - only if the tab is partially or fully out of view
+					tabElement.scrollIntoView({ inline: 'nearest', behavior: 'smooth', block: 'nearest' });
+				}
+			});
 		});
 	}, [activeTabId, activeFileTabId, showUnreadOnly]);
 
