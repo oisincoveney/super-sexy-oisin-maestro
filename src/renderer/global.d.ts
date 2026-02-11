@@ -83,7 +83,7 @@ interface AgentConfig {
 	binaryName?: string;
 	available: boolean;
 	path?: string;
-  	customPath?: string;
+	customPath?: string;
 	command: string;
 	args?: string[];
 	hidden?: boolean;
@@ -542,7 +542,11 @@ interface MaestroAPI {
 		homeDir: () => Promise<string>;
 		readDir: (dirPath: string, sshRemoteId?: string) => Promise<DirectoryEntry[]>;
 		readFile: (filePath: string, sshRemoteId?: string) => Promise<string>;
-		writeFile: (filePath: string, content: string, sshRemoteId?: string) => Promise<{ success: boolean }>;
+		writeFile: (
+			filePath: string,
+			content: string,
+			sshRemoteId?: string
+		) => Promise<{ success: boolean }>;
 		stat: (
 			filePath: string,
 			sshRemoteId?: string
@@ -2099,6 +2103,27 @@ interface MaestroAPI {
 				sourceVersion: string;
 				sourceUrl: string;
 			};
+			error?: string;
+		}>;
+		parseDirectory: (rootPath: string) => Promise<{
+			success: boolean;
+			directory?: import('../../shared/openspec-types').ParsedSpecDirectory;
+			error?: string;
+		}>;
+		getSpec: (
+			rootPath: string,
+			specId: string
+		) => Promise<{
+			success: boolean;
+			spec?: import('../../shared/openspec-types').ParsedSpec | null;
+			error?: string;
+		}>;
+		getChange: (
+			rootPath: string,
+			changeId: string
+		) => Promise<{
+			success: boolean;
+			change?: import('../../shared/openspec-types').ParsedChange | null;
 			error?: string;
 		}>;
 	};

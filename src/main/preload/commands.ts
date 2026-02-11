@@ -7,6 +7,7 @@
  */
 
 import { ipcRenderer } from 'electron';
+import type { ParsedSpecDirectory, ParsedSpec, ParsedChange } from '../../shared/openspec-types';
 
 /**
  * Command metadata
@@ -125,6 +126,32 @@ export function createOpenspecApi() {
 			metadata?: CommandMetadata;
 			error?: string;
 		}> => ipcRenderer.invoke('openspec:refresh'),
+
+		parseDirectory: (
+			rootPath: string
+		): Promise<{
+			success: boolean;
+			directory?: ParsedSpecDirectory;
+			error?: string;
+		}> => ipcRenderer.invoke('openspec:parseDirectory', rootPath),
+
+		getSpec: (
+			rootPath: string,
+			specId: string
+		): Promise<{
+			success: boolean;
+			spec?: ParsedSpec | null;
+			error?: string;
+		}> => ipcRenderer.invoke('openspec:getSpec', rootPath, specId),
+
+		getChange: (
+			rootPath: string,
+			changeId: string
+		): Promise<{
+			success: boolean;
+			change?: ParsedChange | null;
+			error?: string;
+		}> => ipcRenderer.invoke('openspec:getChange', rootPath, changeId),
 	};
 }
 
